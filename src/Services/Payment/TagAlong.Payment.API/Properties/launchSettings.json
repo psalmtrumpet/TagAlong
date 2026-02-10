@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "TagAlong.Payment.API": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:60190;http://localhost:60195"
+    }
+  }
+}

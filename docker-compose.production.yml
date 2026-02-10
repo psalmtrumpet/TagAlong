@@ -1,0 +1,294 @@
+version: '3.8'
+
+services:
+  # API Gateway
+  api-gateway:
+    image: ${DOCKER_REGISTRY:-tagalong}/api-gateway:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: src/ApiGateway/Dockerfile
+    container_name: tagalong-api-gateway
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+    ports:
+      - "80:80"
+    depends_on:
+      - identity-api
+      - user-api
+      - trip-api
+      - package-api
+      - payment-api
+      - notification-api
+      - messaging-api
+      - review-api
+      - report-api
+      - configuration-api
+    networks:
+      - tagalong-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # Microservices
+  identity-api:
+    image: ${DOCKER_REGISTRY:-tagalong}/identity-api:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: src/Services/Identity/TagAlong.Identity.API/Dockerfile
+    container_name: tagalong-identity-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=${IDENTITY_DB_CONNECTION}
+      - RabbitMQ__HostName=${RABBITMQ_HOST}
+      - RabbitMQ__UserName=${RABBITMQ_USER}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD}
+      - Jwt__Key=${JWT_SECRET_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
+      - Google__ClientId=${GOOGLE_CLIENT_ID}
+      - Google__ClientSecret=${GOOGLE_CLIENT_SECRET}
+    networks:
+      - tagalong-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  user-api:
+    image: ${DOCKER_REGISTRY:-tagalong}/user-api:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: src/Services/User/TagAlong.User.API/Dockerfile
+    container_name: tagalong-user-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=${USER_DB_CONNECTION}
+      - RabbitMQ__HostName=${RABBITMQ_HOST}
+      - RabbitMQ__UserName=${RABBITMQ_USER}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD}
+      - Jwt__Key=${JWT_SECRET_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
+    networks:
+      - tagalong-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  trip-api:
+    image: ${DOCKER_REGISTRY:-tagalong}/trip-api:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: src/Services/Trip/TagAlong.Trip.API/Dockerfile
+    container_name: tagalong-trip-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=${TRIP_DB_CONNECTION}
+      - RabbitMQ__HostName=${RABBITMQ_HOST}
+      - RabbitMQ__UserName=${RABBITMQ_USER}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD}
+      - Jwt__Key=${JWT_SECRET_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
+    networks:
+      - tagalong-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  package-api:
+    image: ${DOCKER_REGISTRY:-tagalong}/package-api:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: src/Services/Package/TagAlong.Package.API/Dockerfile
+    container_name: tagalong-package-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=${PACKAGE_DB_CONNECTION}
+      - RabbitMQ__HostName=${RABBITMQ_HOST}
+      - RabbitMQ__UserName=${RABBITMQ_USER}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD}
+      - Jwt__Key=${JWT_SECRET_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
+    networks:
+      - tagalong-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  payment-api:
+    image: ${DOCKER_REGISTRY:-tagalong}/payment-api:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: src/Services/Payment/TagAlong.Payment.API/Dockerfile
+    container_name: tagalong-payment-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=${PAYMENT_DB_CONNECTION}
+      - RabbitMQ__HostName=${RABBITMQ_HOST}
+      - RabbitMQ__UserName=${RABBITMQ_USER}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD}
+      - Jwt__Key=${JWT_SECRET_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
+      - Stripe__SecretKey=${STRIPE_SECRET_KEY}
+      - Stripe__WebhookSecret=${STRIPE_WEBHOOK_SECRET}
+    networks:
+      - tagalong-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  notification-api:
+    image: ${DOCKER_REGISTRY:-tagalong}/notification-api:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: src/Services/Notification/TagAlong.Notification.API/Dockerfile
+    container_name: tagalong-notification-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=${NOTIFICATION_DB_CONNECTION}
+      - RabbitMQ__HostName=${RABBITMQ_HOST}
+      - RabbitMQ__UserName=${RABBITMQ_USER}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD}
+      - Redis__ConnectionString=${REDIS_CONNECTION}
+      - Jwt__Key=${JWT_SECRET_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
+    networks:
+      - tagalong-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  messaging-api:
+    image: ${DOCKER_REGISTRY:-tagalong}/messaging-api:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: src/Services/Messaging/TagAlong.Messaging.API/Dockerfile
+    container_name: tagalong-messaging-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=${MESSAGING_DB_CONNECTION}
+      - RabbitMQ__HostName=${RABBITMQ_HOST}
+      - RabbitMQ__UserName=${RABBITMQ_USER}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD}
+      - Jwt__Key=${JWT_SECRET_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
+    networks:
+      - tagalong-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  review-api:
+    image: ${DOCKER_REGISTRY:-tagalong}/review-api:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: src/Services/Review/TagAlong.Review.API/Dockerfile
+    container_name: tagalong-review-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=${REVIEW_DB_CONNECTION}
+      - RabbitMQ__HostName=${RABBITMQ_HOST}
+      - RabbitMQ__UserName=${RABBITMQ_USER}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD}
+      - Jwt__Key=${JWT_SECRET_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
+    networks:
+      - tagalong-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  report-api:
+    image: ${DOCKER_REGISTRY:-tagalong}/report-api:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: src/Services/Report/TagAlong.Report.API/Dockerfile
+    container_name: tagalong-report-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=${REPORT_DB_CONNECTION}
+      - RabbitMQ__HostName=${RABBITMQ_HOST}
+      - RabbitMQ__UserName=${RABBITMQ_USER}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD}
+      - Jwt__Key=${JWT_SECRET_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
+    networks:
+      - tagalong-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  configuration-api:
+    image: ${DOCKER_REGISTRY:-tagalong}/configuration-api:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: src/Services/Configuration/TagAlong.Configuration.API/Dockerfile
+    container_name: tagalong-configuration-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=${CONFIGURATION_DB_CONNECTION}
+      - RabbitMQ__HostName=${RABBITMQ_HOST}
+      - RabbitMQ__UserName=${RABBITMQ_USER}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD}
+      - Jwt__Key=${JWT_SECRET_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
+    networks:
+      - tagalong-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+networks:
+  tagalong-network:
+    driver: bridge

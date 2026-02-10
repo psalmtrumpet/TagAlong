@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(dotnet add:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(dotnet clean:*)",
+      "Bash(for f in src/Services/*/TagAlong.*.API/Program.cs)",
+      "Bash(do sed -i 's/Figgle\\\\.Figgle\\\\.FiggleFonts/Figgle.FiggleFonts/g' \"$f\")",
+      "Bash(for proj in src/Services/*/TagAlong.*.API/*.csproj)",
+      "Bash(do dotnet add \"$proj\" package Figgle.Fonts)",
+      "Bash(docker ps:*)",
+      "Bash(dotnet ef migrations add:*)"
+    ]
+  }
+}
