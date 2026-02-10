@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "TagAlong.Notification.API": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:60192;http://localhost:60193"
+    }
+  }
+}

@@ -1,0 +1,1456 @@
+{
+  "info": {
+    "_postman_id": "tagalong-api-collection",
+    "name": "TagAlong Microservices API",
+    "description": "Complete API collection for TagAlong microservices platform",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "identity_url",
+      "value": "https://localhost:50707",
+      "type": "string"
+    },
+    {
+      "key": "user_url",
+      "value": "https://localhost:50706",
+      "type": "string"
+    },
+    {
+      "key": "trip_url",
+      "value": "https://localhost:50708",
+      "type": "string"
+    },
+    {
+      "key": "package_url",
+      "value": "https://localhost:50710",
+      "type": "string"
+    },
+    {
+      "key": "payment_url",
+      "value": "https://localhost:60190",
+      "type": "string"
+    },
+    {
+      "key": "messaging_url",
+      "value": "https://localhost:60189",
+      "type": "string"
+    },
+    {
+      "key": "notification_url",
+      "value": "https://localhost:60192",
+      "type": "string"
+    },
+    {
+      "key": "review_url",
+      "value": "https://localhost:60191",
+      "type": "string"
+    },
+    {
+      "key": "report_url",
+      "value": "https://localhost:49666",
+      "type": "string"
+    },
+    {
+      "key": "configuration_url",
+      "value": "https://localhost:63785",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Identity API",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"Password123!\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"phoneNumber\": \"+1234567890\"\n}"
+            },
+            "url": {
+              "raw": "{{identity_url}}/api/auth/register",
+              "host": ["{{identity_url}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.accessToken) {",
+                  "    pm.collectionVariables.set('access_token', jsonData.accessToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{identity_url}}/api/auth/login",
+              "host": ["{{identity_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accessToken\": \"{{access_token}}\",\n  \"refreshToken\": \"your-refresh-token\"\n}"
+            },
+            "url": {
+              "raw": "{{identity_url}}/api/auth/refresh-token",
+              "host": ["{{identity_url}}"],
+              "path": ["api", "auth", "refresh-token"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{identity_url}}/api/auth/logout",
+              "host": ["{{identity_url}}"],
+              "path": ["api", "auth", "logout"]
+            }
+          }
+        },
+        {
+          "name": "Google Login",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idToken\": \"google-id-token\"\n}"
+            },
+            "url": {
+              "raw": "{{identity_url}}/api/auth/google",
+              "host": ["{{identity_url}}"],
+              "path": ["api", "auth", "google"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User API",
+      "item": [
+        {
+          "name": "Get Current User Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{user_url}}/api/users/me",
+              "host": ["{{user_url}}"],
+              "path": ["api", "users", "me"]
+            }
+          }
+        },
+        {
+          "name": "Get User By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{user_url}}/api/users/:id",
+              "host": ["{{user_url}}"],
+              "path": ["api", "users", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "user-guid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"phoneNumber\": \"+1234567890\",\n  \"bio\": \"Updated bio\"\n}"
+            },
+            "url": {
+              "raw": "{{user_url}}/api/users/me",
+              "host": ["{{user_url}}"],
+              "path": ["api", "users", "me"]
+            }
+          }
+        },
+        {
+          "name": "Upload Profile Picture",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{user_url}}/api/users/me/profile-picture",
+              "host": ["{{user_url}}"],
+              "path": ["api", "users", "me", "profile-picture"]
+            }
+          }
+        },
+        {
+          "name": "Verify Identity",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "document",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{user_url}}/api/users/me/verify-identity",
+              "host": ["{{user_url}}"],
+              "path": ["api", "users", "me", "verify-identity"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Trip API",
+      "item": [
+        {
+          "name": "Create Trip",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"originCity\": \"New York\",\n  \"originCountry\": \"USA\",\n  \"destinationCity\": \"London\",\n  \"destinationCountry\": \"UK\",\n  \"departureDate\": \"2024-06-01T10:00:00Z\",\n  \"arrivalDate\": \"2024-06-01T22:00:00Z\",\n  \"availableWeight\": 20.0,\n  \"pricePerKg\": 15.00,\n  \"notes\": \"Direct flight\"\n}"
+            },
+            "url": {
+              "raw": "{{trip_url}}/api/trips",
+              "host": ["{{trip_url}}"],
+              "path": ["api", "trips"]
+            }
+          }
+        },
+        {
+          "name": "Get All Trips",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{trip_url}}/api/trips?page=1&pageSize=20",
+              "host": ["{{trip_url}}"],
+              "path": ["api", "trips"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Trip By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{trip_url}}/api/trips/:id",
+              "host": ["{{trip_url}}"],
+              "path": ["api", "trips", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "trip-guid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Trips",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{trip_url}}/api/trips/search?originCity=New York&destinationCity=London&departureDate=2024-06-01",
+              "host": ["{{trip_url}}"],
+              "path": ["api", "trips", "search"],
+              "query": [
+                {
+                  "key": "originCity",
+                  "value": "New York"
+                },
+                {
+                  "key": "destinationCity",
+                  "value": "London"
+                },
+                {
+                  "key": "departureDate",
+                  "value": "2024-06-01"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get My Trips",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{trip_url}}/api/trips/my-trips",
+              "host": ["{{trip_url}}"],
+              "path": ["api", "trips", "my-trips"]
+            }
+          }
+        },
+        {
+          "name": "Update Trip",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"availableWeight\": 15.0,\n  \"pricePerKg\": 18.00,\n  \"notes\": \"Updated notes\"\n}"
+            },
+            "url": {
+              "raw": "{{trip_url}}/api/trips/:id",
+              "host": ["{{trip_url}}"],
+              "path": ["api", "trips", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "trip-guid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cancel Trip",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{trip_url}}/api/trips/:id/cancel",
+              "host": ["{{trip_url}}"],
+              "path": ["api", "trips", ":id", "cancel"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "trip-guid-here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Package API",
+      "item": [
+        {
+          "name": "Create Package Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tripId\": \"trip-guid-here\",\n  \"description\": \"Electronics - Laptop\",\n  \"weight\": 2.5,\n  \"dimensions\": \"40x30x5 cm\",\n  \"category\": \"Electronics\",\n  \"pickupAddress\": \"123 Main St, New York\",\n  \"deliveryAddress\": \"456 High St, London\",\n  \"recipientName\": \"Jane Doe\",\n  \"recipientPhone\": \"+44123456789\",\n  \"specialInstructions\": \"Handle with care\"\n}"
+            },
+            "url": {
+              "raw": "{{package_url}}/api/packages",
+              "host": ["{{package_url}}"],
+              "path": ["api", "packages"]
+            }
+          }
+        },
+        {
+          "name": "Get All Package Requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{package_url}}/api/packages?page=1&pageSize=20",
+              "host": ["{{package_url}}"],
+              "path": ["api", "packages"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Package By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{package_url}}/api/packages/:id",
+              "host": ["{{package_url}}"],
+              "path": ["api", "packages", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "package-guid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get My Packages (Sender)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{package_url}}/api/packages/my-packages",
+              "host": ["{{package_url}}"],
+              "path": ["api", "packages", "my-packages"]
+            }
+          }
+        },
+        {
+          "name": "Accept Package Request",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{package_url}}/api/packages/:id/accept",
+              "host": ["{{package_url}}"],
+              "path": ["api", "packages", ":id", "accept"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "package-guid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reject Package Request",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{package_url}}/api/packages/:id/reject",
+              "host": ["{{package_url}}"],
+              "path": ["api", "packages", ":id", "reject"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "package-guid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Delivery Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"PickedUp\",\n  \"notes\": \"Package picked up from sender\"\n}"
+            },
+            "url": {
+              "raw": "{{package_url}}/api/packages/:id/deliveries/:deliveryId/status",
+              "host": ["{{package_url}}"],
+              "path": ["api", "packages", ":id", "deliveries", ":deliveryId", "status"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "package-guid-here"
+                },
+                {
+                  "key": "deliveryId",
+                  "value": "delivery-guid-here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payment API",
+      "item": [
+        {
+          "name": "Initialize Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deliveryId\": \"delivery-guid-here\",\n  \"amount\": 50.00,\n  \"currency\": \"USD\",\n  \"paymentMethod\": \"Card\"\n}"
+            },
+            "url": {
+              "raw": "{{payment_url}}/api/payments/initialize",
+              "host": ["{{payment_url}}"],
+              "path": ["api", "payments", "initialize"]
+            }
+          }
+        },
+        {
+          "name": "Confirm Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentIntentId\": \"pi_xxx\",\n  \"paymentMethodId\": \"pm_xxx\"\n}"
+            },
+            "url": {
+              "raw": "{{payment_url}}/api/payments/:id/confirm",
+              "host": ["{{payment_url}}"],
+              "path": ["api", "payments", ":id", "confirm"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "payment-guid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Payment By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{payment_url}}/api/payments/:id",
+              "host": ["{{payment_url}}"],
+              "path": ["api", "payments", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "payment-guid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get My Payments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{payment_url}}/api/payments/my-payments",
+              "host": ["{{payment_url}}"],
+              "path": ["api", "payments", "my-payments"]
+            }
+          }
+        },
+        {
+          "name": "Request Refund",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Delivery cancelled\"\n}"
+            },
+            "url": {
+              "raw": "{{payment_url}}/api/payments/:id/refund",
+              "host": ["{{payment_url}}"],
+              "path": ["api", "payments", ":id", "refund"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "payment-guid-here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Messaging API",
+      "item": [
+        {
+          "name": "Create Conversation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"travelerId\": \"traveler-guid-here\",\n  \"packageRequestId\": \"package-guid-here\",\n  \"initialMessage\": \"Hi, I'm interested in your trip!\"\n}"
+            },
+            "url": {
+              "raw": "{{messaging_url}}/api/conversations",
+              "host": ["{{messaging_url}}"],
+              "path": ["api", "conversations"]
+            }
+          }
+        },
+        {
+          "name": "Get My Conversations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{messaging_url}}/api/conversations?page=1&pageSize=20",
+              "host": ["{{messaging_url}}"],
+              "path": ["api", "conversations"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Conversation By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{messaging_url}}/api/conversations/:id",
+              "host": ["{{messaging_url}}"],
+              "path": ["api", "conversations", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "conversation-guid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Messages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{messaging_url}}/api/conversations/:id/messages?page=1&pageSize=50",
+              "host": ["{{messaging_url}}"],
+              "path": ["api", "conversations", ":id", "messages"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "50"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "conversation-guid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Hello, this is my message!\"\n}"
+            },
+            "url": {
+              "raw": "{{messaging_url}}/api/conversations/:id/messages",
+              "host": ["{{messaging_url}}"],
+              "path": ["api", "conversations", ":id", "messages"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "conversation-guid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Send Price Proposal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"proposedPrice\": 45.00,\n  \"message\": \"I can offer $45 for this delivery\"\n}"
+            },
+            "url": {
+              "raw": "{{messaging_url}}/api/conversations/:id/price-proposal",
+              "host": ["{{messaging_url}}"],
+              "path": ["api", "conversations", ":id", "price-proposal"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "conversation-guid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Accept Price",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"acceptedPrice\": 45.00,\n  \"message\": \"Deal! I accept the price.\"\n}"
+            },
+            "url": {
+              "raw": "{{messaging_url}}/api/conversations/:id/accept-price",
+              "host": ["{{messaging_url}}"],
+              "path": ["api", "conversations", ":id", "accept-price"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "conversation-guid-here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notification API",
+      "item": [
+        {
+          "name": "Get My Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{notification_url}}/api/notifications?page=1&pageSize=20",
+              "host": ["{{notification_url}}"],
+              "path": ["api", "notifications"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Unread Count",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{notification_url}}/api/notifications/unread-count",
+              "host": ["{{notification_url}}"],
+              "path": ["api", "notifications", "unread-count"]
+            }
+          }
+        },
+        {
+          "name": "Mark as Read",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{notification_url}}/api/notifications/:id/read",
+              "host": ["{{notification_url}}"],
+              "path": ["api", "notifications", ":id", "read"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "notification-guid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mark All as Read",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{notification_url}}/api/notifications/mark-all-read",
+              "host": ["{{notification_url}}"],
+              "path": ["api", "notifications", "mark-all-read"]
+            }
+          }
+        },
+        {
+          "name": "Update Preferences",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emailEnabled\": true,\n  \"pushEnabled\": true,\n  \"smsEnabled\": false\n}"
+            },
+            "url": {
+              "raw": "{{notification_url}}/api/notifications/preferences",
+              "host": ["{{notification_url}}"],
+              "path": ["api", "notifications", "preferences"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Review API",
+      "item": [
+        {
+          "name": "Create Review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deliveryId\": \"delivery-guid-here\",\n  \"revieweeId\": \"reviewee-guid-here\",\n  \"rating\": 5,\n  \"reviewerRole\": \"Sender\",\n  \"comment\": \"Excellent service! Very reliable traveler.\"\n}"
+            },
+            "url": {
+              "raw": "{{review_url}}/api/reviews",
+              "host": ["{{review_url}}"],
+              "path": ["api", "reviews"]
+            }
+          }
+        },
+        {
+          "name": "Get Review By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{review_url}}/api/reviews/:id",
+              "host": ["{{review_url}}"],
+              "path": ["api", "reviews", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "review-guid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Reviews By User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{review_url}}/api/reviews/user/:userId?page=1&pageSize=20",
+              "host": ["{{review_url}}"],
+              "path": ["api", "reviews", "user", ":userId"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "user-guid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User Rating Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{review_url}}/api/reviews/user/:userId/summary",
+              "host": ["{{review_url}}"],
+              "path": ["api", "reviews", "user", ":userId", "summary"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "user-guid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Review",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 4,\n  \"comment\": \"Updated review comment\"\n}"
+            },
+            "url": {
+              "raw": "{{review_url}}/api/reviews/:id",
+              "host": ["{{review_url}}"],
+              "path": ["api", "reviews", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "review-guid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Review",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{review_url}}/api/reviews/:id",
+              "host": ["{{review_url}}"],
+              "path": ["api", "reviews", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "review-guid-here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Report API",
+      "item": [
+        {
+          "name": "Create Report",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reportedUserId\": \"user-guid-here\",\n  \"entityType\": \"User\",\n  \"entityId\": \"entity-guid-here\",\n  \"reason\": \"Inappropriate behavior\",\n  \"description\": \"Detailed description of the issue\"\n}"
+            },
+            "url": {
+              "raw": "{{report_url}}/api/reports",
+              "host": ["{{report_url}}"],
+              "path": ["api", "reports"]
+            }
+          }
+        },
+        {
+          "name": "Get Report By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{report_url}}/api/reports/:id",
+              "host": ["{{report_url}}"],
+              "path": ["api", "reports", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "report-guid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get All Reports (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{report_url}}/api/reports?page=1&pageSize=20",
+              "host": ["{{report_url}}"],
+              "path": ["api", "reports"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Resolve Report (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resolution\": \"Warning issued to user\",\n  \"actionTaken\": \"Warning\"\n}"
+            },
+            "url": {
+              "raw": "{{report_url}}/api/reports/:id/resolve",
+              "host": ["{{report_url}}"],
+              "path": ["api", "reports", ":id", "resolve"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "report-guid-here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Configuration API",
+      "item": [
+        {
+          "name": "Get Active Fee Configuration",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{configuration_url}}/api/fee-configurations/active",
+              "host": ["{{configuration_url}}"],
+              "path": ["api", "fee-configurations", "active"]
+            }
+          }
+        },
+        {
+          "name": "Get All Fee Configurations (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{configuration_url}}/api/fee-configurations?page=1&pageSize=20",
+              "host": ["{{configuration_url}}"],
+              "path": ["api", "fee-configurations"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Fee Configuration (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Fee Structure\",\n  \"minPercentage\": 5.0,\n  \"maxPercentage\": 25.0,\n  \"defaultPercentage\": 12.0,\n  \"description\": \"Updated fee structure\"\n}"
+            },
+            "url": {
+              "raw": "{{configuration_url}}/api/fee-configurations",
+              "host": ["{{configuration_url}}"],
+              "path": ["api", "fee-configurations"]
+            }
+          }
+        },
+        {
+          "name": "Get All Platform Configurations (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{configuration_url}}/api/configurations?page=1&pageSize=20",
+              "host": ["{{configuration_url}}"],
+              "path": ["api", "configurations"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Platform Configuration (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"max_package_weight\",\n  \"value\": \"50\",\n  \"description\": \"Maximum allowed package weight in kg\",\n  \"type\": \"Number\"\n}"
+            },
+            "url": {
+              "raw": "{{configuration_url}}/api/configurations",
+              "host": ["{{configuration_url}}"],
+              "path": ["api", "configurations"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Checks",
+      "item": [
+        {
+          "name": "Identity Health",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{identity_url}}/health",
+              "host": ["{{identity_url}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "User Health",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{user_url}}/health",
+              "host": ["{{user_url}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Trip Health",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{trip_url}}/health",
+              "host": ["{{trip_url}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Package Health",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{package_url}}/health",
+              "host": ["{{package_url}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Payment Health",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{payment_url}}/health",
+              "host": ["{{payment_url}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Messaging Health",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{messaging_url}}/health",
+              "host": ["{{messaging_url}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Notification Health",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{notification_url}}/health",
+              "host": ["{{notification_url}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Review Health",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{review_url}}/health",
+              "host": ["{{review_url}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Report Health",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{report_url}}/health",
+              "host": ["{{report_url}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Configuration Health",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{configuration_url}}/health",
+              "host": ["{{configuration_url}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
