@@ -56,6 +56,22 @@ public class TripsController : ControllerBase
         return Ok(result.Value);
     }
 
+    [HttpGet("traveler/{travelerId:guid}")]
+    [ProducesResponseType(typeof(List<TripResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTravelerActiveTrips(Guid travelerId, CancellationToken cancellationToken)
+    {
+        var query = new GetMyTripsQuery(travelerId);
+        var result = await _mediator.Send(query, cancellationToken);
+
+        var activeTrips = result.Value
+            .Where(t => t.Status == "InProgress" ||
+                        (t.Status == "Scheduled" && t.DepartureTime >= DateTime.UtcNow))
+            .OrderBy(t => t.DepartureTime)
+            .ToList();
+
+        return Ok(activeTrips);
+    }
+
     [Authorize]
     [HttpGet("my-trips")]
     [ProducesResponseType(typeof(List<TripResponse>), StatusCodes.Status200OK)]
@@ -94,7 +110,8 @@ public class TripsController : ControllerBase
             request.VehiclePlateNumber,
             request.Notes,
             request.MaxPackages,
-            request.Stops);
+            request.Stops,
+            request.PassengerCapacity);
 
         var result = await _mediator.Send(command, cancellationToken);
 
@@ -126,6 +143,47 @@ public class TripsController : ControllerBase
         }
 
         return Ok(result.Value);
+    }
+
+    [Authorize]
+    [HttpPut("{id:guid}/location")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateLocation(Guid id, [FromBody] UpdateLocationRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var query = new GetTripByIdQuery(id);
+        var tripResult = await _mediator.Send(query, cancellationToken);
+        if (tripResult.IsFailure) return NotFound();
+
+        // Only the traveler can update their own location
+        if (tripResult.Value.TravelerId != userId.Value) return Forbid();
+
+        var command = new UpdateTripLocationCommand(id, request.Latitude, request.Longitude);
+        var result = await _mediator.Send(command, cancellationToken);
+        if (result.IsFailure) return BadRequest(new { error = result.Error.Message });
+
+        return Ok(new { latitude = request.Latitude, longitude = request.Longitude, updatedAt = DateTime.UtcNow });
+    }
+
+    [HttpGet("{id:guid}/location")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetLocation(Guid id, CancellationToken cancellationToken)
+    {
+        var query = new GetTripByIdQuery(id);
+        var result = await _mediator.Send(query, cancellationToken);
+        if (result.IsFailure) return NotFound();
+
+        var trip = result.Value;
+        return Ok(new
+        {
+            latitude = trip.CurrentLatitude,
+            longitude = trip.CurrentLongitude,
+            updatedAt = trip.LocationUpdatedAt
+        });
     }
 
     private Guid? GetCurrentUserId()

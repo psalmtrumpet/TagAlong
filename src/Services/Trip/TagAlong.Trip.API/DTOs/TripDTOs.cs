@@ -14,6 +14,7 @@ public record CreateTripRequest(
     string? VehiclePlateNumber,
     string? Notes,
     int MaxPackages,
+    int? PassengerCapacity,
     List<TripStopRequest>? Stops);
 
 public record TripStopRequest(
@@ -32,6 +33,8 @@ public record UpdateTripRequest(
     string? Notes,
     int MaxPackages,
     List<TripStopRequest>? Stops);
+
+public record UpdateLocationRequest(double Latitude, double Longitude);
 
 public record TripResponse(
     Guid Id,
@@ -52,6 +55,11 @@ public record TripResponse(
     string? Notes,
     int MaxPackages,
     int CurrentPackageCount,
+    int PassengerCapacity,
+    int CurrentPassengerCount,
+    double? CurrentLatitude,
+    double? CurrentLongitude,
+    DateTime? LocationUpdatedAt,
     List<TripStopResponse> Stops,
     DateTime CreatedAt);
 

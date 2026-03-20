@@ -92,7 +92,9 @@ public class SearchAvailableUsersQueryHandler : IQueryHandler<SearchAvailableUse
             u.IsVerified,
             Math.Round(u.DistanceFromKm(request.Latitude, request.Longitude), 2),
             u.CurrentLocationName,
-            u.LocationUpdatedAt));
+            u.LocationUpdatedAt,
+            u.CurrentLatitude,
+            u.CurrentLongitude));
 
         return Result.Success(new AvailableUsersPagedResponse(
             userResponses,

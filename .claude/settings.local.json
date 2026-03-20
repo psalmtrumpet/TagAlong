@@ -12,7 +12,12 @@
       "Bash(for proj in src/Services/*/TagAlong.*.API/*.csproj)",
       "Bash(do dotnet add \"$proj\" package Figgle.Fonts)",
       "Bash(docker ps:*)",
-      "Bash(dotnet ef migrations add:*)"
+      "Bash(dotnet ef migrations add:*)",
+      "Bash(\"c:/Users/samuel.ojekunle/Desktop/TagAlong/.gitignore\")",
+      "Bash(docker compose:*)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\samuel.ojekunle\\Desktop\\TagAlong"
     ]
   }
 }

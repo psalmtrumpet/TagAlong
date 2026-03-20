@@ -151,6 +151,40 @@ public class ConversationsController : ControllerBase
         return Created($"/api/conversations/{id}/messages/{messageResult.Value.Id}", messageResult.Value);
     }
 
+    [HttpPost("{id:guid}/accept-request")]
+    [ProducesResponseType(typeof(ConversationDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AcceptRequest(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var result = await _mediator.Send(new AcceptConversationCommand(id, userId.Value), cancellationToken);
+        if (result.IsFailure)
+            return result.Error.Code.Contains("NotFound")
+                ? NotFound(new { error = result.Error.Message })
+                : BadRequest(new { error = result.Error.Message });
+
+        return Ok(result.Value);
+    }
+
+    [HttpPost("{id:guid}/decline-request")]
+    [ProducesResponseType(typeof(ConversationDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeclineRequest(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var result = await _mediator.Send(new DeclineConversationCommand(id, userId.Value), cancellationToken);
+        if (result.IsFailure)
+            return result.Error.Code.Contains("NotFound")
+                ? NotFound(new { error = result.Error.Message })
+                : BadRequest(new { error = result.Error.Message });
+
+        return Ok(result.Value);
+    }
+
     [HttpPost("{id:guid}/accept-price")]
     [ProducesResponseType(typeof(MessageDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

@@ -82,6 +82,18 @@ public class Message : Entity
         };
     }
 
+    public static Message CreateSystemMessage(Guid conversationId, string content)
+    {
+        return new Message
+        {
+            ConversationId = conversationId,
+            SenderId = Guid.Empty,
+            Content = content,
+            MessageType = MessageType.System,
+            SentAt = DateTime.UtcNow
+        };
+    }
+
     public void MarkAsRead()
     {
         if (ReadAt == null)
@@ -97,5 +109,6 @@ public enum MessageType
     Text,
     PriceProposal,
     PriceAccepted,
-    PriceRejected
+    PriceRejected,
+    System
 }

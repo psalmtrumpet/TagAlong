@@ -118,3 +118,4 @@ docker-compose.override.local.yml
 *.bak
 *.swp
 *~
+nul
