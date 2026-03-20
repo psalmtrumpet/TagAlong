@@ -7,53 +7,43 @@ DOMAIN="www.tlimc.net"
 EXTRA_DOMAIN="tlimc.net"
 EMAIL="info@tlimc.net"
 
-CERT_PATH="./nginx/certbot/conf/live/$DOMAIN"
+CERT_PATH="/etc/letsencrypt/live/$DOMAIN"
 
 if [ -d "$CERT_PATH" ]; then
   echo "Certificate already exists at $CERT_PATH — skipping."
   exit 0
 fi
 
-# Create required directories
-mkdir -p ./nginx/certbot/conf ./nginx/certbot/www
-
-# Download recommended TLS options from certbot
-if [ ! -f "./nginx/certbot/conf/options-ssl-nginx.conf" ]; then
-  echo "Downloading recommended TLS parameters..."
-  curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot-nginx/certbot_nginx/_internal/tls_configs/options-ssl-nginx.conf \
-    -o ./nginx/certbot/conf/options-ssl-nginx.conf
-  openssl dhparam -out ./nginx/certbot/conf/ssl-dhparams.pem 2048
+# Install certbot if not present
+if ! command -v certbot &>/dev/null; then
+  echo "Installing certbot..."
+  apt-get update -qq
+  apt-get install -y certbot python3-certbot-nginx
 fi
 
-# Start a temporary nginx to serve the ACME challenge on port 80
-echo "Starting temporary nginx for ACME challenge..."
-docker run --rm -d \
-  --name nginx-certbot-init \
-  -p 80:80 \
-  -v "$(pwd)/nginx/certbot/www:/var/www/certbot" \
-  nginx:alpine \
-  sh -c 'mkdir -p /var/www/certbot && nginx -g "daemon off;"'
-
-sleep 3
-
-# Request the certificate
+# Request the certificate using the existing Nginx
 echo "Requesting certificate for $DOMAIN and $EXTRA_DOMAIN..."
-docker run --rm \
-  -v "$(pwd)/nginx/certbot/conf:/etc/letsencrypt" \
-  -v "$(pwd)/nginx/certbot/www:/var/www/certbot" \
-  certbot/certbot certonly \
-    --webroot \
-    --webroot-path /var/www/certbot \
-    --email "$EMAIL" \
-    --agree-tos \
-    --no-eff-email \
-    -d "$DOMAIN" \
-    -d "$EXTRA_DOMAIN"
+certbot certonly \
+  --nginx \
+  --non-interactive \
+  --agree-tos \
+  --email "$EMAIL" \
+  -d "$DOMAIN" \
+  -d "$EXTRA_DOMAIN"
 
-# Stop temporary nginx
-docker stop nginx-certbot-init
+# Copy certs to the location our Docker nginx expects
+mkdir -p ./nginx/certbot/conf/live/$DOMAIN
+cp /etc/letsencrypt/live/$DOMAIN/fullchain.pem ./nginx/certbot/conf/live/$DOMAIN/
+cp /etc/letsencrypt/live/$DOMAIN/privkey.pem   ./nginx/certbot/conf/live/$DOMAIN/
+
+# Copy TLS options files
+cp /etc/letsencrypt/options-ssl-nginx.conf ./nginx/certbot/conf/ 2>/dev/null || \
+  curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot-nginx/certbot_nginx/_internal/tls_configs/options-ssl-nginx.conf \
+    -o ./nginx/certbot/conf/options-ssl-nginx.conf
+cp /etc/letsencrypt/ssl-dhparams.pem ./nginx/certbot/conf/ 2>/dev/null || \
+  openssl dhparam -out ./nginx/certbot/conf/ssl-dhparams.pem 2048
 
 echo ""
-echo "✓ Certificate issued successfully!"
+echo "✓ Certificate issued and copied successfully!"
 echo "  Now start the full stack:"
-echo "    docker compose -f docker-compose.production.yml --env-file .env up -d"
+echo "    docker compose -f docker-compose.production.yml --env-file .env up -d --build"
