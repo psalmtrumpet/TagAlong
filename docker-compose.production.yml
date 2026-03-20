@@ -143,6 +143,7 @@ services:
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__DefaultConnection=${IDENTITY_DB_CONNECTION}
       - ConnectionStrings__IdentityDb=${IDENTITY_DB_CONNECTION}
+      - ConnectionStrings__RabbitMQ=${RABBITMQ_CONNECTION}
       - RabbitMQ__HostName=${RABBITMQ_HOST}
       - RabbitMQ__UserName=${RABBITMQ_USER}
       - RabbitMQ__Password=${RABBITMQ_PASSWORD}
@@ -181,6 +182,7 @@ services:
       - ConnectionStrings__DefaultConnection=${USER_DB_CONNECTION}
       - ConnectionStrings__UserDb=${USER_DB_CONNECTION}
       - ConnectionStrings__Redis=${REDIS_CONNECTION}
+      - ConnectionStrings__RabbitMQ=${RABBITMQ_CONNECTION}
       - RabbitMQ__HostName=${RABBITMQ_HOST}
       - RabbitMQ__UserName=${RABBITMQ_USER}
       - RabbitMQ__Password=${RABBITMQ_PASSWORD}
@@ -218,6 +220,7 @@ services:
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__DefaultConnection=${TRIP_DB_CONNECTION}
       - ConnectionStrings__TripDb=${TRIP_DB_CONNECTION}
+      - ConnectionStrings__RabbitMQ=${RABBITMQ_CONNECTION}
       - RabbitMQ__HostName=${RABBITMQ_HOST}
       - RabbitMQ__UserName=${RABBITMQ_USER}
       - RabbitMQ__Password=${RABBITMQ_PASSWORD}
@@ -252,6 +255,7 @@ services:
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__DefaultConnection=${PACKAGE_DB_CONNECTION}
       - ConnectionStrings__PackageDb=${PACKAGE_DB_CONNECTION}
+      - ConnectionStrings__RabbitMQ=${RABBITMQ_CONNECTION}
       - RabbitMQ__HostName=${RABBITMQ_HOST}
       - RabbitMQ__UserName=${RABBITMQ_USER}
       - RabbitMQ__Password=${RABBITMQ_PASSWORD}
@@ -287,6 +291,7 @@ services:
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__DefaultConnection=${PAYMENT_DB_CONNECTION}
       - ConnectionStrings__PaymentDb=${PAYMENT_DB_CONNECTION}
+      - ConnectionStrings__RabbitMQ=${RABBITMQ_CONNECTION}
       - RabbitMQ__HostName=${RABBITMQ_HOST}
       - RabbitMQ__UserName=${RABBITMQ_USER}
       - RabbitMQ__Password=${RABBITMQ_PASSWORD}
@@ -325,6 +330,7 @@ services:
       - ConnectionStrings__DefaultConnection=${NOTIFICATION_DB_CONNECTION}
       - ConnectionStrings__NotificationDb=${NOTIFICATION_DB_CONNECTION}
       - ConnectionStrings__Redis=${REDIS_CONNECTION}
+      - ConnectionStrings__RabbitMQ=${RABBITMQ_CONNECTION}
       - RabbitMQ__HostName=${RABBITMQ_HOST}
       - RabbitMQ__UserName=${RABBITMQ_USER}
       - RabbitMQ__Password=${RABBITMQ_PASSWORD}
@@ -362,6 +368,7 @@ services:
       - ConnectionStrings__DefaultConnection=${MESSAGING_DB_CONNECTION}
       - ConnectionStrings__MessagingDb=${MESSAGING_DB_CONNECTION}
       - ConnectionStrings__Redis=${REDIS_CONNECTION}
+      - ConnectionStrings__RabbitMQ=${RABBITMQ_CONNECTION}
       - RabbitMQ__HostName=${RABBITMQ_HOST}
       - RabbitMQ__UserName=${RABBITMQ_USER}
       - RabbitMQ__Password=${RABBITMQ_PASSWORD}
