@@ -78,6 +78,7 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - ./nginx/certbot/conf:/etc/letsencrypt:ro
       - ./nginx/certbot/www:/var/www/certbot:ro
+      - /var/www/tlimc:/var/www/tlimc:ro
     depends_on:
       - api-gateway
     networks:
