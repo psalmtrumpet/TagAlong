@@ -21,11 +21,24 @@ public class Trip : AggregateRoot
     public string? Notes { get; private set; }
     public int MaxPackages { get; private set; }
     public int CurrentPackageCount { get; private set; }
+    public int PassengerCapacity { get; private set; }
+    public int CurrentPassengerCount { get; private set; }
+    public double? CurrentLatitude { get; private set; }
+    public double? CurrentLongitude { get; private set; }
+    public DateTime? LocationUpdatedAt { get; private set; }
 
     private readonly List<TripStop> _stops = new();
     public IReadOnlyCollection<TripStop> Stops => _stops.AsReadOnly();
 
     private Trip() { }
+
+    public static int GetMaxPassengers(string? vehicleType) =>
+        vehicleType?.ToLower() switch
+        {
+            "bus" => 12,
+            "motorcycle" => 1,
+            _ => 3 // Car, SUV, default
+        };
 
     public static Trip Create(
         Guid travelerId,
@@ -41,8 +54,14 @@ public class Trip : AggregateRoot
         string? vehicleType,
         string? vehiclePlateNumber,
         string? notes,
-        int maxPackages = 5)
+        int maxPackages = 5,
+        int? passengerCapacity = null)
     {
+        var maxPassengers = GetMaxPassengers(vehicleType);
+        var actualPassengerCapacity = passengerCapacity.HasValue
+            ? Math.Min(passengerCapacity.Value, maxPassengers)
+            : maxPassengers;
+
         var trip = new Trip
         {
             TravelerId = travelerId,
@@ -58,10 +77,39 @@ public class Trip : AggregateRoot
             VehicleType = vehicleType,
             VehiclePlateNumber = vehiclePlateNumber,
             Notes = notes,
-            MaxPackages = maxPackages
+            MaxPackages = maxPackages,
+            PassengerCapacity = actualPassengerCapacity
         };
 
         return trip;
+    }
+
+    public void UpdateLocation(double latitude, double longitude)
+    {
+        CurrentLatitude = latitude;
+        CurrentLongitude = longitude;
+        LocationUpdatedAt = DateTime.UtcNow;
+        SetUpdated();
+    }
+
+    public bool CanAcceptPassenger() =>
+        Status == TripStatus.Scheduled && CurrentPassengerCount < PassengerCapacity;
+
+    public void AddPassenger()
+    {
+        if (!CanAcceptPassenger())
+            throw new InvalidOperationException("No passenger slots available");
+        CurrentPassengerCount++;
+        SetUpdated();
+    }
+
+    public void RemovePassenger()
+    {
+        if (CurrentPassengerCount > 0)
+        {
+            CurrentPassengerCount--;
+            SetUpdated();
+        }
     }
 
     public void AddStop(string location, double latitude, double longitude, int order, DateTime? estimatedTime = null)

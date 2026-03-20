@@ -88,6 +88,11 @@ public class UpdateTripStatusCommandHandler : ICommandHandler<UpdateTripStatusCo
             trip.Notes,
             trip.MaxPackages,
             trip.CurrentPackageCount,
+            trip.PassengerCapacity,
+            trip.CurrentPassengerCount,
+            trip.CurrentLatitude,
+            trip.CurrentLongitude,
+            trip.LocationUpdatedAt,
             trip.Stops.Select(s => new TripStopResponse(
                 s.Id,
                 s.Location,

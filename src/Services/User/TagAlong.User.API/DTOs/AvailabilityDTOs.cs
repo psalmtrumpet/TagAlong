@@ -54,7 +54,9 @@ public record AvailableUserResponse(
     bool IsVerified,
     double DistanceKm,
     string? LocationName,
-    DateTime? LocationUpdatedAt);
+    DateTime? LocationUpdatedAt,
+    double? Latitude,
+    double? Longitude);
 
 public record AvailableUsersPagedResponse(
     IEnumerable<AvailableUserResponse> Users,

@@ -21,7 +21,8 @@ public record CreateTripCommand(
     string? VehiclePlateNumber,
     string? Notes,
     int MaxPackages,
-    List<TripStopRequest>? Stops) : ICommand<TripResponse>;
+    List<TripStopRequest>? Stops,
+    int? PassengerCapacity = null) : ICommand<TripResponse>;
 
 public class CreateTripCommandHandler : ICommandHandler<CreateTripCommand, TripResponse>
 {
@@ -50,7 +51,8 @@ public class CreateTripCommandHandler : ICommandHandler<CreateTripCommand, TripR
             request.VehicleType,
             request.VehiclePlateNumber,
             request.Notes,
-            request.MaxPackages);
+            request.MaxPackages,
+            request.PassengerCapacity);
 
         if (request.Stops != null)
         {
@@ -98,6 +100,11 @@ public class CreateTripCommandHandler : ICommandHandler<CreateTripCommand, TripR
             trip.Notes,
             trip.MaxPackages,
             trip.CurrentPackageCount,
+            trip.PassengerCapacity,
+            trip.CurrentPassengerCount,
+            trip.CurrentLatitude,
+            trip.CurrentLongitude,
+            trip.LocationUpdatedAt,
             trip.Stops.Select(s => new TripStopResponse(
                 s.Id,
                 s.Location,

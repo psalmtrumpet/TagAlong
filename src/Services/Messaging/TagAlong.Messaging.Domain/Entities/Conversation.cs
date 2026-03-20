@@ -17,14 +17,34 @@ public class Conversation : AggregateRoot
     public static Conversation Create(
         Guid senderId,
         Guid travelerId,
-        Guid? packageRequestId = null)
+        Guid? packageRequestId = null,
+        bool startAsPending = true)
     {
         return new Conversation
         {
             SenderId = senderId,
             TravelerId = travelerId,
-            PackageRequestId = packageRequestId
+            PackageRequestId = packageRequestId,
+            Status = startAsPending ? ConversationStatus.Pending : ConversationStatus.Active
         };
+    }
+
+    public void Accept()
+    {
+        if (Status != ConversationStatus.Pending)
+            throw new InvalidOperationException("Can only accept a pending conversation");
+
+        Status = ConversationStatus.Active;
+        SetUpdated();
+    }
+
+    public void Decline()
+    {
+        if (Status != ConversationStatus.Pending)
+            throw new InvalidOperationException("Can only decline a pending conversation");
+
+        Status = ConversationStatus.Declined;
+        SetUpdated();
     }
 
     public void Close()
@@ -64,6 +84,8 @@ public class Conversation : AggregateRoot
 
 public enum ConversationStatus
 {
+    Pending,
     Active,
+    Declined,
     Closed
 }
