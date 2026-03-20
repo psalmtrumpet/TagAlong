@@ -151,6 +151,7 @@ services:
       - Jwt__Key=${JWT_SECRET_KEY}
       - Jwt__Issuer=${JWT_ISSUER}
       - Jwt__Audience=${JWT_AUDIENCE}
+      - GoogleAuth__ClientId=${GOOGLE_CLIENT_ID}
       - Google__ClientId=${GOOGLE_CLIENT_ID}
       - Google__ClientSecret=${GOOGLE_CLIENT_SECRET}
     depends_on:
@@ -178,6 +179,7 @@ services:
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__DefaultConnection=${USER_DB_CONNECTION}
       - ConnectionStrings__UserDb=${USER_DB_CONNECTION}
+      - ConnectionStrings__Redis=${REDIS_CONNECTION}
       - RabbitMQ__HostName=${RABBITMQ_HOST}
       - RabbitMQ__UserName=${RABBITMQ_USER}
       - RabbitMQ__Password=${RABBITMQ_PASSWORD}
@@ -187,10 +189,13 @@ services:
       - Jwt__Key=${JWT_SECRET_KEY}
       - Jwt__Issuer=${JWT_ISSUER}
       - Jwt__Audience=${JWT_AUDIENCE}
+      - GoogleMaps__ApiKey=${GOOGLE_MAPS_API_KEY}
     depends_on:
       sqlserver:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - tagalong-network
@@ -255,6 +260,7 @@ services:
       - Jwt__Key=${JWT_SECRET_KEY}
       - Jwt__Issuer=${JWT_ISSUER}
       - Jwt__Audience=${JWT_AUDIENCE}
+      - PlatformSettings__FeePercentage=${PLATFORM_FEE_PERCENTAGE}
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -291,6 +297,7 @@ services:
       - Jwt__Audience=${JWT_AUDIENCE}
       - Stripe__SecretKey=${STRIPE_SECRET_KEY}
       - Stripe__WebhookSecret=${STRIPE_WEBHOOK_SECRET}
+      - PlatformFeePercentage=${PLATFORM_FEE_PERCENTAGE}
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -316,10 +323,10 @@ services:
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__DefaultConnection=${NOTIFICATION_DB_CONNECTION}
       - ConnectionStrings__NotificationDb=${NOTIFICATION_DB_CONNECTION}
+      - ConnectionStrings__Redis=${REDIS_CONNECTION}
       - RabbitMQ__HostName=${RABBITMQ_HOST}
       - RabbitMQ__UserName=${RABBITMQ_USER}
       - RabbitMQ__Password=${RABBITMQ_PASSWORD}
-      - Redis__ConnectionString=${REDIS_CONNECTION}
       - JwtSettings__SecretKey=${JWT_SECRET_KEY}
       - JwtSettings__Issuer=${JWT_ISSUER}
       - JwtSettings__Audience=${JWT_AUDIENCE}
@@ -353,6 +360,7 @@ services:
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__DefaultConnection=${MESSAGING_DB_CONNECTION}
       - ConnectionStrings__MessagingDb=${MESSAGING_DB_CONNECTION}
+      - ConnectionStrings__Redis=${REDIS_CONNECTION}
       - RabbitMQ__HostName=${RABBITMQ_HOST}
       - RabbitMQ__UserName=${RABBITMQ_USER}
       - RabbitMQ__Password=${RABBITMQ_PASSWORD}
@@ -366,6 +374,8 @@ services:
       sqlserver:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - tagalong-network
