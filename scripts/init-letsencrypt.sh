@@ -5,7 +5,7 @@ set -e
 
 DOMAIN="www.tlimc.net"
 EXTRA_DOMAIN="tlimc.net"
-EMAIL="your-email@example.com"   # ← replace with your email
+EMAIL="info@tlimc.net"
 
 CERT_PATH="./nginx/certbot/conf/live/$DOMAIN"
 
