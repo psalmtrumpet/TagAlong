@@ -38,7 +38,16 @@ namespace TagAlong.Trip.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<double?>("CurrentLatitude")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("CurrentLongitude")
+                        .HasColumnType("float");
+
                     b.Property<int>("CurrentPackageCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CurrentPassengerCount")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -60,6 +69,13 @@ namespace TagAlong.Trip.Infrastructure.Migrations
 
                     b.Property<DateTime?>("EstimatedArrivalTime")
                         .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LocationUpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PassengerCapacity")
+                        .HasDefaultValue(3)
+                        .HasColumnType("int");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");

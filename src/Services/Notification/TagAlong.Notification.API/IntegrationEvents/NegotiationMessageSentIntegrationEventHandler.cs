@@ -6,11 +6,10 @@ namespace TagAlong.Notification.API.IntegrationEvents;
 
 public record NegotiationMessageSentIntegrationEvent(
     Guid ConversationId,
-    Guid SenderId,
-    Guid ReceiverId,
     Guid? PackageRequestId,
+    Guid SenderId,
+    Guid RecipientId,
     string MessageType,
-    string Content,
     decimal? ProposedPrice,
     DateTime SentAt) : IntegrationEvent;
 
@@ -34,7 +33,7 @@ public class NegotiationMessageSentIntegrationEventHandler : IIntegrationEventHa
         var (title, message, type) = GetNotificationContent(@event.MessageType, @event.ProposedPrice);
 
         await _notificationService.SendNotificationAsync(
-            @event.ReceiverId,
+            @event.RecipientId,
             title,
             message,
             type,
