@@ -26,7 +26,7 @@ services:
       resources:
         limits:
           cpus: '1.0'
-          memory: 1024M
+          memory: 2048M
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
