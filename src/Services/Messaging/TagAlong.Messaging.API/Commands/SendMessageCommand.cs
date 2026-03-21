@@ -31,17 +31,20 @@ public class SendMessageCommandHandler : ICommandHandler<SendMessageCommand, Mes
     private readonly IConversationRepository _conversationRepository;
     private readonly IMessageRepository _messageRepository;
     private readonly IHubContext<MessagingHub, IMessagingClient> _hubContext;
+    private readonly IEventBus _eventBus;
     private readonly ILogger<SendMessageCommandHandler> _logger;
 
     public SendMessageCommandHandler(
         IConversationRepository conversationRepository,
         IMessageRepository messageRepository,
         IHubContext<MessagingHub, IMessagingClient> hubContext,
+        IEventBus eventBus,
         ILogger<SendMessageCommandHandler> logger)
     {
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
         _hubContext = hubContext;
+        _eventBus = eventBus;
         _logger = logger;
     }
 
@@ -68,6 +71,16 @@ public class SendMessageCommandHandler : ICommandHandler<SendMessageCommand, Mes
         await _hubContext.Clients.Group($"conversation_{request.ConversationId}").ReceiveMessage(dto);
         var otherUserId = conversation.GetOtherParticipant(request.SenderId);
         await _hubContext.Clients.Group($"user_{otherUserId}").ReceiveMessage(dto);
+
+        // Publish integration event so the notification service can push to the receiver's device
+        await _eventBus.PublishAsync(new NegotiationMessageSentIntegrationEvent(
+            request.ConversationId,
+            conversation.PackageRequestId,
+            request.SenderId,
+            otherUserId,
+            message.MessageType.ToString(),
+            null,
+            message.SentAt), cancellationToken);
 
         _logger.LogInformation("Message {MessageId} sent in conversation {ConversationId}", message.Id, request.ConversationId);
 
