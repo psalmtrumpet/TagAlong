@@ -11,6 +11,13 @@ public record NegotiationMessageSentIntegrationEvent(
     decimal? ProposedPrice,
     DateTime SentAt) : IntegrationEvent;
 
+public record ConversationRequestCreatedIntegrationEvent(
+    Guid ConversationId,
+    Guid SenderId,
+    Guid TravelerId,
+    string InitialMessage,
+    DateTime CreatedAt) : IntegrationEvent;
+
 public record PriceAcceptedIntegrationEvent(
     Guid ConversationId,
     Guid? PackageRequestId,

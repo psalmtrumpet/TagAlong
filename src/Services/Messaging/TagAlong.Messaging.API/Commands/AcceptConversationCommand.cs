@@ -33,18 +33,10 @@ public class AcceptConversationCommandHandler : ICommandHandler<AcceptConversati
         conversation.Accept();
         _conversationRepository.Update(conversation);
 
-        // System message notifying acceptance
-        var systemMsg = Message.CreateSystemMessage(conversation.Id, "Request accepted. Review the price suggestion below.");
+        // System message prompting the requester to suggest a price
+        var systemMsg = Message.CreateSystemMessage(conversation.Id,
+            "Request accepted! Please suggest how much you'd like to pay.");
         await _messageRepository.AddAsync(systemMsg, cancellationToken);
-
-        // Auto price suggestion (random for now, logic to follow)
-        var suggestedPrice = new Random().Next(500, 5001);
-        var priceMsg = Message.CreatePriceProposal(
-            conversation.Id,
-            conversation.TravelerId,
-            suggestedPrice,
-            $"Suggested price: ₦{suggestedPrice:N0}");
-        await _messageRepository.AddAsync(priceMsg, cancellationToken);
 
         await _conversationRepository.SaveChangesAsync(cancellationToken);
 

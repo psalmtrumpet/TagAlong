@@ -63,9 +63,19 @@ public class AcceptPriceCommandHandler : ICommandHandler<AcceptPriceCommand, Mes
             return Result.Failure<MessageDto>(Error.Unauthorized("Not authorized to accept price in this conversation"));
         }
 
+        // Transition conversation to Active — chat is now unlocked
+        conversation.ConfirmPriceAgreement();
+        _conversationRepository.Update(conversation);
+
         var message = Message.CreatePriceAccepted(request.ConversationId, request.UserId, request.AcceptedPrice, request.Message);
         await _messageRepository.AddAsync(message, cancellationToken);
-        await _messageRepository.SaveChangesAsync(cancellationToken);
+
+        // System message confirming chat is unlocked
+        var systemMsg = Message.CreateSystemMessage(request.ConversationId,
+            $"Price agreed at ₦{request.AcceptedPrice:N0}. You can now chat freely and track each other.");
+        await _messageRepository.AddAsync(systemMsg, cancellationToken);
+
+        await _conversationRepository.SaveChangesAsync(cancellationToken);
 
         var dto = MapToDto(message);
 
