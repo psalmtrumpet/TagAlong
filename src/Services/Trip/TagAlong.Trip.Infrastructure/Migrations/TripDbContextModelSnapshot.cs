@@ -102,6 +102,12 @@ namespace TagAlong.Trip.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("TripType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasDefaultValue("Passenger")
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<Guid>("TravelerId")
                         .HasColumnType("uniqueidentifier");
 

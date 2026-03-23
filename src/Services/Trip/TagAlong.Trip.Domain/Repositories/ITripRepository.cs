@@ -1,5 +1,6 @@
 using TagAlong.Trip.Domain.Entities;
 using TripEntity = TagAlong.Trip.Domain.Entities.Trip;
+using TripTypeEnum = TagAlong.Trip.Domain.Entities.TripType;
 
 namespace TagAlong.Trip.Domain.Repositories;
 
@@ -19,7 +20,8 @@ public interface ITripRepository
         double radiusKm,
         int page,
         int pageSize,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        TripTypeEnum? tripType = null);
     Task<IEnumerable<TripEntity>> GetActiveTripsAsync(CancellationToken cancellationToken = default);
     Task AddAsync(TripEntity trip, CancellationToken cancellationToken = default);
     void Update(TripEntity trip);

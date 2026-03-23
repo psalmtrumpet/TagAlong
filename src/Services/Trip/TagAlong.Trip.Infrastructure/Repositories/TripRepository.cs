@@ -46,11 +46,15 @@ public class TripRepository : ITripRepository
         double radiusKm,
         int page,
         int pageSize,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Domain.Entities.TripType? tripType = null)
     {
         var query = _context.Trips
             .Include(t => t.Stops)
             .Where(t => t.Status == TripStatus.Scheduled && t.DepartureTime > DateTime.UtcNow);
+
+        if (tripType.HasValue)
+            query = query.Where(t => t.TripType == tripType.Value);
 
         if (!string.IsNullOrEmpty(origin))
         {

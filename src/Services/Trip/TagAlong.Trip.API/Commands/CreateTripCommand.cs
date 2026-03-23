@@ -22,7 +22,8 @@ public record CreateTripCommand(
     string? Notes,
     int MaxPackages,
     List<TripStopRequest>? Stops,
-    int? PassengerCapacity = null) : ICommand<TripResponse>;
+    int? PassengerCapacity = null,
+    string TripType = "Passenger") : ICommand<TripResponse>;
 
 public class CreateTripCommandHandler : ICommandHandler<CreateTripCommand, TripResponse>
 {
@@ -37,6 +38,9 @@ public class CreateTripCommandHandler : ICommandHandler<CreateTripCommand, TripR
 
     public async Task<Result<TripResponse>> Handle(CreateTripCommand request, CancellationToken cancellationToken)
     {
+        var parsedTripType = Enum.TryParse<Domain.Entities.TripType>(request.TripType, true, out var tt)
+            ? tt : Domain.Entities.TripType.Passenger;
+
         var trip = Domain.Entities.Trip.Create(
             request.TravelerId,
             request.Origin,
@@ -52,7 +56,8 @@ public class CreateTripCommandHandler : ICommandHandler<CreateTripCommand, TripR
             request.VehiclePlateNumber,
             request.Notes,
             request.MaxPackages,
-            request.PassengerCapacity);
+            request.PassengerCapacity,
+            parsedTripType);
 
         if (request.Stops != null)
         {
@@ -94,6 +99,7 @@ public class CreateTripCommandHandler : ICommandHandler<CreateTripCommand, TripR
             trip.EstimatedArrivalTime,
             trip.ActualArrivalTime,
             trip.Status.ToString(),
+            trip.TripType.ToString(),
             trip.AvailableCapacity,
             trip.VehicleType,
             trip.VehiclePlateNumber,
