@@ -47,6 +47,35 @@ public class GetAvailabilityStatusQueryHandler : IQueryHandler<GetAvailabilitySt
     }
 }
 
+// Get a specific user's availability by their auth/user ID (public — no auth required)
+public record GetUserAvailabilityByIdQuery(Guid UserId) : IQuery<bool>;
+
+public class GetUserAvailabilityByIdQueryHandler : IQueryHandler<GetUserAvailabilityByIdQuery, bool>
+{
+    private readonly IUserProfileRepository _userProfileRepository;
+
+    public GetUserAvailabilityByIdQueryHandler(IUserProfileRepository userProfileRepository)
+    {
+        _userProfileRepository = userProfileRepository;
+    }
+
+    public async Task<Result<bool>> Handle(GetUserAvailabilityByIdQuery request, CancellationToken cancellationToken)
+    {
+        var profile = await _userProfileRepository.GetByAuthUserIdAsync(request.UserId, cancellationToken);
+        if (profile == null) return Result.Success(false);
+
+        if (profile.IsAvailable && profile.IsAvailabilityExpired())
+        {
+            profile.SetUnavailable();
+            _userProfileRepository.Update(profile);
+            await _userProfileRepository.SaveChangesAsync(cancellationToken);
+            return Result.Success(false);
+        }
+
+        return Result.Success(profile.IsAvailable);
+    }
+}
+
 // Search for available users nearby
 public record SearchAvailableUsersQuery(
     double Latitude,
