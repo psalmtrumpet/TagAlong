@@ -32,7 +32,8 @@ public class ConversationsController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var conversations = await _mediator.Send(new GetUserConversationsQuery(userId.Value, page, pageSize), cancellationToken);
-        return Ok(conversations);
+        if (conversations.IsFailure) return BadRequest(new { error = conversations.Error.Message });
+        return Ok(conversations.Value);
     }
 
     [HttpGet("{id:guid}")]

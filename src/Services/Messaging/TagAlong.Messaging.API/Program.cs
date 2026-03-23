@@ -11,6 +11,7 @@ using TagAlong.EventBus.RabbitMQ;
 using TagAlong.Messaging.API.Commands;
 using TagAlong.Messaging.API.IntegrationEvents;
 using TagAlong.Messaging.API.Hubs;
+using TagAlong.Messaging.API.Services;
 using TagAlong.Messaging.Domain.Repositories;
 using TagAlong.Messaging.Infrastructure.Persistence;
 using TagAlong.Messaging.Infrastructure.Repositories;
@@ -73,6 +74,14 @@ builder.Services.AddDbContext<MessagingDbContext>(options =>
 // Repositories
 builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
 builder.Services.AddScoped<IMessageRepository, MessageRepository>();
+
+// User lookup (calls user-api internally)
+var userApiBaseUrl = builder.Configuration["ServiceUrls:UserApi"] ?? "http://user-api/";
+builder.Services.AddHttpClient<IUserLookupService, UserLookupService>(client =>
+{
+    client.BaseAddress = new Uri(userApiBaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(3);
+});
 
 // MediatR
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));

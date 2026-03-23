@@ -1,6 +1,7 @@
 using TagAlong.Common.CQRS;
 using TagAlong.Common.Results;
 using TagAlong.Messaging.API.DTOs;
+using TagAlong.Messaging.API.Services;
 using TagAlong.Messaging.Domain.Entities;
 using TagAlong.Messaging.Domain.Repositories;
 
@@ -12,13 +13,16 @@ public class GetConversationByIdQueryHandler : IQueryHandler<GetConversationById
 {
     private readonly IConversationRepository _conversationRepository;
     private readonly IMessageRepository _messageRepository;
+    private readonly IUserLookupService _userLookup;
 
     public GetConversationByIdQueryHandler(
         IConversationRepository conversationRepository,
-        IMessageRepository messageRepository)
+        IMessageRepository messageRepository,
+        IUserLookupService userLookup)
     {
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
+        _userLookup = userLookup;
     }
 
     public async Task<Result<ConversationDto?>> Handle(GetConversationByIdQuery request, CancellationToken cancellationToken)
@@ -29,10 +33,21 @@ public class GetConversationByIdQueryHandler : IQueryHandler<GetConversationById
         var messages = await _messageRepository.GetByConversationIdAsync(conversation.Id, 1, 1, cancellationToken);
         var lastMessage = messages.FirstOrDefault();
 
-        return Result.Success<ConversationDto?>(MapToDto(conversation, lastMessage));
+        var (senderName, travelerName) = await ResolveNamesAsync(conversation, cancellationToken);
+        return Result.Success<ConversationDto?>(MapToDto(conversation, lastMessage, senderName, travelerName));
     }
 
-    private static ConversationDto MapToDto(Conversation conversation, Message? lastMessage)
+    private async Task<(string? senderName, string? travelerName)> ResolveNamesAsync(
+        Conversation conversation, CancellationToken cancellationToken)
+    {
+        var senderTask = _userLookup.GetDisplayNameAsync(conversation.SenderId, cancellationToken);
+        var travelerTask = _userLookup.GetDisplayNameAsync(conversation.TravelerId, cancellationToken);
+        await Task.WhenAll(senderTask, travelerTask);
+        return (senderTask.Result, travelerTask.Result);
+    }
+
+    private static ConversationDto MapToDto(Conversation conversation, Message? lastMessage,
+        string? senderName, string? travelerName)
     {
         MessageDto? lastMessageDto = lastMessage != null
             ? new MessageDto(
@@ -51,6 +66,8 @@ public class GetConversationByIdQueryHandler : IQueryHandler<GetConversationById
             conversation.PackageRequestId,
             conversation.SenderId,
             conversation.TravelerId,
+            senderName,
+            travelerName,
             conversation.Status.ToString(),
             conversation.CreatedAt,
             conversation.UpdatedAt,
@@ -64,31 +81,49 @@ public class GetUserConversationsQueryHandler : IQueryHandler<GetUserConversatio
 {
     private readonly IConversationRepository _conversationRepository;
     private readonly IMessageRepository _messageRepository;
+    private readonly IUserLookupService _userLookup;
 
     public GetUserConversationsQueryHandler(
         IConversationRepository conversationRepository,
-        IMessageRepository messageRepository)
+        IMessageRepository messageRepository,
+        IUserLookupService userLookup)
     {
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
+        _userLookup = userLookup;
     }
 
     public async Task<Result<IEnumerable<ConversationDto>>> Handle(GetUserConversationsQuery request, CancellationToken cancellationToken)
     {
         var conversations = await _conversationRepository.GetByUserIdAsync(request.UserId, request.Page, request.PageSize, cancellationToken);
-        var result = new List<ConversationDto>();
 
+        // Collect unique user IDs and resolve all names in parallel
+        var userIds = conversations
+            .SelectMany(c => new[] { c.SenderId, c.TravelerId })
+            .Distinct()
+            .ToList();
+
+        var nameTasks = userIds.ToDictionary(
+            id => id,
+            id => _userLookup.GetDisplayNameAsync(id, cancellationToken));
+        await Task.WhenAll(nameTasks.Values);
+        var names = nameTasks.ToDictionary(kv => kv.Key, kv => kv.Value.Result);
+
+        var result = new List<ConversationDto>();
         foreach (var conversation in conversations)
         {
             var messages = await _messageRepository.GetByConversationIdAsync(conversation.Id, 1, 1, cancellationToken);
             var lastMessage = messages.FirstOrDefault();
-            result.Add(MapToDto(conversation, lastMessage));
+            names.TryGetValue(conversation.SenderId, out var senderName);
+            names.TryGetValue(conversation.TravelerId, out var travelerName);
+            result.Add(MapToDto(conversation, lastMessage, senderName, travelerName));
         }
 
         return Result.Success<IEnumerable<ConversationDto>>(result);
     }
 
-    private static ConversationDto MapToDto(Conversation conversation, Message? lastMessage)
+    private static ConversationDto MapToDto(Conversation conversation, Message? lastMessage,
+        string? senderName, string? travelerName)
     {
         MessageDto? lastMessageDto = lastMessage != null
             ? new MessageDto(
@@ -107,6 +142,8 @@ public class GetUserConversationsQueryHandler : IQueryHandler<GetUserConversatio
             conversation.PackageRequestId,
             conversation.SenderId,
             conversation.TravelerId,
+            senderName,
+            travelerName,
             conversation.Status.ToString(),
             conversation.CreatedAt,
             conversation.UpdatedAt,
