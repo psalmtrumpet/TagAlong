@@ -33,7 +33,8 @@ public class TripsController : ControllerBase
             request.DestinationLongitude,
             request.RadiusKm,
             request.Page,
-            request.PageSize);
+            request.PageSize,
+            request.TripType);
 
         var result = await _mediator.Send(query, cancellationToken);
 
@@ -111,7 +112,8 @@ public class TripsController : ControllerBase
             request.Notes,
             request.MaxPackages,
             request.Stops,
-            request.PassengerCapacity);
+            request.PassengerCapacity,
+            request.TripType);
 
         var result = await _mediator.Send(command, cancellationToken);
 

@@ -15,7 +15,8 @@ public record CreateTripRequest(
     string? Notes,
     int MaxPackages,
     int? PassengerCapacity,
-    List<TripStopRequest>? Stops);
+    List<TripStopRequest>? Stops,
+    string TripType = "Passenger");
 
 public record TripStopRequest(
     string Location,
@@ -49,6 +50,7 @@ public record TripResponse(
     DateTime? EstimatedArrivalTime,
     DateTime? ActualArrivalTime,
     string Status,
+    string TripType,
     decimal AvailableCapacity,
     string? VehicleType,
     string? VehiclePlateNumber,
@@ -82,4 +84,5 @@ public record SearchTripsRequest(
     double? DestinationLongitude,
     double RadiusKm = 10,
     int Page = 1,
-    int PageSize = 20);
+    int PageSize = 20,
+    string? TripType = null);

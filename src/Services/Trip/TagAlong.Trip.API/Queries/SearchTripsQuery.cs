@@ -15,7 +15,8 @@ public record SearchTripsQuery(
     double? DestinationLongitude,
     double RadiusKm,
     int Page,
-    int PageSize) : IQuery<List<TripResponse>>;
+    int PageSize,
+    string? TripType = null) : IQuery<List<TripResponse>>;
 
 public class SearchTripsQueryHandler : IQueryHandler<SearchTripsQuery, List<TripResponse>>
 {
@@ -28,6 +29,11 @@ public class SearchTripsQueryHandler : IQueryHandler<SearchTripsQuery, List<Trip
 
     public async Task<Result<List<TripResponse>>> Handle(SearchTripsQuery request, CancellationToken cancellationToken)
     {
+        Domain.Entities.TripType? tripTypeFilter = null;
+        if (!string.IsNullOrEmpty(request.TripType) &&
+            Enum.TryParse<Domain.Entities.TripType>(request.TripType, true, out var parsedType))
+            tripTypeFilter = parsedType;
+
         var trips = await _tripRepository.SearchTripsAsync(
             request.Origin,
             request.Destination,
@@ -39,7 +45,8 @@ public class SearchTripsQueryHandler : IQueryHandler<SearchTripsQuery, List<Trip
             request.RadiusKm,
             request.Page,
             request.PageSize,
-            cancellationToken);
+            cancellationToken,
+            tripTypeFilter);
 
         return Result.Success(trips.Select(trip => new TripResponse(
             trip.Id,
@@ -54,6 +61,7 @@ public class SearchTripsQueryHandler : IQueryHandler<SearchTripsQuery, List<Trip
             trip.EstimatedArrivalTime,
             trip.ActualArrivalTime,
             trip.Status.ToString(),
+            trip.TripType.ToString(),
             trip.AvailableCapacity,
             trip.VehicleType,
             trip.VehiclePlateNumber,
@@ -110,6 +118,7 @@ public class GetTripByIdQueryHandler : IQueryHandler<GetTripByIdQuery, TripRespo
             trip.EstimatedArrivalTime,
             trip.ActualArrivalTime,
             trip.Status.ToString(),
+            trip.TripType.ToString(),
             trip.AvailableCapacity,
             trip.VehicleType,
             trip.VehiclePlateNumber,
@@ -161,6 +170,7 @@ public class GetMyTripsQueryHandler : IQueryHandler<GetMyTripsQuery, List<TripRe
             trip.EstimatedArrivalTime,
             trip.ActualArrivalTime,
             trip.Status.ToString(),
+            trip.TripType.ToString(),
             trip.AvailableCapacity,
             trip.VehicleType,
             trip.VehiclePlateNumber,

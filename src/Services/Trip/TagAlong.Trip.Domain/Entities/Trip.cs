@@ -15,6 +15,7 @@ public class Trip : AggregateRoot
     public DateTime? EstimatedArrivalTime { get; private set; }
     public DateTime? ActualArrivalTime { get; private set; }
     public TripStatus Status { get; private set; } = TripStatus.Scheduled;
+    public TripType TripType { get; private set; } = TripType.Passenger;
     public decimal AvailableCapacity { get; private set; }
     public string? VehicleType { get; private set; }
     public string? VehiclePlateNumber { get; private set; }
@@ -55,7 +56,8 @@ public class Trip : AggregateRoot
         string? vehiclePlateNumber,
         string? notes,
         int maxPackages = 5,
-        int? passengerCapacity = null)
+        int? passengerCapacity = null,
+        TripType tripType = TripType.Passenger)
     {
         var maxPassengers = GetMaxPassengers(vehicleType);
         var actualPassengerCapacity = passengerCapacity.HasValue
@@ -78,7 +80,8 @@ public class Trip : AggregateRoot
             VehiclePlateNumber = vehiclePlateNumber,
             Notes = notes,
             MaxPackages = maxPackages,
-            PassengerCapacity = actualPassengerCapacity
+            PassengerCapacity = actualPassengerCapacity,
+            TripType = tripType
         };
 
         return trip;
@@ -218,4 +221,10 @@ public enum TripStatus
     InProgress,
     Completed,
     Cancelled
+}
+
+public enum TripType
+{
+    Passenger = 0,  // Offer a Ride — take people along
+    Delivery = 1    // Carry Along — carry packages/goods
 }

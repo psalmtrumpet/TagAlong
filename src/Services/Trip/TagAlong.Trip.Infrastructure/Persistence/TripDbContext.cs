@@ -41,6 +41,11 @@ public class TripDbContext : DbContext
             entity.Property(e => e.Status)
                 .HasConversion<string>();
 
+            entity.Property(e => e.TripType)
+                .HasConversion<string>()
+                .HasMaxLength(20)
+                .HasDefaultValue(TripType.Passenger);
+
             entity.Property(e => e.AvailableCapacity)
                 .HasPrecision(10, 2);
 
