@@ -103,6 +103,8 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
             conversation.PackageRequestId,
             conversation.SenderId,
             conversation.TravelerId,
+            null,
+            null,
             conversation.Status.ToString(),
             conversation.CreatedAt,
             conversation.UpdatedAt,
