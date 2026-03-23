@@ -6,8 +6,10 @@ using Microsoft.OpenApi.Models;
 using Serilog;
 using System.Text;
 using FluentValidation;
+using TagAlong.EventBus;
 using TagAlong.EventBus.RabbitMQ;
 using TagAlong.Messaging.API.Commands;
+using TagAlong.Messaging.API.IntegrationEvents;
 using TagAlong.Messaging.API.Hubs;
 using TagAlong.Messaging.Domain.Repositories;
 using TagAlong.Messaging.Infrastructure.Persistence;
@@ -98,6 +100,9 @@ builder.Services.AddRabbitMQEventBus(
     builder.Configuration.GetConnectionString("RabbitMQ") ?? "amqp://guest:guest@localhost:5672",
     "messaging-service-queue");
 
+// Integration event handlers
+builder.Services.AddScoped<TripStatusChangedIntegrationEventHandler>();
+
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");
@@ -170,6 +175,10 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHub<MessagingHub>("/messagingHub");
+
+// Subscribe to integration events
+var eventBus = app.Services.GetRequiredService<IEventBus>();
+eventBus.Subscribe<TripStatusChangedIntegrationEvent, TripStatusChangedIntegrationEventHandler>();
 
 // Apply migrations
 using (var scope = app.Services.CreateScope())

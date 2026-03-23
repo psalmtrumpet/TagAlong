@@ -51,6 +51,14 @@ public class ConversationRepository : IConversationRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IEnumerable<Conversation>> GetActiveByTravelerIdAsync(Guid travelerId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Conversations
+            .Where(c => c.TravelerId == travelerId &&
+                        (c.Status == ConversationStatus.Active || c.Status == ConversationStatus.Negotiating))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task AddAsync(Conversation conversation, CancellationToken cancellationToken = default)
     {
         await _context.Conversations.AddAsync(conversation, cancellationToken);

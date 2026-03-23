@@ -9,6 +9,7 @@ public interface IConversationRepository
     Task<Conversation?> GetByParticipantsAsync(Guid senderId, Guid travelerId, CancellationToken cancellationToken = default);
     Task<Conversation?> GetByPackageRequestIdAsync(Guid packageRequestId, CancellationToken cancellationToken = default);
     Task<IEnumerable<Conversation>> GetByUserIdAsync(Guid userId, int page, int pageSize, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Conversation>> GetActiveByTravelerIdAsync(Guid travelerId, CancellationToken cancellationToken = default);
     Task AddAsync(Conversation conversation, CancellationToken cancellationToken = default);
     void Update(Conversation conversation);
     Task SaveChangesAsync(CancellationToken cancellationToken = default);

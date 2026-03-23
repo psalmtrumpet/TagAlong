@@ -43,6 +43,17 @@ public class AvailabilityController : ControllerBase
     }
 
     /// <summary>
+    /// Check if a specific user is currently available (public — no auth required)
+    /// </summary>
+    [HttpGet("{userId:guid}")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetUserAvailability(Guid userId, CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new GetUserAvailabilityByIdQuery(userId), cancellationToken);
+        return Ok(new { isAvailable = result.Value });
+    }
+
+    /// <summary>
     /// Set availability status (on/off with location)
     /// </summary>
     [Authorize]
