@@ -5,6 +5,8 @@ public record ConversationDto(
     Guid? PackageRequestId,
     Guid SenderId,
     Guid TravelerId,
+    string? SenderName,
+    string? TravelerName,
     string Status,
     DateTime CreatedAt,
     DateTime? UpdatedAt,
