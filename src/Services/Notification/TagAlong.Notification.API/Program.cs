@@ -100,6 +100,7 @@ builder.Services.AddScoped<DeliveryMatchedIntegrationEventHandler>();
 builder.Services.AddScoped<DeliveryStatusChangedIntegrationEventHandler>();
 builder.Services.AddScoped<PaymentCompletedIntegrationEventHandler>();
 builder.Services.AddScoped<NegotiationMessageSentIntegrationEventHandler>();
+builder.Services.AddScoped<ConversationRequestCreatedIntegrationEventHandler>();
 
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -180,6 +181,7 @@ eventBus.Subscribe<DeliveryMatchedIntegrationEvent, DeliveryMatchedIntegrationEv
 eventBus.Subscribe<DeliveryStatusChangedIntegrationEvent, DeliveryStatusChangedIntegrationEventHandler>();
 eventBus.Subscribe<PaymentCompletedIntegrationEvent, PaymentCompletedIntegrationEventHandler>();
 eventBus.Subscribe<NegotiationMessageSentIntegrationEvent, NegotiationMessageSentIntegrationEventHandler>();
+eventBus.Subscribe<ConversationRequestCreatedIntegrationEvent, ConversationRequestCreatedIntegrationEventHandler>();
 
 // Apply migrations
 using (var scope = app.Services.CreateScope())

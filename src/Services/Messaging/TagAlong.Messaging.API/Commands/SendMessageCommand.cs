@@ -61,6 +61,11 @@ public class SendMessageCommandHandler : ICommandHandler<SendMessageCommand, Mes
             return Result.Failure<MessageDto>(Error.Unauthorized("Not authorized to send messages in this conversation"));
         }
 
+        if (conversation.Status != ConversationStatus.Active)
+        {
+            return Result.Failure<MessageDto>(new Error("Conversation.NotActive", "Chat is locked until a price is agreed."));
+        }
+
         var message = Message.CreateTextMessage(request.ConversationId, request.SenderId, request.Content);
         await _messageRepository.AddAsync(message, cancellationToken);
         await _messageRepository.SaveChangesAsync(cancellationToken);

@@ -1,7 +1,9 @@
 using FluentValidation;
 using TagAlong.Common.CQRS;
 using TagAlong.Common.Results;
+using TagAlong.EventBus;
 using TagAlong.Messaging.API.DTOs;
+using TagAlong.Messaging.API.IntegrationEvents;
 using TagAlong.Messaging.Domain.Entities;
 using TagAlong.Messaging.Domain.Repositories;
 
@@ -28,15 +30,18 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
 {
     private readonly IConversationRepository _conversationRepository;
     private readonly IMessageRepository _messageRepository;
+    private readonly IEventBus _eventBus;
     private readonly ILogger<CreateConversationCommandHandler> _logger;
 
     public CreateConversationCommandHandler(
         IConversationRepository conversationRepository,
         IMessageRepository messageRepository,
+        IEventBus eventBus,
         ILogger<CreateConversationCommandHandler> logger)
     {
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
+        _eventBus = eventBus;
         _logger = logger;
     }
 
@@ -64,6 +69,14 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
             await _messageRepository.AddAsync(initialMessage, cancellationToken);
             await _messageRepository.SaveChangesAsync(cancellationToken);
         }
+
+        // Notify the traveler they have a new request
+        await _eventBus.PublishAsync(new ConversationRequestCreatedIntegrationEvent(
+            conversation.Id,
+            request.SenderId,
+            request.TravelerId,
+            request.InitialMessage ?? "Someone wants to use your trip.",
+            DateTime.UtcNow), cancellationToken);
 
         _logger.LogInformation("Conversation {ConversationId} created between {SenderId} and {TravelerId}",
             conversation.Id, request.SenderId, request.TravelerId);

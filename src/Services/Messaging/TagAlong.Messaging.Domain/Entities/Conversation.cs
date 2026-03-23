@@ -34,6 +34,15 @@ public class Conversation : AggregateRoot
         if (Status != ConversationStatus.Pending)
             throw new InvalidOperationException("Can only accept a pending conversation");
 
+        Status = ConversationStatus.Negotiating;
+        SetUpdated();
+    }
+
+    public void ConfirmPriceAgreement()
+    {
+        if (Status != ConversationStatus.Negotiating && Status != ConversationStatus.Active)
+            throw new InvalidOperationException("Conversation is not in a state where price can be confirmed");
+
         Status = ConversationStatus.Active;
         SetUpdated();
     }
@@ -87,5 +96,6 @@ public enum ConversationStatus
     Pending,
     Active,
     Declined,
-    Closed
+    Closed,
+    Negotiating
 }
