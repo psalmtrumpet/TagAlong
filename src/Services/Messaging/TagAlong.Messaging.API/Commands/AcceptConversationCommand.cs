@@ -44,5 +44,5 @@ public class AcceptConversationCommandHandler : ICommandHandler<AcceptConversati
     }
 
     private static ConversationDto MapToDto(Conversation c) =>
-        new(c.Id, c.PackageRequestId, c.SenderId, c.TravelerId, c.Status.ToString(), c.CreatedAt, c.UpdatedAt, null);
+        new(c.Id, c.PackageRequestId, c.SenderId, c.TravelerId, null, null, c.Status.ToString(), c.CreatedAt, c.UpdatedAt, null);
 }
