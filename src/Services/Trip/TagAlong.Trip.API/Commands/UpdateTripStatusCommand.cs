@@ -82,6 +82,7 @@ public class UpdateTripStatusCommandHandler : ICommandHandler<UpdateTripStatusCo
             trip.EstimatedArrivalTime,
             trip.ActualArrivalTime,
             trip.Status.ToString(),
+            trip.TripType.ToString(),
             trip.AvailableCapacity,
             trip.VehicleType,
             trip.VehiclePlateNumber,
