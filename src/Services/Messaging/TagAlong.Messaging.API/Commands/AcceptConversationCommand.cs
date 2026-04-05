@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.SignalR;
 using TagAlong.Common.CQRS;
 using TagAlong.Common.Results;
 using TagAlong.Messaging.API.DTOs;
+using TagAlong.Messaging.API.Hubs;
 using TagAlong.Messaging.Domain.Entities;
 using TagAlong.Messaging.Domain.Repositories;
 
@@ -12,13 +14,16 @@ public class AcceptConversationCommandHandler : ICommandHandler<AcceptConversati
 {
     private readonly IConversationRepository _conversationRepository;
     private readonly IMessageRepository _messageRepository;
+    private readonly IHubContext<MessagingHub, IMessagingClient> _hubContext;
 
     public AcceptConversationCommandHandler(
         IConversationRepository conversationRepository,
-        IMessageRepository messageRepository)
+        IMessageRepository messageRepository,
+        IHubContext<MessagingHub, IMessagingClient> hubContext)
     {
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
+        _hubContext = hubContext;
     }
 
     public async Task<Result<ConversationDto>> Handle(AcceptConversationCommand request, CancellationToken cancellationToken)
@@ -40,7 +45,12 @@ public class AcceptConversationCommandHandler : ICommandHandler<AcceptConversati
 
         await _conversationRepository.SaveChangesAsync(cancellationToken);
 
-        return Result.Success(MapToDto(conversation));
+        var dto = MapToDto(conversation);
+
+        // Notify the sender (requester) in real-time that their request was accepted
+        await _hubContext.Clients.Group($"user_{conversation.SenderId}").ConversationUpdated(dto);
+
+        return Result.Success(dto);
     }
 
     private static ConversationDto MapToDto(Conversation c) =>

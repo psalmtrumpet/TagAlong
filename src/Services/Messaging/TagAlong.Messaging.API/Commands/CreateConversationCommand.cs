@@ -1,8 +1,10 @@
 using FluentValidation;
+using Microsoft.AspNetCore.SignalR;
 using TagAlong.Common.CQRS;
 using TagAlong.Common.Results;
 using TagAlong.EventBus;
 using TagAlong.Messaging.API.DTOs;
+using TagAlong.Messaging.API.Hubs;
 using TagAlong.Messaging.API.IntegrationEvents;
 using TagAlong.Messaging.Domain.Entities;
 using TagAlong.Messaging.Domain.Repositories;
@@ -30,17 +32,20 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
 {
     private readonly IConversationRepository _conversationRepository;
     private readonly IMessageRepository _messageRepository;
+    private readonly IHubContext<MessagingHub, IMessagingClient> _hubContext;
     private readonly IEventBus _eventBus;
     private readonly ILogger<CreateConversationCommandHandler> _logger;
 
     public CreateConversationCommandHandler(
         IConversationRepository conversationRepository,
         IMessageRepository messageRepository,
+        IHubContext<MessagingHub, IMessagingClient> hubContext,
         IEventBus eventBus,
         ILogger<CreateConversationCommandHandler> logger)
     {
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
+        _hubContext = hubContext;
         _eventBus = eventBus;
         _logger = logger;
     }
@@ -70,7 +75,11 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
             await _messageRepository.SaveChangesAsync(cancellationToken);
         }
 
-        // Notify the traveler they have a new request
+        // Push real-time notification to the traveler via SignalR
+        var dto = MapToDto(conversation, initialMessage);
+        await _hubContext.Clients.Group($"user_{request.TravelerId}").ConversationUpdated(dto);
+
+        // Also publish integration event (for notification API persistence)
         await _eventBus.PublishAsync(new ConversationRequestCreatedIntegrationEvent(
             conversation.Id,
             request.SenderId,
@@ -81,7 +90,7 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
         _logger.LogInformation("Conversation {ConversationId} created between {SenderId} and {TravelerId}",
             conversation.Id, request.SenderId, request.TravelerId);
 
-        return Result.Success(MapToDto(conversation, initialMessage));
+        return Result.Success(dto);
     }
 
     private static ConversationDto MapToDto(Conversation conversation, Message? lastMessage)
