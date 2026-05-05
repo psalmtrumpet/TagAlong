@@ -11,7 +11,10 @@ public record SetAvailabilityCommand(
     double? Latitude,
     double? Longitude,
     string? LocationName,
-    int? DurationMinutes) : ICommand<AvailabilityResponse>;
+    int? DurationMinutes,
+    double? TripDestinationLatitude = null,
+    double? TripDestinationLongitude = null,
+    string? TripDestinationName = null) : ICommand<AvailabilityResponse>;
 
 public class SetAvailabilityCommandHandler : ICommandHandler<SetAvailabilityCommand, AvailabilityResponse>
 {
@@ -48,6 +51,9 @@ public class SetAvailabilityCommandHandler : ICommandHandler<SetAvailabilityComm
                     request.Latitude.Value,
                     request.Longitude.Value,
                     request.LocationName,
+                    request.TripDestinationLatitude,
+                    request.TripDestinationLongitude,
+                    request.TripDestinationName,
                     duration);
             }
             else

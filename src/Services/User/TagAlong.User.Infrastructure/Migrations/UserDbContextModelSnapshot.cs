@@ -86,6 +86,11 @@ namespace TagAlong.User.Infrastructure.Migrations
                         .HasMaxLength(1024)
                         .HasColumnType("nvarchar(1024)");
 
+                    b.Property<int>("ActivePassengerCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<bool>("IsAvailable")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -121,6 +126,16 @@ namespace TagAlong.User.Infrastructure.Migrations
 
                     b.Property<int>("TotalRatings")
                         .HasColumnType("int");
+
+                    b.Property<double?>("TripDestinationLatitude")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("TripDestinationLongitude")
+                        .HasColumnType("float");
+
+                    b.Property<string>("TripDestinationName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");

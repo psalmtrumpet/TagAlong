@@ -123,7 +123,11 @@ public class SearchAvailableUsersQueryHandler : IQueryHandler<SearchAvailableUse
             u.CurrentLocationName,
             u.LocationUpdatedAt,
             u.CurrentLatitude,
-            u.CurrentLongitude));
+            u.CurrentLongitude,
+            u.TripDestinationLatitude,
+            u.TripDestinationLongitude,
+            u.TripDestinationName,
+            u.ActivePassengerCount));
 
         return Result.Success(new AvailableUsersPagedResponse(
             userResponses,

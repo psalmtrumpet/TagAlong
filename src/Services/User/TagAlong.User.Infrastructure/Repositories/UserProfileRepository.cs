@@ -103,6 +103,25 @@ public class UserProfileRepository : IUserProfileRepository
         return candidates.Count(u => u.DistanceFromKm(latitude, longitude) <= radiusKm);
     }
 
+    public async Task<IEnumerable<UserProfile>> FindHelpersAlongRouteAsync(
+        double pickupLat,
+        double pickupLng,
+        double dropoffLat,
+        double dropoffLng,
+        CancellationToken cancellationToken = default)
+    {
+        // Load all currently available helpers who have a trip destination set
+        var candidates = await _context.UserProfiles
+            .Where(u => u.IsAvailable)
+            .Where(u => u.TripDestinationLatitude.HasValue && u.TripDestinationLongitude.HasValue)
+            .Where(u => !u.AvailabilityExpiresAt.HasValue || u.AvailabilityExpiresAt > DateTime.UtcNow)
+            .Where(u => u.ActivePassengerCount < 3)
+            .ToListAsync(cancellationToken);
+
+        // Filter by bearing-based route alignment in memory
+        return candidates.Where(u => u.IsRouteAlignedWith(pickupLat, pickupLng, dropoffLat, dropoffLng));
+    }
+
     public async Task ExpireStaleAvailabilityAsync(CancellationToken cancellationToken = default)
     {
         var expiredUsers = await _context.UserProfiles
