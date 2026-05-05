@@ -6,7 +6,10 @@ public record SetAvailabilityRequest(
     double? Latitude,
     double? Longitude,
     string? LocationName,
-    int? DurationMinutes);
+    int? DurationMinutes,
+    double? TripDestinationLatitude = null,
+    double? TripDestinationLongitude = null,
+    string? TripDestinationName = null);
 
 public record UpdateLocationRequest(
     double Latitude,
@@ -56,10 +59,27 @@ public record AvailableUserResponse(
     string? LocationName,
     DateTime? LocationUpdatedAt,
     double? Latitude,
-    double? Longitude);
+    double? Longitude,
+    double? TripDestinationLatitude = null,
+    double? TripDestinationLongitude = null,
+    string? TripDestinationName = null,
+    int ActivePassengerCount = 0);
 
 public record AvailableUsersPagedResponse(
     IEnumerable<AvailableUserResponse> Users,
     int TotalCount,
     int Page,
     int PageSize);
+
+// Used for route-match hub events (helper ↔ sender notifications)
+public record RouteMatchNotification(
+    Guid ProfileId,
+    Guid AuthUserId,
+    string FirstName,
+    string LastName,
+    string? ProfileImageUrl,
+    string? CurrentLocationName,
+    string? TripDestinationName,
+    decimal AverageRating,
+    int ActivePassengerCount,
+    int AvailableSlots);

@@ -28,4 +28,15 @@ public interface IUserProfileRepository
         CancellationToken cancellationToken = default);
 
     Task ExpireStaleAvailabilityAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Find available helpers whose route (CurrentLocation → TripDestination) is aligned with
+    /// the sender's pickup location. Used for route-match notifications.
+    /// </summary>
+    Task<IEnumerable<UserProfile>> FindHelpersAlongRouteAsync(
+        double pickupLat,
+        double pickupLng,
+        double dropoffLat,
+        double dropoffLng,
+        CancellationToken cancellationToken = default);
 }

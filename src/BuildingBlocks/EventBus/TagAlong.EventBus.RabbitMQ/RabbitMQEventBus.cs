@@ -50,7 +50,7 @@ public class RabbitMQEventBus : IEventBus, IDisposable
 
         var policy = Policy.Handle<BrokerUnreachableException>()
             .Or<SocketException>()
-            .WaitAndRetryAsync(_retryCount, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
+            .WaitAndRetryAsync(_retryCount, retryAttempt => TimeSpan.FromSeconds(retryAttempt),
                 (ex, time) =>
                 {
                     _logger.LogWarning(ex, "Could not publish event: {EventId} after {Timeout}s", @event.Id, time.TotalSeconds);

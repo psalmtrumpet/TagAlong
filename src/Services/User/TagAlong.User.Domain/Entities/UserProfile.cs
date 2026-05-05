@@ -31,6 +31,14 @@ public class UserProfile : AggregateRoot
     public string? CurrentLocationName { get; private set; }
     public DateTime? LocationUpdatedAt { get; private set; }
 
+    // Trip Destination (only valid when IsAvailable = true)
+    public double? TripDestinationLatitude { get; private set; }
+    public double? TripDestinationLongitude { get; private set; }
+    public string? TripDestinationName { get; private set; }
+
+    // Passenger count for current availability session (max 3)
+    public int ActivePassengerCount { get; private set; }
+
     // Location Preferences
     public double MaxTravelRadiusKm { get; private set; } = 10.0;
     public bool AllowLocationSharing { get; private set; } = true;
@@ -118,7 +126,14 @@ public class UserProfile : AggregateRoot
     }
 
     // Availability Methods
-    public void SetAvailable(double latitude, double longitude, string? locationName, TimeSpan? duration = null)
+    public void SetAvailable(
+        double latitude,
+        double longitude,
+        string? locationName,
+        double? tripDestinationLatitude = null,
+        double? tripDestinationLongitude = null,
+        string? tripDestinationName = null,
+        TimeSpan? duration = null)
     {
         if (!AllowLocationSharing)
             throw new InvalidOperationException("Location sharing is disabled");
@@ -130,6 +145,10 @@ public class UserProfile : AggregateRoot
         CurrentLatitude = latitude;
         CurrentLongitude = longitude;
         CurrentLocationName = locationName;
+        TripDestinationLatitude = tripDestinationLatitude;
+        TripDestinationLongitude = tripDestinationLongitude;
+        TripDestinationName = tripDestinationName;
+        ActivePassengerCount = 0;
         LocationUpdatedAt = DateTime.UtcNow;
         AvailabilityStartedAt = DateTime.UtcNow;
         AvailabilityExpiresAt = duration.HasValue
@@ -144,10 +163,34 @@ public class UserProfile : AggregateRoot
         CurrentLatitude = null;
         CurrentLongitude = null;
         CurrentLocationName = null;
+        TripDestinationLatitude = null;
+        TripDestinationLongitude = null;
+        TripDestinationName = null;
+        ActivePassengerCount = 0;
         LocationUpdatedAt = null;
         AvailabilityStartedAt = null;
         AvailabilityExpiresAt = null;
         SetUpdated();
+    }
+
+    /// <summary>
+    /// Increment passenger count. Returns false if already at max (3).
+    /// </summary>
+    public bool IncrementPassengerCount()
+    {
+        if (ActivePassengerCount >= 3) return false;
+        ActivePassengerCount++;
+        SetUpdated();
+        return true;
+    }
+
+    public void DecrementPassengerCount()
+    {
+        if (ActivePassengerCount > 0)
+        {
+            ActivePassengerCount--;
+            SetUpdated();
+        }
     }
 
     public void UpdateLocation(double latitude, double longitude, string? locationName)
@@ -187,14 +230,65 @@ public class UserProfile : AggregateRoot
         if (!CurrentLatitude.HasValue || !CurrentLongitude.HasValue)
             return double.MaxValue;
 
-        const double R = 6371; // Earth's radius in km
-        var dLat = ToRadians(latitude - CurrentLatitude.Value);
-        var dLon = ToRadians(longitude - CurrentLongitude.Value);
+        return HaversineKm(CurrentLatitude.Value, CurrentLongitude.Value, latitude, longitude);
+    }
+
+    /// <summary>
+    /// Checks whether a sender's pickup (F) lies along this helper's route (current → destination).
+    /// Uses bearing comparison: if F is within 60° of the helper's direction of travel and
+    /// is not farther than the full route distance, the routes are considered aligned.
+    /// </summary>
+    public bool IsRouteAlignedWith(double pickupLat, double pickupLng, double dropoffLat, double dropoffLng)
+    {
+        if (!CurrentLatitude.HasValue || !CurrentLongitude.HasValue ||
+            !TripDestinationLatitude.HasValue || !TripDestinationLongitude.HasValue)
+            return false;
+
+        double fromLat = CurrentLatitude.Value;
+        double fromLng = CurrentLongitude.Value;
+        double toLat = TripDestinationLatitude.Value;
+        double toLng = TripDestinationLongitude.Value;
+
+        // Helper must have a meaningful route (at least 0.5 km)
+        double routeDist = HaversineKm(fromLat, fromLng, toLat, toLng);
+        if (routeDist < 0.5) return false;
+
+        // Bearing from helper start → helper destination
+        double helperBearing = CalculateBearing(fromLat, fromLng, toLat, toLng);
+
+        // Bearing from helper start → sender's pickup
+        double bearingToPickup = CalculateBearing(fromLat, fromLng, pickupLat, pickupLng);
+
+        // Angular difference — must be within 60° of helper's direction
+        double angleDiff = Math.Abs(helperBearing - bearingToPickup);
+        if (angleDiff > 180) angleDiff = 360 - angleDiff;
+        if (angleDiff > 60) return false;
+
+        // Pickup must not be farther than the helper's route distance (with 10% buffer)
+        double distToPickup = HaversineKm(fromLat, fromLng, pickupLat, pickupLng);
+        return distToPickup <= routeDist * 1.1;
+    }
+
+    private static double CalculateBearing(double lat1, double lng1, double lat2, double lng2)
+    {
+        var dLng = ToRadians(lng2 - lng1);
+        var lat1R = ToRadians(lat1);
+        var lat2R = ToRadians(lat2);
+        var y = Math.Sin(dLng) * Math.Cos(lat2R);
+        var x = Math.Cos(lat1R) * Math.Sin(lat2R) - Math.Sin(lat1R) * Math.Cos(lat2R) * Math.Cos(dLng);
+        var bearing = Math.Atan2(y, x) * 180 / Math.PI;
+        return (bearing + 360) % 360;
+    }
+
+    private static double HaversineKm(double lat1, double lng1, double lat2, double lng2)
+    {
+        const double R = 6371;
+        var dLat = ToRadians(lat2 - lat1);
+        var dLng = ToRadians(lng2 - lng1);
         var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
-                Math.Cos(ToRadians(CurrentLatitude.Value)) * Math.Cos(ToRadians(latitude)) *
-                Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
-        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
-        return R * c;
+                Math.Cos(ToRadians(lat1)) * Math.Cos(ToRadians(lat2)) *
+                Math.Sin(dLng / 2) * Math.Sin(dLng / 2);
+        return R * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
     }
 
     private static double ToRadians(double degrees) => degrees * Math.PI / 180;

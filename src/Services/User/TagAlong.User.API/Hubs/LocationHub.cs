@@ -1,6 +1,8 @@
+using System.Collections.Concurrent;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using TagAlong.User.API.DTOs;
 using TagAlong.User.Domain.Repositories;
 
 namespace TagAlong.User.API.Hubs;
@@ -12,6 +14,10 @@ public interface ILocationClient
     Task UserBecameUnavailable(Guid userId);
     Task NearbyUsersUpdated(IEnumerable<AvailableUserDto> users);
     Task AvailabilityStatusChanged(AvailabilityStatusDto status);
+
+    // Route-match notifications
+    Task HelperGoingYourWay(RouteMatchNotification helper);
+    Task SenderAlongYourRoute(RouteMatchNotification sender);
 }
 
 public record LocationUpdateDto(
@@ -30,17 +36,33 @@ public record AvailableUserDto(
     int CompletedDeliveries,
     bool IsVerified,
     double DistanceKm,
-    string? LocationName);
+    string? LocationName,
+    string? TripDestinationName = null,
+    int ActivePassengerCount = 0);
 
 public record AvailabilityStatusDto(
     bool IsAvailable,
     DateTime? ExpiresAt);
+
+/// <summary>
+/// In-memory record of a sender's active trip route subscription.
+/// Cleared when the connection disconnects.
+/// </summary>
+public record ActiveTripSubscription(
+    Guid SenderAuthUserId,
+    double PickupLat,
+    double PickupLng,
+    double DropoffLat,
+    double DropoffLng);
 
 [Authorize]
 public class LocationHub : Hub<ILocationClient>
 {
     private readonly IUserProfileRepository _userProfileRepository;
     private readonly ILogger<LocationHub> _logger;
+
+    // connectionId → active trip route (for route-match push when helper goes available)
+    private static readonly ConcurrentDictionary<string, ActiveTripSubscription> _activeTripSubs = new();
 
     public LocationHub(
         IUserProfileRepository userProfileRepository,
@@ -80,6 +102,9 @@ public class LocationHub : Hub<ILocationClient>
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"user_{userId}");
             _logger.LogInformation("User {UserId} disconnected from LocationHub", userId);
         }
+
+        // Clean up any active trip route subscription for this connection
+        _activeTripSubs.TryRemove(Context.ConnectionId, out _);
 
         await base.OnDisconnectedAsync(exception);
     }
@@ -126,9 +151,16 @@ public class LocationHub : Hub<ILocationClient>
     }
 
     /// <summary>
-    /// Set availability status
+    /// Set availability status with optional trip destination for route matching.
     /// </summary>
-    public async Task SetAvailable(double latitude, double longitude, string? locationName, int? durationMinutes)
+    public async Task SetAvailable(
+        double latitude,
+        double longitude,
+        string? locationName,
+        int? durationMinutes,
+        double? tripDestLat = null,
+        double? tripDestLng = null,
+        string? tripDestName = null)
     {
         var userId = GetUserId();
         if (!userId.HasValue) return;
@@ -142,7 +174,7 @@ public class LocationHub : Hub<ILocationClient>
                 ? TimeSpan.FromMinutes(durationMinutes.Value)
                 : (TimeSpan?)null;
 
-            profile.SetAvailable(latitude, longitude, locationName, duration);
+            profile.SetAvailable(latitude, longitude, locationName, tripDestLat, tripDestLng, tripDestName, duration);
             _userProfileRepository.Update(profile);
             await _userProfileRepository.SaveChangesAsync();
 
@@ -163,9 +195,17 @@ public class LocationHub : Hub<ILocationClient>
                 profile.CompletedDeliveries,
                 profile.IsVerified,
                 0,
-                locationName));
+                locationName,
+                tripDestName,
+                profile.ActivePassengerCount));
 
-            _logger.LogInformation("User {UserId} became available at ({Lat}, {Lon})", userId, latitude, longitude);
+            // Route-match: notify any senders with pending trips aligned with this helper's route
+            if (tripDestLat.HasValue && tripDestLng.HasValue)
+            {
+                await NotifyMatchingSendersOfHelper(profile, userId.Value);
+            }
+
+            _logger.LogInformation("User {UserId} became available at ({Lat}, {Lon}), dest: {Dest}", userId, latitude, longitude, tripDestName);
         }
         catch (InvalidOperationException ex)
         {
@@ -246,7 +286,9 @@ public class LocationHub : Hub<ILocationClient>
             u.CompletedDeliveries,
             u.IsVerified,
             Math.Round(u.DistanceFromKm(latitude, longitude), 2),
-            u.CurrentLocationName));
+            u.CurrentLocationName,
+            u.TripDestinationName,
+            u.ActivePassengerCount));
 
         await Clients.Caller.NearbyUsersUpdated(userDtos);
     }
@@ -260,6 +302,92 @@ public class LocationHub : Hub<ILocationClient>
         foreach (var cell in cells)
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, cell);
+        }
+    }
+
+    /// <summary>
+    /// Called by a sender when they create a carry-along trip.
+    /// Registers the route in memory so helpers going that direction notify them.
+    /// Also immediately checks for any already-available helpers along the route
+    /// and sends a SenderAlongYourRoute event to each matching helper.
+    /// </summary>
+    public async Task RegisterSenderTrip(
+        double pickupLat, double pickupLng,
+        double dropoffLat, double dropoffLng)
+    {
+        var userId = GetUserId();
+        if (!userId.HasValue) return;
+
+        // Store in-memory subscription for this connection
+        _activeTripSubs[Context.ConnectionId] = new ActiveTripSubscription(
+            userId.Value, pickupLat, pickupLng, dropoffLat, dropoffLng);
+
+        // Find any currently available helpers whose route aligns
+        var matchingHelpers = await _userProfileRepository.FindHelpersAlongRouteAsync(
+            pickupLat, pickupLng, dropoffLat, dropoffLng);
+
+        foreach (var helper in matchingHelpers)
+        {
+            if (helper.AuthUserId == userId.Value) continue; // skip self
+
+            // Notify sender that this helper is going their way
+            await Clients.Caller.HelperGoingYourWay(new RouteMatchNotification(
+                helper.Id,
+                helper.AuthUserId,
+                helper.FirstName,
+                helper.LastName,
+                helper.ProfileImageUrl,
+                helper.CurrentLocationName,
+                helper.TripDestinationName,
+                helper.AverageRating,
+                helper.ActivePassengerCount,
+                3 - helper.ActivePassengerCount));
+
+            // Notify the helper that a sender along their route just posted a trip
+            await Clients.Group($"user_{helper.AuthUserId}").SenderAlongYourRoute(new RouteMatchNotification(
+                Guid.Empty, // sender profile ID not needed for helper side
+                userId.Value,
+                string.Empty,
+                string.Empty,
+                null,
+                null,
+                null,
+                0,
+                0,
+                0));
+        }
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// When a helper goes available, notify all senders with in-memory trip subscriptions
+    /// whose route aligns with this helper's destination.
+    /// </summary>
+    private async Task NotifyMatchingSendersOfHelper(
+        TagAlong.User.Domain.Entities.UserProfile helperProfile,
+        Guid helperAuthUserId)
+    {
+        foreach (var kvp in _activeTripSubs)
+        {
+            var sub = kvp.Value;
+            if (sub.SenderAuthUserId == helperAuthUserId) continue; // skip self
+
+            if (helperProfile.IsRouteAlignedWith(sub.PickupLat, sub.PickupLng, sub.DropoffLat, sub.DropoffLng))
+            {
+                // Notify the sender that a helper is going their way
+                await Clients.Group($"user_{sub.SenderAuthUserId}").HelperGoingYourWay(new RouteMatchNotification(
+                    helperProfile.Id,
+                    helperAuthUserId,
+                    helperProfile.FirstName,
+                    helperProfile.LastName,
+                    helperProfile.ProfileImageUrl,
+                    helperProfile.CurrentLocationName,
+                    helperProfile.TripDestinationName,
+                    helperProfile.AverageRating,
+                    helperProfile.ActivePassengerCount,
+                    3 - helperProfile.ActivePassengerCount));
+            }
         }
     }
 

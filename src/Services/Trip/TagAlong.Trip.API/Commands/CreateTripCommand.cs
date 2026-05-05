@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using TagAlong.Common.CQRS;
 using TagAlong.Common.Results;
 using TagAlong.EventBus;
@@ -29,11 +30,13 @@ public class CreateTripCommandHandler : ICommandHandler<CreateTripCommand, TripR
 {
     private readonly ITripRepository _tripRepository;
     private readonly IEventBus _eventBus;
+    private readonly ILogger<CreateTripCommandHandler> _logger;
 
-    public CreateTripCommandHandler(ITripRepository tripRepository, IEventBus eventBus)
+    public CreateTripCommandHandler(ITripRepository tripRepository, IEventBus eventBus, ILogger<CreateTripCommandHandler> logger)
     {
         _tripRepository = tripRepository;
         _eventBus = eventBus;
+        _logger = logger;
     }
 
     public async Task<Result<TripResponse>> Handle(CreateTripCommand request, CancellationToken cancellationToken)
@@ -70,16 +73,23 @@ public class CreateTripCommandHandler : ICommandHandler<CreateTripCommand, TripR
         await _tripRepository.AddAsync(trip, cancellationToken);
         await _tripRepository.SaveChangesAsync(cancellationToken);
 
-        await _eventBus.PublishAsync(new TripCreatedIntegrationEvent(
-            trip.Id,
-            trip.TravelerId,
-            trip.Origin,
-            trip.Destination,
-            trip.Stops.Select(s => s.Location).ToList(),
-            trip.DepartureTime,
-            trip.EstimatedArrivalTime,
-            trip.AvailableCapacity,
-            DateTime.UtcNow), cancellationToken);
+        try
+        {
+            await _eventBus.PublishAsync(new TripCreatedIntegrationEvent(
+                trip.Id,
+                trip.TravelerId,
+                trip.Origin,
+                trip.Destination,
+                trip.Stops.Select(s => s.Location).ToList(),
+                trip.DepartureTime,
+                trip.EstimatedArrivalTime,
+                trip.AvailableCapacity,
+                DateTime.UtcNow), cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to publish TripCreatedIntegrationEvent for trip {TripId}", trip.Id);
+        }
 
         return Result.Success(MapToResponse(trip));
     }

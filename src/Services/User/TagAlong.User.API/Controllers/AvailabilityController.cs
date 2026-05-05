@@ -72,7 +72,10 @@ public class AvailabilityController : ControllerBase
             request.Latitude,
             request.Longitude,
             request.LocationName,
-            request.DurationMinutes);
+            request.DurationMinutes,
+            request.TripDestinationLatitude,
+            request.TripDestinationLongitude,
+            request.TripDestinationName);
 
         var result = await _mediator.Send(command, cancellationToken);
 

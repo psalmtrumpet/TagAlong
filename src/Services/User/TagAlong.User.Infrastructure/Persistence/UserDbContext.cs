@@ -73,6 +73,17 @@ public class UserDbContext : DbContext
 
             entity.Property(e => e.LocationUpdatedAt);
 
+            // Trip Destination
+            entity.Property(e => e.TripDestinationLatitude);
+            entity.Property(e => e.TripDestinationLongitude);
+
+            entity.Property(e => e.TripDestinationName)
+                .HasMaxLength(256);
+
+            entity.Property(e => e.ActivePassengerCount)
+                .IsRequired()
+                .HasDefaultValue(0);
+
             // Location Preferences
             entity.Property(e => e.MaxTravelRadiusKm)
                 .IsRequired()
