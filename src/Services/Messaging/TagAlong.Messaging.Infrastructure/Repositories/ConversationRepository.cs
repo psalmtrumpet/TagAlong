@@ -44,7 +44,9 @@ public class ConversationRepository : IConversationRepository
     public async Task<IEnumerable<Conversation>> GetByUserIdAsync(Guid userId, int page, int pageSize, CancellationToken cancellationToken = default)
     {
         return await _context.Conversations
-            .Where(c => c.SenderId == userId || c.TravelerId == userId)
+            .Where(c => (c.SenderId == userId || c.TravelerId == userId)
+                     && c.Status != ConversationStatus.Closed
+                     && c.Status != ConversationStatus.Declined)
             .OrderByDescending(c => c.UpdatedAt ?? c.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
