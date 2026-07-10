@@ -51,7 +51,7 @@ public class TripRepository : ITripRepository
     {
         var query = _context.Trips
             .Include(t => t.Stops)
-            .Where(t => t.Status == TripStatus.Scheduled && t.DepartureTime > DateTime.UtcNow);
+            .Where(t => t.Status == TripStatus.Scheduled && t.DepartureTime.Date >= DateTime.UtcNow.Date);
 
         if (tripType.HasValue)
             query = query.Where(t => t.TripType == tripType.Value);
