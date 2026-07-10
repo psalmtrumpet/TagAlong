@@ -7,6 +7,8 @@ public class Conversation : AggregateRoot
     public Guid? PackageRequestId { get; private set; }
     public Guid SenderId { get; private set; }
     public Guid TravelerId { get; private set; }
+    public Guid? RecipientUserId { get; private set; }
+    public string? RecipientName { get; private set; }
     public ConversationStatus Status { get; private set; } = ConversationStatus.Active;
 
     private readonly List<Message> _messages = new();
@@ -18,14 +20,18 @@ public class Conversation : AggregateRoot
         Guid senderId,
         Guid travelerId,
         Guid? packageRequestId = null,
-        bool startAsPending = true)
+        bool startAsPending = true,
+        Guid? recipientUserId = null,
+        string? recipientName = null)
     {
         return new Conversation
         {
             SenderId = senderId,
             TravelerId = travelerId,
             PackageRequestId = packageRequestId,
-            Status = startAsPending ? ConversationStatus.Pending : ConversationStatus.Active
+            Status = startAsPending ? ConversationStatus.Pending : ConversationStatus.Active,
+            RecipientUserId = recipientUserId,
+            RecipientName = recipientName
         };
     }
 

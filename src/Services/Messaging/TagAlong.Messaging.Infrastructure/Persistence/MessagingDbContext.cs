@@ -27,6 +27,8 @@ public class MessagingDbContext : DbContext
             entity.Property(c => c.SenderId).HasColumnName("sender_id").IsRequired();
             entity.Property(c => c.TravelerId).HasColumnName("traveler_id").IsRequired();
             entity.Property(c => c.Status).HasColumnName("status").HasConversion<string>().IsRequired();
+            entity.Property(c => c.RecipientUserId).HasColumnName("recipient_user_id");
+            entity.Property(c => c.RecipientName).HasColumnName("recipient_name").HasMaxLength(200);
             entity.Property(c => c.CreatedAt).HasColumnName("created_at").IsRequired();
             entity.Property(c => c.UpdatedAt).HasColumnName("updated_at");
 

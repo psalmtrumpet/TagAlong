@@ -81,6 +81,18 @@ public class UsersController : ControllerBase
         return Ok(result.Value);
     }
 
+    [Authorize]
+    [HttpGet("search")]
+    [ProducesResponseType(typeof(IEnumerable<UserSearchResultDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> SearchUsers([FromQuery] string q, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(q) || q.Trim().Length < 3)
+            return Ok(Array.Empty<UserSearchResultDto>());
+
+        var result = await _mediator.Send(new SearchUsersQuery(q), cancellationToken);
+        return Ok(result.Value);
+    }
+
     private Guid? GetCurrentUserId()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

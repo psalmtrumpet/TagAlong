@@ -10,7 +10,9 @@ public record ConversationDto(
     string Status,
     DateTime CreatedAt,
     DateTime? UpdatedAt,
-    MessageDto? LastMessage);
+    MessageDto? LastMessage,
+    Guid? RecipientUserId = null,
+    string? RecipientName = null);
 
 public record MessageDto(
     Guid Id,
@@ -25,7 +27,9 @@ public record MessageDto(
 public record CreateConversationRequest(
     Guid TravelerId,
     Guid? PackageRequestId,
-    string? InitialMessage);
+    string? InitialMessage,
+    Guid? RecipientUserId = null,
+    string? RecipientName = null);
 
 public record SendMessageRequest(
     string Content);

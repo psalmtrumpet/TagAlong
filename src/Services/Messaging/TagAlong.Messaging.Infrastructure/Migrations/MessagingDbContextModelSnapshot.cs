@@ -43,6 +43,15 @@ namespace TagAlong.Messaging.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("package_request_id");
 
+                    b.Property<Guid?>("RecipientUserId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("recipient_user_id");
+
+                    b.Property<string>("RecipientName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("recipient_name");
+
                     b.Property<Guid>("SenderId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("sender_id");
