@@ -34,3 +34,8 @@ public record UserPublicProfileResponse(
     int CompletedDeliveries,
     int CompletedTrips,
     bool IsVerified);
+
+public record UserSearchResultDto(
+    string UserId,
+    string DisplayName,
+    string? Email);

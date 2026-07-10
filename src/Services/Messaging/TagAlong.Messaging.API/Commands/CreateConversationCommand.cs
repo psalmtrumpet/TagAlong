@@ -15,7 +15,9 @@ public record CreateConversationCommand(
     Guid SenderId,
     Guid TravelerId,
     Guid? PackageRequestId,
-    string? InitialMessage) : ICommand<ConversationDto>;
+    string? InitialMessage,
+    Guid? RecipientUserId = null,
+    string? RecipientName = null) : ICommand<ConversationDto>;
 
 public class CreateConversationCommandValidator : AbstractValidator<CreateConversationCommand>
 {
@@ -63,7 +65,9 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
             return Result.Success(MapToDto(existingConversation, null));
         }
 
-        var conversation = Conversation.Create(request.SenderId, request.TravelerId, request.PackageRequestId);
+        var conversation = Conversation.Create(
+            request.SenderId, request.TravelerId, request.PackageRequestId,
+            recipientUserId: request.RecipientUserId, recipientName: request.RecipientName);
         await _conversationRepository.AddAsync(conversation, cancellationToken);
         await _conversationRepository.SaveChangesAsync(cancellationToken);
 
@@ -117,6 +121,8 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
             conversation.Status.ToString(),
             conversation.CreatedAt,
             conversation.UpdatedAt,
-            lastMessageDto);
+            lastMessageDto,
+            conversation.RecipientUserId,
+            conversation.RecipientName);
     }
 }

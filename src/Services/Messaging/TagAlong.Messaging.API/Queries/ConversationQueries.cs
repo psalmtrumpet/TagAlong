@@ -71,7 +71,9 @@ public class GetConversationByIdQueryHandler : IQueryHandler<GetConversationById
             conversation.Status.ToString(),
             conversation.CreatedAt,
             conversation.UpdatedAt,
-            lastMessageDto);
+            lastMessageDto,
+            conversation.RecipientUserId,
+            conversation.RecipientName);
     }
 }
 
@@ -147,7 +149,9 @@ public class GetUserConversationsQueryHandler : IQueryHandler<GetUserConversatio
             conversation.Status.ToString(),
             conversation.CreatedAt,
             conversation.UpdatedAt,
-            lastMessageDto);
+            lastMessageDto,
+            conversation.RecipientUserId,
+            conversation.RecipientName);
     }
 }
 

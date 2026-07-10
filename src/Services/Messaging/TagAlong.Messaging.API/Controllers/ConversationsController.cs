@@ -48,7 +48,8 @@ public class ConversationsController : ControllerBase
         if (result.IsFailure || result.Value == null)
             return NotFound();
 
-        if (result.Value.SenderId != userId && result.Value.TravelerId != userId)
+        if (result.Value.SenderId != userId && result.Value.TravelerId != userId
+            && result.Value.RecipientUserId != userId)
             return Forbid();
 
         return Ok(result.Value);
@@ -91,7 +92,9 @@ public class ConversationsController : ControllerBase
             userId.Value,
             request.TravelerId,
             request.PackageRequestId,
-            request.InitialMessage);
+            request.InitialMessage,
+            request.RecipientUserId,
+            request.RecipientName);
 
         var result = await _mediator.Send(command, cancellationToken);
         if (result.IsFailure)
