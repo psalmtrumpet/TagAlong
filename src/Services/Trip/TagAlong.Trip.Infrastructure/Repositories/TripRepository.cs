@@ -84,20 +84,14 @@ public class TripRepository : ITripRepository
 
         if (destLat.HasValue && destLon.HasValue)
         {
-            var pLat = destLat.Value;
-            var pLon = destLon.Value;
-            var latTol = radiusKm / 111.0;
-            var lonTol = radiusKm / (111.0 * Math.Cos(pLat * Math.PI / 180));
+            var minDestLat = destLat.Value - (radiusKm / 111.0);
+            var maxDestLat = destLat.Value + (radiusKm / 111.0);
+            var minDestLon = destLon.Value - (radiusKm / (111.0 * Math.Cos(destLat.Value * Math.PI / 180)));
+            var maxDestLon = destLon.Value + (radiusKm / (111.0 * Math.Cos(destLat.Value * Math.PI / 180)));
 
-            // Passenger's destination must fall within the trip's route corridor
-            // (bounding box from trip origin to destination, expanded by radiusKm).
-            // This allows finding trips where the passenger's stop is along the way,
-            // not just trips whose final destination matches.
             query = query.Where(t =>
-                pLat >= (t.OriginLatitude < t.DestinationLatitude ? t.OriginLatitude : t.DestinationLatitude) - latTol &&
-                pLat <= (t.OriginLatitude > t.DestinationLatitude ? t.OriginLatitude : t.DestinationLatitude) + latTol &&
-                pLon >= (t.OriginLongitude < t.DestinationLongitude ? t.OriginLongitude : t.DestinationLongitude) - lonTol &&
-                pLon <= (t.OriginLongitude > t.DestinationLongitude ? t.OriginLongitude : t.DestinationLongitude) + lonTol);
+                t.DestinationLatitude >= minDestLat && t.DestinationLatitude <= maxDestLat &&
+                t.DestinationLongitude >= minDestLon && t.DestinationLongitude <= maxDestLon);
         }
 
         return await query
