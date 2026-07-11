@@ -148,6 +148,28 @@ public class TripsController : ControllerBase
     }
 
     [Authorize]
+    [HttpPatch("{id:guid}/departure-time")]
+    [ProducesResponseType(typeof(TripResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateDepartureTime(Guid id, [FromBody] UpdateDepartureTimeRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var command = new UpdateDepartureTimeCommand(id, userId.Value, request.DepartureTime);
+        var result = await _mediator.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return result.Error.Code.Contains("NotFound")
+                ? NotFound(new { error = result.Error.Message })
+                : BadRequest(new { error = result.Error.Message });
+        }
+
+        return Ok(result.Value);
+    }
+
+    [Authorize]
     [HttpPut("{id:guid}/location")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -196,3 +218,4 @@ public class TripsController : ControllerBase
 }
 
 public record UpdateTripStatusRequest(string Status);
+public record UpdateDepartureTimeRequest(DateTime DepartureTime);
