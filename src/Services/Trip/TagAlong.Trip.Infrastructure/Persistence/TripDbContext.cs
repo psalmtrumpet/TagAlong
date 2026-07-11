@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using NetTopologySuite.Geometries;
 using TagAlong.Trip.Domain.Entities;
 
 namespace TagAlong.Trip.Infrastructure.Persistence;
@@ -53,6 +54,15 @@ public class TripDbContext : DbContext
             entity.HasIndex(e => e.DepartureTime);
             entity.HasIndex(e => new { e.OriginLatitude, e.OriginLongitude });
             entity.HasIndex(e => new { e.DestinationLatitude, e.DestinationLongitude });
+
+            entity.Property(e => e.RouteLine)
+                .HasColumnType("geography")
+                .IsRequired(false);
+
+            entity.Property(e => e.RouteStatus)
+                .HasConversion<string>()
+                .HasMaxLength(20)
+                .HasDefaultValue(TripRouteStatus.None);
 
             entity.HasMany(e => e.Stops)
                 .WithOne()
