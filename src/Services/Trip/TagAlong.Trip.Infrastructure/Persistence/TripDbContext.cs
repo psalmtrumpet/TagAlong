@@ -55,6 +55,9 @@ public class TripDbContext : DbContext
             entity.HasIndex(e => new { e.OriginLatitude, e.OriginLongitude });
             entity.HasIndex(e => new { e.DestinationLatitude, e.DestinationLongitude });
 
+            entity.Property(e => e.OriginalDurationSeconds)
+                .IsRequired(false);
+
             entity.Property(e => e.RouteLine)
                 .HasColumnType("geography")
                 .IsRequired(false);

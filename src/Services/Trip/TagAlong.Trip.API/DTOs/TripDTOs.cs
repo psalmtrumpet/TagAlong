@@ -85,4 +85,7 @@ public record SearchTripsRequest(
     double RadiusKm = 10,
     int Page = 1,
     int PageSize = 20,
-    string? TripType = null);
+    string? TripType = null,
+    bool SkipDetourCheck = false,
+    int MaxDetourSeconds = 600,
+    int DetourTopN = 10);
