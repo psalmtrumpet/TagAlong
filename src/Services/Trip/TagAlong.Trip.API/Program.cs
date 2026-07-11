@@ -79,8 +79,11 @@ builder.Services.AddHttpClient<GoogleDirectionsClient>(client =>
     client.Timeout = TimeSpan.FromSeconds(
         builder.Configuration.GetValue<int>("GoogleMaps:DirectionsTimeoutSeconds", 5));
 });
+builder.Services.AddScoped<IGoogleDirectionsClient>(sp => sp.GetRequiredService<GoogleDirectionsClient>());
 
 builder.Services.AddScoped<ITripRouteService, TripRouteService>();
+builder.Services.AddScoped<IDetourVerifier, DetourVerifier>();
+builder.Services.AddMemoryCache();
 
 builder.Services.AddScoped<ITripRepository, TripRepository>();
 

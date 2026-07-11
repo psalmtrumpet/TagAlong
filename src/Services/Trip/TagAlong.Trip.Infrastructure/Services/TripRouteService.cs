@@ -8,12 +8,12 @@ namespace TagAlong.Trip.Infrastructure.Services;
 public class TripRouteService : ITripRouteService
 {
     private readonly IDbContextFactory<TripDbContext> _dbFactory;
-    private readonly GoogleDirectionsClient _directionsClient;
+    private readonly IGoogleDirectionsClient _directionsClient;
     private readonly ILogger<TripRouteService> _logger;
 
     public TripRouteService(
         IDbContextFactory<TripDbContext> dbFactory,
-        GoogleDirectionsClient directionsClient,
+        IGoogleDirectionsClient directionsClient,
         ILogger<TripRouteService> logger)
     {
         _dbFactory = dbFactory;
@@ -35,19 +35,20 @@ public class TripRouteService : ITripRouteService
             db.Trips.Update(trip);
             await db.SaveChangesAsync();
 
-            var routeLine = await _directionsClient.GetRouteAsync(
+            var routeInfo = await _directionsClient.GetRouteAsync(
                 trip.OriginLatitude, trip.OriginLongitude,
                 trip.DestinationLatitude, trip.DestinationLongitude);
 
-            if (routeLine is null)
+            if (routeInfo is null)
             {
                 trip.MarkRouteStatus(TripRouteStatus.Failed);
                 _logger.LogWarning("No route returned from Directions API for trip {TripId}", tripId);
             }
             else
             {
-                trip.SetRoute(routeLine);
-                _logger.LogInformation("Route stored for trip {TripId} ({Points} pts)", tripId, routeLine.NumPoints);
+                trip.SetRoute(routeInfo.RouteLine, routeInfo.DurationSeconds);
+                _logger.LogInformation("Route stored for trip {TripId} ({Points} pts, {Secs}s)",
+                    tripId, routeInfo.RouteLine.NumPoints, routeInfo.DurationSeconds);
             }
         }
         catch (Exception ex)

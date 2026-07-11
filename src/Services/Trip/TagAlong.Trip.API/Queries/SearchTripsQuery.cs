@@ -2,6 +2,7 @@ using TagAlong.Common.CQRS;
 using TagAlong.Common.Results;
 using TagAlong.Trip.API.DTOs;
 using TagAlong.Trip.Domain.Repositories;
+using TagAlong.Trip.Infrastructure.Services;
 
 namespace TagAlong.Trip.API.Queries;
 
@@ -16,15 +17,20 @@ public record SearchTripsQuery(
     double RadiusKm,
     int Page,
     int PageSize,
-    string? TripType = null) : IQuery<List<TripResponse>>;
+    string? TripType = null,
+    bool SkipDetourCheck = false,
+    int MaxDetourSeconds = 600,
+    int DetourTopN = 10) : IQuery<List<TripResponse>>;
 
 public class SearchTripsQueryHandler : IQueryHandler<SearchTripsQuery, List<TripResponse>>
 {
     private readonly ITripRepository _tripRepository;
+    private readonly IDetourVerifier _detourVerifier;
 
-    public SearchTripsQueryHandler(ITripRepository tripRepository)
+    public SearchTripsQueryHandler(ITripRepository tripRepository, IDetourVerifier detourVerifier)
     {
         _tripRepository = tripRepository;
+        _detourVerifier = detourVerifier;
     }
 
     public async Task<Result<List<TripResponse>>> Handle(SearchTripsQuery request, CancellationToken cancellationToken)
@@ -48,7 +54,22 @@ public class SearchTripsQueryHandler : IQueryHandler<SearchTripsQuery, List<Trip
             cancellationToken,
             tripTypeFilter);
 
-        return Result.Success(trips.Select(trip => new TripResponse(
+        // Run detour verification when all four coordinates are present and check is not skipped.
+        IEnumerable<Domain.Entities.Trip> finalTrips = trips;
+        if (!request.SkipDetourCheck &&
+            request.OriginLatitude.HasValue && request.OriginLongitude.HasValue &&
+            request.DestinationLatitude.HasValue && request.DestinationLongitude.HasValue)
+        {
+            finalTrips = await _detourVerifier.VerifyAndRankAsync(
+                trips,
+                request.OriginLatitude.Value, request.OriginLongitude.Value,
+                request.DestinationLatitude.Value, request.DestinationLongitude.Value,
+                request.MaxDetourSeconds,
+                request.DetourTopN,
+                cancellationToken);
+        }
+
+        return Result.Success(finalTrips.Select(trip => new TripResponse(
             trip.Id,
             trip.TravelerId,
             trip.Origin,

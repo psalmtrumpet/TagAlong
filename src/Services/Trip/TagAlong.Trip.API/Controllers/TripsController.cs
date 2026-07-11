@@ -34,7 +34,10 @@ public class TripsController : ControllerBase
             request.RadiusKm,
             request.Page,
             request.PageSize,
-            request.TripType);
+            request.TripType,
+            request.SkipDetourCheck,
+            request.MaxDetourSeconds,
+            request.DetourTopN);
 
         var result = await _mediator.Send(query, cancellationToken);
 

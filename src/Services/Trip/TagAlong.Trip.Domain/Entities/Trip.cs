@@ -30,6 +30,7 @@ public class Trip : AggregateRoot
     public DateTime? LocationUpdatedAt { get; private set; }
     public LineString? RouteLine { get; private set; }
     public TripRouteStatus RouteStatus { get; private set; } = TripRouteStatus.None;
+    public int? OriginalDurationSeconds { get; private set; }
 
     private readonly List<TripStop> _stops = new();
     public IReadOnlyCollection<TripStop> Stops => _stops.AsReadOnly();
@@ -132,9 +133,10 @@ public class Trip : AggregateRoot
         SetUpdated();
     }
 
-    public void SetRoute(LineString routeLine)
+    public void SetRoute(LineString routeLine, int originalDurationSeconds)
     {
         RouteLine = routeLine;
+        OriginalDurationSeconds = originalDurationSeconds;
         RouteStatus = TripRouteStatus.Stored;
         SetUpdated();
     }
