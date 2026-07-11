@@ -57,9 +57,7 @@ public class TripRepository : ITripRepository
             query = query.Where(t => t.TripType == tripType.Value);
 
         if (!string.IsNullOrEmpty(origin))
-        {
             query = query.Where(t => t.Origin.ToLower().Contains(origin.ToLower()));
-        }
 
         if (departureDate.HasValue)
         {
@@ -68,37 +66,89 @@ public class TripRepository : ITripRepository
             query = query.Where(t => t.DepartureTime >= startOfDay && t.DepartureTime < endOfDay);
         }
 
-        // Note: For proper geospatial queries, consider using PostGIS extension
-        // This is a simplified version
+        // SQL bounding-box pre-filter for trip origin (fast, approximate).
         if (originLat.HasValue && originLon.HasValue)
         {
-            var minLat = originLat.Value - (radiusKm / 111.0);
-            var maxLat = originLat.Value + (radiusKm / 111.0);
-            var minLon = originLon.Value - (radiusKm / (111.0 * Math.Cos(originLat.Value * Math.PI / 180)));
-            var maxLon = originLon.Value + (radiusKm / (111.0 * Math.Cos(originLat.Value * Math.PI / 180)));
-
+            var latDelta = radiusKm / 111.0;
+            var lonDelta = radiusKm / (111.0 * Math.Cos(originLat.Value * Math.PI / 180));
             query = query.Where(t =>
-                t.OriginLatitude >= minLat && t.OriginLatitude <= maxLat &&
-                t.OriginLongitude >= minLon && t.OriginLongitude <= maxLon);
+                t.OriginLatitude  >= originLat.Value - latDelta && t.OriginLatitude  <= originLat.Value + latDelta &&
+                t.OriginLongitude >= originLon.Value - lonDelta && t.OriginLongitude <= originLon.Value + lonDelta);
         }
 
+        // SQL loose pre-filter for destination: keep any trip whose route bounding
+        // box (expanded by radiusKm) contains the passenger's destination.
+        // The exact "along the route" check is done in-memory below.
         if (destLat.HasValue && destLon.HasValue)
         {
-            var minDestLat = destLat.Value - (radiusKm / 111.0);
-            var maxDestLat = destLat.Value + (radiusKm / 111.0);
-            var minDestLon = destLon.Value - (radiusKm / (111.0 * Math.Cos(destLat.Value * Math.PI / 180)));
-            var maxDestLon = destLon.Value + (radiusKm / (111.0 * Math.Cos(destLat.Value * Math.PI / 180)));
-
+            var latTol = radiusKm / 111.0;
+            var lonTol = radiusKm / (111.0 * Math.Cos(destLat.Value * Math.PI / 180));
             query = query.Where(t =>
-                t.DestinationLatitude >= minDestLat && t.DestinationLatitude <= maxDestLat &&
-                t.DestinationLongitude >= minDestLon && t.DestinationLongitude <= maxDestLon);
+                destLat.Value >= Math.Min(t.OriginLatitude,  t.DestinationLatitude)  - latTol &&
+                destLat.Value <= Math.Max(t.OriginLatitude,  t.DestinationLatitude)  + latTol &&
+                destLon.Value >= Math.Min(t.OriginLongitude, t.DestinationLongitude) - lonTol &&
+                destLon.Value <= Math.Max(t.OriginLongitude, t.DestinationLongitude) + lonTol);
         }
 
-        return await query
+        var candidates = await query
             .OrderBy(t => t.DepartureTime)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
             .ToListAsync(cancellationToken);
+
+        // Exact in-memory filters using Haversine / point-to-segment distance.
+        if (originLat.HasValue && originLon.HasValue)
+            candidates = candidates
+                .Where(t => HaversineKm(originLat.Value, originLon.Value, t.OriginLatitude, t.OriginLongitude) <= radiusKm)
+                .ToList();
+
+        if (destLat.HasValue && destLon.HasValue)
+            candidates = candidates
+                .Where(t => PointToSegmentKm(
+                    destLat.Value, destLon.Value,
+                    t.OriginLatitude, t.OriginLongitude,
+                    t.DestinationLatitude, t.DestinationLongitude) <= radiusKm)
+                .ToList();
+
+        return candidates
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize);
+    }
+
+    // Haversine great-circle distance between two points (km).
+    private static double HaversineKm(double lat1, double lon1, double lat2, double lon2)
+    {
+        const double R = 6371.0;
+        var dLat = (lat2 - lat1) * Math.PI / 180;
+        var dLon = (lon2 - lon1) * Math.PI / 180;
+        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2)
+              + Math.Cos(lat1 * Math.PI / 180) * Math.Cos(lat2 * Math.PI / 180)
+              * Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+        return R * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+    }
+
+    // Shortest distance (km) from point P to segment A→B.
+    // Uses a local flat-Earth projection centred on A — accurate for distances < ~200 km.
+    private static double PointToSegmentKm(
+        double pLat, double pLon,
+        double aLat, double aLon,
+        double bLat, double bLon)
+    {
+        const double KmPerDeg = 111.0;
+        double cosLat = Math.Cos((aLat + bLat) / 2 * Math.PI / 180);
+
+        double px = (pLon - aLon) * KmPerDeg * cosLat;
+        double py = (pLat - aLat) * KmPerDeg;
+        double bx = (bLon - aLon) * KmPerDeg * cosLat;
+        double by = (bLat - aLat) * KmPerDeg;
+
+        double segLenSq = bx * bx + by * by;
+        if (segLenSq < 1e-10)
+            return Math.Sqrt(px * px + py * py); // A == B, distance to that point
+
+        // Project P onto the segment, clamp t to [0,1] so we stay on the segment.
+        double t = Math.Clamp((px * bx + py * by) / segLenSq, 0.0, 1.0);
+        double dx = px - t * bx;
+        double dy = py - t * by;
+        return Math.Sqrt(dx * dx + dy * dy);
     }
 
     public async Task<IEnumerable<Domain.Entities.Trip>> GetActiveTripsAsync(CancellationToken cancellationToken = default)
