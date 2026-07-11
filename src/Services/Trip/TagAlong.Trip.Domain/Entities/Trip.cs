@@ -1,3 +1,4 @@
+using NetTopologySuite.Geometries;
 using TagAlong.Common.Domain;
 
 namespace TagAlong.Trip.Domain.Entities;
@@ -27,6 +28,8 @@ public class Trip : AggregateRoot
     public double? CurrentLatitude { get; private set; }
     public double? CurrentLongitude { get; private set; }
     public DateTime? LocationUpdatedAt { get; private set; }
+    public LineString? RouteLine { get; private set; }
+    public TripRouteStatus RouteStatus { get; private set; } = TripRouteStatus.None;
 
     private readonly List<TripStop> _stops = new();
     public IReadOnlyCollection<TripStop> Stops => _stops.AsReadOnly();
@@ -126,6 +129,19 @@ public class Trip : AggregateRoot
     {
         _stops.Clear();
         _stops.AddRange(stops);
+        SetUpdated();
+    }
+
+    public void SetRoute(LineString routeLine)
+    {
+        RouteLine = routeLine;
+        RouteStatus = TripRouteStatus.Stored;
+        SetUpdated();
+    }
+
+    public void MarkRouteStatus(TripRouteStatus status)
+    {
+        RouteStatus = status;
         SetUpdated();
     }
 

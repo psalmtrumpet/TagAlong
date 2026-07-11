@@ -13,6 +13,7 @@ using TagAlong.Trip.API.Commands;
 using TagAlong.Trip.Domain.Repositories;
 using TagAlong.Trip.Infrastructure.Persistence;
 using TagAlong.Trip.Infrastructure.Repositories;
+using TagAlong.Trip.Infrastructure.Services;
 
 Console.ForegroundColor = ConsoleColor.Yellow;
 Console.WriteLine(@"
@@ -66,7 +67,20 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 builder.Services.AddDbContext<TripDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("TripDb")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("TripDb"),
+        x => x.UseNetTopologySuite()));
+
+builder.Services.AddDbContextFactory<TripDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("TripDb"),
+        x => x.UseNetTopologySuite()), ServiceLifetime.Scoped);
+
+builder.Services.AddHttpClient<GoogleDirectionsClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(
+        builder.Configuration.GetValue<int>("GoogleMaps:DirectionsTimeoutSeconds", 5));
+});
+
+builder.Services.AddScoped<ITripRouteService, TripRouteService>();
 
 builder.Services.AddScoped<ITripRepository, TripRepository>();
 

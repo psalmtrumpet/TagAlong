@@ -4,6 +4,7 @@ using TagAlong.Common.Results;
 using TagAlong.EventBus;
 using TagAlong.Trip.API.DTOs;
 using TagAlong.Trip.Domain.Repositories;
+using TagAlong.Trip.Infrastructure.Services;
 
 namespace TagAlong.Trip.API.Commands;
 
@@ -30,12 +31,18 @@ public class CreateTripCommandHandler : ICommandHandler<CreateTripCommand, TripR
 {
     private readonly ITripRepository _tripRepository;
     private readonly IEventBus _eventBus;
+    private readonly ITripRouteService _routeService;
     private readonly ILogger<CreateTripCommandHandler> _logger;
 
-    public CreateTripCommandHandler(ITripRepository tripRepository, IEventBus eventBus, ILogger<CreateTripCommandHandler> logger)
+    public CreateTripCommandHandler(
+        ITripRepository tripRepository,
+        IEventBus eventBus,
+        ITripRouteService routeService,
+        ILogger<CreateTripCommandHandler> logger)
     {
         _tripRepository = tripRepository;
         _eventBus = eventBus;
+        _routeService = routeService;
         _logger = logger;
     }
 
@@ -72,6 +79,10 @@ public class CreateTripCommandHandler : ICommandHandler<CreateTripCommand, TripR
 
         await _tripRepository.AddAsync(trip, cancellationToken);
         await _tripRepository.SaveChangesAsync(cancellationToken);
+
+        // Fire-and-forget: fetch the real route from Google Directions API and store it.
+        // Uses a separate DbContext (via factory) so it doesn't interfere with request lifecycle.
+        _ = Task.Run(() => _routeService.FetchAndStoreRouteAsync(trip.Id));
 
         try
         {
