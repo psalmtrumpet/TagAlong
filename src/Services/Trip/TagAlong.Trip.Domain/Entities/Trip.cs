@@ -129,6 +129,15 @@ public class Trip : AggregateRoot
         SetUpdated();
     }
 
+    public void RescheduleDeparture(DateTime newDepartureTime)
+    {
+        if (Status != TripStatus.Scheduled)
+            throw new InvalidOperationException("Can only reschedule a scheduled trip");
+
+        DepartureTime = newDepartureTime;
+        SetUpdated();
+    }
+
     public void Start()
     {
         if (Status != TripStatus.Scheduled)
