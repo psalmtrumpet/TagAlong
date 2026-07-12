@@ -160,8 +160,12 @@ public class TripRepository : ITripRepository
         if (segLenSq < 1e-10)
             return Math.Sqrt(px * px + py * py); // A == B, distance to that point
 
-        // Project P onto the segment, clamp t to [0,1] so we stay on the segment.
-        double t = Math.Clamp((px * bx + py * by) / segLenSq, 0.0, 1.0);
+        // Project P onto the line through A→B.
+        // t < 0 means the user's destination is "behind" the trip origin (wrong direction) — reject.
+        // t > 1 clamps to the trip's endpoint so destinations near the endpoint also match.
+        double t = (px * bx + py * by) / segLenSq;
+        if (t < 0) return double.MaxValue;
+        if (t > 1) t = 1;
         double dx = px - t * bx;
         double dy = py - t * by;
         return Math.Sqrt(dx * dx + dy * dy);
