@@ -24,7 +24,7 @@ public class DetourVerifier : IDetourVerifier
         _logger = logger;
     }
 
-    public async Task<IReadOnlyList<TripEntity>> VerifyAndRankAsync(
+    public async Task<IReadOnlyList<DetourResult>> VerifyAndRankAsync(
         IEnumerable<TripEntity> candidates,
         double pickupLat, double pickupLon,
         double dropoffLat, double dropoffLon,
@@ -68,8 +68,8 @@ public class DetourVerifier : IDetourVerifier
 
         return ranked
             .OrderBy(x => x.DetourSeconds)
-            .Select(x => x.Trip)
-            .Concat(unverified)
+            .Select(x => new DetourResult(x.Trip, x.DetourSeconds))
+            .Concat(unverified.Select(t => new DetourResult(t, null)))
             .ToList();
     }
 
