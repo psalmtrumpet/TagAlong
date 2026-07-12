@@ -10,16 +10,16 @@ namespace TagAlong.Trip.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Clear any values that exceed the column's nvarchar(20) max length before altering
-            // nullability — SQL Server re-validates all data during ALTER COLUMN and will throw
-            // error 2628 if existing rows violate the length constraint.
+            // Can't NULL long values (column is NOT NULL) and can't ALTER (too-long data).
+            // Step 1: truncate oversized values to 20 chars so the column constraint is satisfied.
             migrationBuilder.Sql(
-                "UPDATE trips SET VehiclePlateNumber = NULL WHERE LEN(VehiclePlateNumber) > 20");
+                "UPDATE trips SET VehiclePlateNumber = LEFT(VehiclePlateNumber, 20) WHERE LEN(VehiclePlateNumber) > 20");
 
+            // Step 2: make nullable (column data now all <= 20 chars, constraint can be removed).
             migrationBuilder.Sql(
                 "ALTER TABLE trips ALTER COLUMN VehiclePlateNumber nvarchar(20) NULL");
 
-            // Expand to 100 chars — users enter vehicle descriptions, not just plate numbers.
+            // Step 3: expand to 100 chars — users enter vehicle descriptions, not just plate numbers.
             migrationBuilder.Sql(
                 "ALTER TABLE trips ALTER COLUMN VehiclePlateNumber nvarchar(100) NULL");
         }
