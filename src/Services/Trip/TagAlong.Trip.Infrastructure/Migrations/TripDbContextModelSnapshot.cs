@@ -127,8 +127,8 @@ namespace TagAlong.Trip.Infrastructure.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("VehiclePlateNumber")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("VehicleType")
                         .HasMaxLength(50)
