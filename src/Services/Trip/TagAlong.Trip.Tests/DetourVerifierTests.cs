@@ -62,9 +62,10 @@ public class DetourVerifierTests
         var result = await CreateVerifier(failingClient).VerifyAndRankAsync(
             new[] { trip }, 6.5, 3.3, 6.6, 3.2, maxDetourSeconds: 600);
 
-        // API failed → included unverified
+        // API failed → included unverified with null DetourSeconds
         Assert.Single(result);
-        Assert.Equal(trip.Id, result[0].Id);
+        Assert.Equal(trip.Id, result[0].Trip.Id);
+        Assert.Null(result[0].DetourSeconds);
     }
 
     [Fact]
@@ -104,8 +105,10 @@ public class DetourVerifierTests
             new[] { tripA, tripB }, 6.5, 3.3, 6.6, 3.2, maxDetourSeconds: 600);
 
         Assert.Equal(2, result.Count);
-        Assert.Equal(tripB.Id, result[0].Id); // tripB has smaller detour (50s < 200s)
-        Assert.Equal(tripA.Id, result[1].Id);
+        Assert.Equal(tripB.Id, result[0].Trip.Id); // tripB has smaller detour (50s < 200s)
+        Assert.Equal(tripA.Id, result[1].Trip.Id);
+        Assert.Equal(50, result[0].DetourSeconds);
+        Assert.Equal(200, result[1].DetourSeconds);
     }
 
     [Fact]

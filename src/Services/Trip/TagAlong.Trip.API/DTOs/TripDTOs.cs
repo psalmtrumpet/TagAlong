@@ -63,7 +63,8 @@ public record TripResponse(
     double? CurrentLongitude,
     DateTime? LocationUpdatedAt,
     List<TripStopResponse> Stops,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    int? DetourSeconds = null);
 
 public record TripStopResponse(
     Guid Id,

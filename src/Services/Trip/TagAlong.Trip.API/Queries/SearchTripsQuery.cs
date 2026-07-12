@@ -55,46 +55,53 @@ public class SearchTripsQueryHandler : IQueryHandler<SearchTripsQuery, List<Trip
             tripTypeFilter);
 
         // Run detour verification when all four coordinates are present and check is not skipped.
-        IEnumerable<Domain.Entities.Trip> finalTrips = trips;
+        IEnumerable<(Domain.Entities.Trip Trip, int? DetourSeconds)> resultPairs;
+
         if (!request.SkipDetourCheck &&
             request.OriginLatitude.HasValue && request.OriginLongitude.HasValue &&
             request.DestinationLatitude.HasValue && request.DestinationLongitude.HasValue)
         {
-            finalTrips = await _detourVerifier.VerifyAndRankAsync(
+            var detourResults = await _detourVerifier.VerifyAndRankAsync(
                 trips,
                 request.OriginLatitude.Value, request.OriginLongitude.Value,
                 request.DestinationLatitude.Value, request.DestinationLongitude.Value,
                 request.MaxDetourSeconds,
                 request.DetourTopN,
                 cancellationToken);
+
+            resultPairs = detourResults.Select(r => (r.Trip, r.DetourSeconds));
+        }
+        else
+        {
+            resultPairs = trips.Select(t => (t, (int?)null));
         }
 
-        return Result.Success(finalTrips.Select(trip => new TripResponse(
-            trip.Id,
-            trip.TravelerId,
-            trip.Origin,
-            trip.OriginLatitude,
-            trip.OriginLongitude,
-            trip.Destination,
-            trip.DestinationLatitude,
-            trip.DestinationLongitude,
-            trip.DepartureTime,
-            trip.EstimatedArrivalTime,
-            trip.ActualArrivalTime,
-            trip.Status.ToString(),
-            trip.TripType.ToString(),
-            trip.AvailableCapacity,
-            trip.VehicleType,
-            trip.VehiclePlateNumber,
-            trip.Notes,
-            trip.MaxPackages,
-            trip.CurrentPackageCount,
-            trip.PassengerCapacity,
-            trip.CurrentPassengerCount,
-            trip.CurrentLatitude,
-            trip.CurrentLongitude,
-            trip.LocationUpdatedAt,
-            trip.Stops.Select(s => new TripStopResponse(
+        return Result.Success(resultPairs.Select(p => new TripResponse(
+            p.Trip.Id,
+            p.Trip.TravelerId,
+            p.Trip.Origin,
+            p.Trip.OriginLatitude,
+            p.Trip.OriginLongitude,
+            p.Trip.Destination,
+            p.Trip.DestinationLatitude,
+            p.Trip.DestinationLongitude,
+            p.Trip.DepartureTime,
+            p.Trip.EstimatedArrivalTime,
+            p.Trip.ActualArrivalTime,
+            p.Trip.Status.ToString(),
+            p.Trip.TripType.ToString(),
+            p.Trip.AvailableCapacity,
+            p.Trip.VehicleType,
+            p.Trip.VehiclePlateNumber,
+            p.Trip.Notes,
+            p.Trip.MaxPackages,
+            p.Trip.CurrentPackageCount,
+            p.Trip.PassengerCapacity,
+            p.Trip.CurrentPassengerCount,
+            p.Trip.CurrentLatitude,
+            p.Trip.CurrentLongitude,
+            p.Trip.LocationUpdatedAt,
+            p.Trip.Stops.Select(s => new TripStopResponse(
                 s.Id,
                 s.Location,
                 s.Latitude,
@@ -102,7 +109,8 @@ public class SearchTripsQueryHandler : IQueryHandler<SearchTripsQuery, List<Trip
                 s.Order,
                 s.EstimatedTime,
                 s.ActualArrivalTime)).ToList(),
-            trip.CreatedAt)).ToList());
+            p.Trip.CreatedAt,
+            p.DetourSeconds)).ToList());
     }
 }
 
