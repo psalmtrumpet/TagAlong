@@ -31,13 +31,16 @@ public class TripDbContext : DbContext
                 .HasMaxLength(256);
 
             entity.Property(e => e.VehicleType)
-                .HasMaxLength(50);
+                .HasMaxLength(50)
+                .IsRequired(false);
 
             entity.Property(e => e.VehiclePlateNumber)
-                .HasMaxLength(20);
+                .HasMaxLength(20)
+                .IsRequired(false);
 
             entity.Property(e => e.Notes)
-                .HasMaxLength(1000);
+                .HasMaxLength(1000)
+                .IsRequired(false);
 
             entity.Property(e => e.Status)
                 .HasConversion<string>();
