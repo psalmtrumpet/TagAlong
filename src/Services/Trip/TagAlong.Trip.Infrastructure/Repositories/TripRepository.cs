@@ -86,11 +86,12 @@ public class TripRepository : ITripRepository
         {
             var latTol = radiusKm / 111.0;
             var lonTol = radiusKm / (111.0 * Math.Cos(destLat.Value * Math.PI / 180));
+            // Math.Min/Max are not translatable to SQL; use ternaries (→ CASE WHEN) instead.
             query = query.Where(t =>
-                destLat.Value >= Math.Min(t.OriginLatitude,  t.DestinationLatitude)  - latTol &&
-                destLat.Value <= Math.Max(t.OriginLatitude,  t.DestinationLatitude)  + latTol &&
-                destLon.Value >= Math.Min(t.OriginLongitude, t.DestinationLongitude) - lonTol &&
-                destLon.Value <= Math.Max(t.OriginLongitude, t.DestinationLongitude) + lonTol);
+                destLat.Value >= (t.OriginLatitude  < t.DestinationLatitude  ? t.OriginLatitude  : t.DestinationLatitude)  - latTol &&
+                destLat.Value <= (t.OriginLatitude  > t.DestinationLatitude  ? t.OriginLatitude  : t.DestinationLatitude)  + latTol &&
+                destLon.Value >= (t.OriginLongitude < t.DestinationLongitude ? t.OriginLongitude : t.DestinationLongitude) - lonTol &&
+                destLon.Value <= (t.OriginLongitude > t.DestinationLongitude ? t.OriginLongitude : t.DestinationLongitude) + lonTol);
         }
 
         var candidates = await query
