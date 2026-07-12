@@ -35,7 +35,7 @@ public class TripDbContext : DbContext
                 .IsRequired(false);
 
             entity.Property(e => e.VehiclePlateNumber)
-                .HasMaxLength(20)
+                .HasMaxLength(100)
                 .IsRequired(false);
 
             entity.Property(e => e.Notes)
