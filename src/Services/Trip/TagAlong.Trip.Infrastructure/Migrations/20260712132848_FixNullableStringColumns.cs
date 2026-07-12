@@ -10,17 +10,18 @@ namespace TagAlong.Trip.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // VehiclePlateNumber drifted to NOT NULL in the DB despite being string? in the model.
-            migrationBuilder.AlterColumn<string>(
-                name: "VehiclePlateNumber",
-                table: "trips",
-                type: "nvarchar(20)",
-                maxLength: 20,
-                nullable: true,
-                oldClrType: typeof(string),
-                oldType: "nvarchar(20)",
-                oldMaxLength: 20,
-                oldNullable: false);
+            // Clear any values that exceed the column's nvarchar(20) max length before altering
+            // nullability — SQL Server re-validates all data during ALTER COLUMN and will throw
+            // error 2628 if existing rows violate the length constraint.
+            migrationBuilder.Sql(
+                "UPDATE trips SET VehiclePlateNumber = NULL WHERE LEN(VehiclePlateNumber) > 20");
+
+            migrationBuilder.Sql(
+                "ALTER TABLE trips ALTER COLUMN VehiclePlateNumber nvarchar(20) NULL");
+
+            // Expand to 100 chars — users enter vehicle descriptions, not just plate numbers.
+            migrationBuilder.Sql(
+                "ALTER TABLE trips ALTER COLUMN VehiclePlateNumber nvarchar(100) NULL");
         }
 
         /// <inheritdoc />
@@ -28,18 +29,10 @@ namespace TagAlong.Trip.Infrastructure.Migrations
         {
             migrationBuilder.Sql(
                 "UPDATE trips SET VehiclePlateNumber = '' WHERE VehiclePlateNumber IS NULL");
-
-            migrationBuilder.AlterColumn<string>(
-                name: "VehiclePlateNumber",
-                table: "trips",
-                type: "nvarchar(20)",
-                maxLength: 20,
-                nullable: false,
-                defaultValue: "",
-                oldClrType: typeof(string),
-                oldType: "nvarchar(20)",
-                oldMaxLength: 20,
-                oldNullable: true);
+            migrationBuilder.Sql(
+                "ALTER TABLE trips ALTER COLUMN VehiclePlateNumber nvarchar(100) NOT NULL");
+            migrationBuilder.Sql(
+                "ALTER TABLE trips ALTER COLUMN VehiclePlateNumber nvarchar(20) NOT NULL");
         }
     }
 }
