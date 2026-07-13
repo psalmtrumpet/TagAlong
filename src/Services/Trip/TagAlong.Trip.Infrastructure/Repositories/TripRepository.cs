@@ -61,7 +61,10 @@ public class TripRepository : ITripRepository
         if (tripType.HasValue)
             query = query.Where(t => t.TripType == tripType.Value);
 
-        if (!string.IsNullOrEmpty(origin))
+        // Text filter only when no coordinates: coordinates-based filters (bounding box +
+        // Haversine) are more accurate and the full autocomplete address won't match
+        // trip origin strings anyway.
+        if (!string.IsNullOrEmpty(origin) && !originLat.HasValue)
             query = query.Where(t => t.Origin.ToLower().Contains(origin.ToLower()));
 
         if (departureDate.HasValue)
