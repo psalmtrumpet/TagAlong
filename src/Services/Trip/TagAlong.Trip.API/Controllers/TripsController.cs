@@ -79,12 +79,12 @@ public class TripsController : ControllerBase
     [Authorize]
     [HttpGet("my-trips")]
     [ProducesResponseType(typeof(List<TripResponse>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetMyTrips(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetMyTrips([FromQuery] int page = 1, [FromQuery] int pageSize = 10, CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
-        var query = new GetMyTripsQuery(userId.Value);
+        var query = new GetMyTripsQuery(userId.Value, page, pageSize);
         var result = await _mediator.Send(query, cancellationToken);
 
         return Ok(result.Value);
