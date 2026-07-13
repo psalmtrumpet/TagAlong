@@ -64,7 +64,7 @@ public class AcceptPriceCommandHandler : ICommandHandler<AcceptPriceCommand, Mes
         }
 
         // Transition conversation to Active — chat is now unlocked
-        conversation.ConfirmPriceAgreement();
+        conversation.ConfirmPriceAgreement(request.AcceptedPrice);
         _conversationRepository.Update(conversation);
 
         var message = Message.CreatePriceAccepted(request.ConversationId, request.UserId, request.AcceptedPrice, request.Message);

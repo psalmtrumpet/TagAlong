@@ -94,7 +94,10 @@ public class ConversationsController : ControllerBase
             request.PackageRequestId,
             request.InitialMessage,
             request.RecipientUserId,
-            request.RecipientName);
+            request.RecipientName,
+            request.PassengerDestLat,
+            request.PassengerDestLng,
+            request.PassengerDestAddress);
 
         var result = await _mediator.Send(command, cancellationToken);
         if (result.IsFailure)
@@ -186,6 +189,78 @@ public class ConversationsController : ControllerBase
                 ? NotFound(new { error = result.Error.Message })
                 : BadRequest(new { error = result.Error.Message });
 
+        return Ok(result.Value);
+    }
+
+    [HttpPost("{id:guid}/close")]
+    [ProducesResponseType(typeof(ConversationDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> CloseConversation(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var result = await _mediator.Send(new CloseConversationCommand(id, userId.Value), cancellationToken);
+        if (result.IsFailure)
+            return result.Error.Code.Contains("NotFound")
+                ? NotFound(new { error = result.Error.Message })
+                : BadRequest(new { error = result.Error.Message });
+
+        return Ok(result.Value);
+    }
+
+    [HttpPost("{id:guid}/lock-in")]
+    [ProducesResponseType(typeof(ConversationDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ProposeLockIn(Guid id, [FromBody] ProposeLockInRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+        var result = await _mediator.Send(new ProposeLockInCommand(id, userId.Value, request.AgreedPrice), cancellationToken);
+        if (result.IsFailure) return BadRequest(new { error = result.Error.Message });
+        return Ok(result.Value);
+    }
+
+    [HttpPost("{id:guid}/lock-in/confirm")]
+    [ProducesResponseType(typeof(ConversationDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ConfirmLockIn(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+        var result = await _mediator.Send(new ConfirmLockInCommand(id, userId.Value), cancellationToken);
+        if (result.IsFailure) return BadRequest(new { error = result.Error.Message });
+        return Ok(result.Value);
+    }
+
+    [HttpPost("{id:guid}/lock-in/reject")]
+    [ProducesResponseType(typeof(ConversationDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> RejectLockIn(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+        var result = await _mediator.Send(new RejectLockInCommand(id, userId.Value), cancellationToken);
+        if (result.IsFailure) return BadRequest(new { error = result.Error.Message });
+        return Ok(result.Value);
+    }
+
+    [HttpPost("{id:guid}/start-delivery")]
+    [ProducesResponseType(typeof(ConversationDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> StartDelivery(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+        var result = await _mediator.Send(new StartDeliveryCommand(id, userId.Value), cancellationToken);
+        if (result.IsFailure) return BadRequest(new { error = result.Error.Message });
+        return Ok(result.Value);
+    }
+
+    [HttpPost("{id:guid}/mark-delivered")]
+    [ProducesResponseType(typeof(ConversationDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> MarkDelivered(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+        var result = await _mediator.Send(new MarkDeliveredCommand(id, userId.Value), cancellationToken);
+        if (result.IsFailure) return BadRequest(new { error = result.Error.Message });
         return Ok(result.Value);
     }
 

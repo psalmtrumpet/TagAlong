@@ -8,4 +8,10 @@ public interface IMessagingClient
     Task MessageRead(Guid messageId, DateTime readAt);
     Task ConversationUpdated(ConversationDto conversation);
     Task PriceAccepted(Guid conversationId, decimal acceptedPrice);
+    Task ReceiveHelperLocation(string conversationId, double latitude, double longitude);
+    Task LockInProposed(ConversationDto conversation);
+    Task LockInConfirmed(ConversationDto conversation);
+    Task LockInRejected(ConversationDto conversation);
+    Task DeliveryStarted(ConversationDto conversation);
+    Task DeliveryCompleted(ConversationDto conversation);
 }

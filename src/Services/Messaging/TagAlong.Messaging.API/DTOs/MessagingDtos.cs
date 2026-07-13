@@ -12,7 +12,14 @@ public record ConversationDto(
     DateTime? UpdatedAt,
     MessageDto? LastMessage,
     Guid? RecipientUserId = null,
-    string? RecipientName = null);
+    string? RecipientName = null,
+    decimal? AgreedPrice = null,
+    Guid? LockInProposedBy = null,
+    DateTime? StartedAt = null,
+    DateTime? DeliveredAt = null,
+    double? PassengerDestLat = null,
+    double? PassengerDestLng = null,
+    string? PassengerDestAddress = null);
 
 public record MessageDto(
     Guid Id,
@@ -29,7 +36,10 @@ public record CreateConversationRequest(
     Guid? PackageRequestId,
     string? InitialMessage,
     Guid? RecipientUserId = null,
-    string? RecipientName = null);
+    string? RecipientName = null,
+    double? PassengerDestLat = null,
+    double? PassengerDestLng = null,
+    string? PassengerDestAddress = null);
 
 public record SendMessageRequest(
     string Content);
@@ -45,3 +55,6 @@ public record AcceptPriceRequest(
 public record RejectPriceRequest(
     decimal? CounterPrice,
     string? Message);
+
+public record ProposeLockInRequest(
+    decimal AgreedPrice);

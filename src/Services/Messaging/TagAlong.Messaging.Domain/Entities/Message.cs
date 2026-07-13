@@ -41,7 +41,7 @@ public class Message : Entity
         {
             ConversationId = conversationId,
             SenderId = senderId,
-            Content = content ?? $"I propose a price of {proposedPrice:C}",
+            Content = content ?? $"I propose a price of ₦{proposedPrice:N0}",
             MessageType = MessageType.PriceProposal,
             ProposedPrice = proposedPrice,
             SentAt = DateTime.UtcNow
@@ -58,9 +58,77 @@ public class Message : Entity
         {
             ConversationId = conversationId,
             SenderId = senderId,
-            Content = content ?? $"I accept the price of {acceptedPrice:C}",
+            Content = content ?? $"Price agreed at ₦{acceptedPrice:N0}",
             MessageType = MessageType.PriceAccepted,
             ProposedPrice = acceptedPrice,
+            SentAt = DateTime.UtcNow
+        };
+    }
+
+    public static Message CreateLockIn(
+        Guid conversationId,
+        Guid senderId,
+        decimal price)
+    {
+        return new Message
+        {
+            ConversationId = conversationId,
+            SenderId = senderId,
+            Content = $"Lock-in proposed at ₦{price:N0}",
+            MessageType = MessageType.LockIn,
+            ProposedPrice = price,
+            SentAt = DateTime.UtcNow
+        };
+    }
+
+    public static Message CreateLockInConfirmed(
+        Guid conversationId,
+        Guid senderId,
+        decimal price)
+    {
+        return new Message
+        {
+            ConversationId = conversationId,
+            SenderId = senderId,
+            Content = $"Lock-in confirmed at ₦{price:N0}",
+            MessageType = MessageType.LockInConfirmed,
+            ProposedPrice = price,
+            SentAt = DateTime.UtcNow
+        };
+    }
+
+    public static Message CreateLockInRejected(Guid conversationId, Guid senderId)
+    {
+        return new Message
+        {
+            ConversationId = conversationId,
+            SenderId = senderId,
+            Content = "Lock-in rejected — continue negotiating.",
+            MessageType = MessageType.LockInRejected,
+            SentAt = DateTime.UtcNow
+        };
+    }
+
+    public static Message CreateTripStarted(Guid conversationId, Guid senderId)
+    {
+        return new Message
+        {
+            ConversationId = conversationId,
+            SenderId = senderId,
+            Content = "Trip has started.",
+            MessageType = MessageType.TripStarted,
+            SentAt = DateTime.UtcNow
+        };
+    }
+
+    public static Message CreateDelivered(Guid conversationId, Guid senderId)
+    {
+        return new Message
+        {
+            ConversationId = conversationId,
+            SenderId = senderId,
+            Content = "Package delivered.",
+            MessageType = MessageType.Delivered,
             SentAt = DateTime.UtcNow
         };
     }
@@ -110,5 +178,10 @@ public enum MessageType
     PriceProposal,
     PriceAccepted,
     PriceRejected,
+    LockIn,
+    LockInConfirmed,
+    LockInRejected,
+    TripStarted,
+    Delivered,
     System
 }
