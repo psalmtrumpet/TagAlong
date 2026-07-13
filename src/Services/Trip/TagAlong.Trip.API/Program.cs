@@ -84,6 +84,7 @@ builder.Services.AddScoped<IGoogleDirectionsClient>(sp => sp.GetRequiredService<
 builder.Services.AddScoped<ITripRouteService, TripRouteService>();
 builder.Services.AddScoped<IDetourVerifier, DetourVerifier>();
 builder.Services.AddMemoryCache();
+builder.Services.AddHostedService<RouteEnrichmentService>();
 
 builder.Services.AddScoped<ITripRepository, TripRepository>();
 
