@@ -171,7 +171,7 @@ public class GetTripByIdQueryHandler : IQueryHandler<GetTripByIdQuery, TripRespo
     }
 }
 
-public record GetMyTripsQuery(Guid TravelerId) : IQuery<List<TripResponse>>;
+public record GetMyTripsQuery(Guid TravelerId, int Page = 1, int PageSize = 10) : IQuery<List<TripResponse>>;
 
 public class GetMyTripsQueryHandler : IQueryHandler<GetMyTripsQuery, List<TripResponse>>
 {
@@ -184,7 +184,7 @@ public class GetMyTripsQueryHandler : IQueryHandler<GetMyTripsQuery, List<TripRe
 
     public async Task<Result<List<TripResponse>>> Handle(GetMyTripsQuery request, CancellationToken cancellationToken)
     {
-        var trips = await _tripRepository.GetByTravelerIdAsync(request.TravelerId, cancellationToken);
+        var trips = await _tripRepository.GetByTravelerIdAsync(request.TravelerId, request.Page, request.PageSize, cancellationToken);
 
         return Result.Success(trips.Select(trip => new TripResponse(
             trip.Id,

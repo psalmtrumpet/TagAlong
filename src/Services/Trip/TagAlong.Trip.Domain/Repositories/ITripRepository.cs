@@ -8,7 +8,7 @@ public interface ITripRepository
 {
     Task<TripEntity?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<TripEntity?> GetByIdWithStopsAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<IEnumerable<TripEntity>> GetByTravelerIdAsync(Guid travelerId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<TripEntity>> GetByTravelerIdAsync(Guid travelerId, int page = 1, int pageSize = 10, CancellationToken cancellationToken = default);
     Task<IEnumerable<TripEntity>> SearchTripsAsync(
         string? origin,
         string? destination,

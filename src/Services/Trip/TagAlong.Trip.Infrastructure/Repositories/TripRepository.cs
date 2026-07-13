@@ -29,12 +29,14 @@ public class TripRepository : ITripRepository
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
     }
 
-    public async Task<IEnumerable<Domain.Entities.Trip>> GetByTravelerIdAsync(Guid travelerId, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Domain.Entities.Trip>> GetByTravelerIdAsync(Guid travelerId, int page = 1, int pageSize = 10, CancellationToken cancellationToken = default)
     {
         return await _context.Trips
             .Include(t => t.Stops)
             .Where(t => t.TravelerId == travelerId)
             .OrderByDescending(t => t.DepartureTime)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync(cancellationToken);
     }
 
