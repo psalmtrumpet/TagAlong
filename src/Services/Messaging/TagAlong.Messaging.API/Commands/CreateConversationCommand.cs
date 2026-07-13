@@ -17,7 +17,10 @@ public record CreateConversationCommand(
     Guid? PackageRequestId,
     string? InitialMessage,
     Guid? RecipientUserId = null,
-    string? RecipientName = null) : ICommand<ConversationDto>;
+    string? RecipientName = null,
+    double? PassengerDestLat = null,
+    double? PassengerDestLng = null,
+    string? PassengerDestAddress = null) : ICommand<ConversationDto>;
 
 public class CreateConversationCommandValidator : AbstractValidator<CreateConversationCommand>
 {
@@ -54,20 +57,26 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
 
     public async Task<Result<ConversationDto>> Handle(CreateConversationCommand request, CancellationToken cancellationToken)
     {
-        // Check if conversation already exists
+        // Only reuse an existing conversation if it's still open (not Declined or Closed).
+        // A declined/closed conversation should allow the users to start a new one.
         var existingConversation = await _conversationRepository.GetByParticipantsAsync(
             request.SenderId, request.TravelerId, cancellationToken);
 
-        if (existingConversation != null)
+        if (existingConversation != null
+            && existingConversation.Status != ConversationStatus.Declined
+            && existingConversation.Status != ConversationStatus.Closed)
         {
-            _logger.LogInformation("Conversation already exists between {SenderId} and {TravelerId}",
+            _logger.LogInformation("Active conversation already exists between {SenderId} and {TravelerId}",
                 request.SenderId, request.TravelerId);
             return Result.Success(MapToDto(existingConversation, null));
         }
 
         var conversation = Conversation.Create(
             request.SenderId, request.TravelerId, request.PackageRequestId,
-            recipientUserId: request.RecipientUserId, recipientName: request.RecipientName);
+            recipientUserId: request.RecipientUserId, recipientName: request.RecipientName,
+            passengerDestLat: request.PassengerDestLat,
+            passengerDestLng: request.PassengerDestLng,
+            passengerDestAddress: request.PassengerDestAddress);
         await _conversationRepository.AddAsync(conversation, cancellationToken);
         await _conversationRepository.SaveChangesAsync(cancellationToken);
 
@@ -79,9 +88,10 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
             await _messageRepository.SaveChangesAsync(cancellationToken);
         }
 
-        // Push real-time notification to the traveler via SignalR
+        // Push real-time notification to both traveler and sender via SignalR
         var dto = MapToDto(conversation, initialMessage);
         await _hubContext.Clients.Group($"user_{request.TravelerId}").ConversationUpdated(dto);
+        await _hubContext.Clients.Group($"user_{request.SenderId}").ConversationUpdated(dto);
 
         // Also publish integration event (for notification API persistence)
         await _eventBus.PublishAsync(new ConversationRequestCreatedIntegrationEvent(
@@ -123,6 +133,13 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
             conversation.UpdatedAt,
             lastMessageDto,
             conversation.RecipientUserId,
-            conversation.RecipientName);
+            conversation.RecipientName,
+            conversation.AgreedPrice,
+            conversation.LockInProposedBy,
+            conversation.StartedAt,
+            conversation.DeliveredAt,
+            conversation.PassengerDestLat,
+            conversation.PassengerDestLng,
+            conversation.PassengerDestAddress);
     }
 }

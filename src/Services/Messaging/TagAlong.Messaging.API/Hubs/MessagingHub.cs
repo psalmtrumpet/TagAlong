@@ -123,6 +123,21 @@ public class MessagingHub : Hub<IMessagingClient>
         _logger.LogInformation("Price proposal {Price} sent in conversation {ConversationId}", proposedPrice, conversationId);
     }
 
+    public async Task SendLocation(Guid conversationId, double latitude, double longitude)
+    {
+        var userId = GetUserId();
+        if (!userId.HasValue) return;
+
+        var conversation = await _conversationRepository.GetByIdAsync(conversationId);
+        if (conversation == null || !conversation.IsParticipant(userId.Value)) return;
+
+        var convIdStr = conversationId.ToString();
+        await Clients.Group($"conversation_{conversationId}").ReceiveHelperLocation(convIdStr, latitude, longitude);
+
+        var otherUserId = conversation.GetOtherParticipant(userId.Value);
+        await Clients.Group($"user_{otherUserId}").ReceiveHelperLocation(convIdStr, latitude, longitude);
+    }
+
     public async Task MarkAsRead(Guid messageId)
     {
         var userId = GetUserId();

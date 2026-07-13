@@ -73,7 +73,14 @@ public class GetConversationByIdQueryHandler : IQueryHandler<GetConversationById
             conversation.UpdatedAt,
             lastMessageDto,
             conversation.RecipientUserId,
-            conversation.RecipientName);
+            conversation.RecipientName,
+            conversation.AgreedPrice,
+            conversation.LockInProposedBy,
+            conversation.StartedAt,
+            conversation.DeliveredAt,
+            conversation.PassengerDestLat,
+            conversation.PassengerDestLng,
+            conversation.PassengerDestAddress);
     }
 }
 
@@ -151,7 +158,14 @@ public class GetUserConversationsQueryHandler : IQueryHandler<GetUserConversatio
             conversation.UpdatedAt,
             lastMessageDto,
             conversation.RecipientUserId,
-            conversation.RecipientName);
+            conversation.RecipientName,
+            conversation.AgreedPrice,
+            conversation.LockInProposedBy,
+            conversation.StartedAt,
+            conversation.DeliveredAt,
+            conversation.PassengerDestLat,
+            conversation.PassengerDestLng,
+            conversation.PassengerDestAddress);
     }
 }
 

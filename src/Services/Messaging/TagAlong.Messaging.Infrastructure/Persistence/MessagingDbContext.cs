@@ -29,6 +29,13 @@ public class MessagingDbContext : DbContext
             entity.Property(c => c.Status).HasColumnName("status").HasConversion<string>().IsRequired();
             entity.Property(c => c.RecipientUserId).HasColumnName("recipient_user_id");
             entity.Property(c => c.RecipientName).HasColumnName("recipient_name").HasMaxLength(200);
+            entity.Property(c => c.AgreedPrice).HasColumnName("agreed_price").HasColumnType("decimal(18,2)");
+            entity.Property(c => c.LockInProposedBy).HasColumnName("lock_in_proposed_by");
+            entity.Property(c => c.StartedAt).HasColumnName("started_at");
+            entity.Property(c => c.DeliveredAt).HasColumnName("delivered_at");
+            entity.Property(c => c.PassengerDestLat).HasColumnName("passenger_dest_lat");
+            entity.Property(c => c.PassengerDestLng).HasColumnName("passenger_dest_lng");
+            entity.Property(c => c.PassengerDestAddress).HasColumnName("passenger_dest_address").HasMaxLength(500);
             entity.Property(c => c.CreatedAt).HasColumnName("created_at").IsRequired();
             entity.Property(c => c.UpdatedAt).HasColumnName("updated_at");
 

@@ -29,6 +29,10 @@ namespace TagAlong.Messaging.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("id");
 
+                    b.Property<decimal?>("AgreedPrice")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("agreed_price");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2")
                         .HasColumnName("created_at");
@@ -36,12 +40,33 @@ namespace TagAlong.Messaging.Infrastructure.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("DeliveredAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("delivered_at");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
+
+                    b.Property<Guid?>("LockInProposedBy")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("lock_in_proposed_by");
 
                     b.Property<Guid?>("PackageRequestId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("package_request_id");
+
+                    b.Property<string?>("PassengerDestAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("passenger_dest_address");
+
+                    b.Property<double?>("PassengerDestLat")
+                        .HasColumnType("float")
+                        .HasColumnName("passenger_dest_lat");
+
+                    b.Property<double?>("PassengerDestLng")
+                        .HasColumnType("float")
+                        .HasColumnName("passenger_dest_lng");
 
                     b.Property<Guid?>("RecipientUserId")
                         .HasColumnType("uniqueidentifier")
@@ -55,6 +80,10 @@ namespace TagAlong.Messaging.Infrastructure.Migrations
                     b.Property<Guid>("SenderId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("sender_id");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("started_at");
 
                     b.Property<string>("Status")
                         .IsRequired()
