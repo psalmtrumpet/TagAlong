@@ -9,6 +9,7 @@ using Serilog;
 using System.Text;
 using TagAlong.Common.Behaviors;
 using TagAlong.EventBus.RabbitMQ;
+using TagAlong.Trip.API;
 using TagAlong.Trip.API.Commands;
 using TagAlong.Trip.Domain.Repositories;
 using TagAlong.Trip.Infrastructure.Persistence;
