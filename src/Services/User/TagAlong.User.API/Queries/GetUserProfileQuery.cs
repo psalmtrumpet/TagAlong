@@ -57,7 +57,10 @@ public class GetPublicProfileQueryHandler : IQueryHandler<GetPublicProfileQuery,
 
     public async Task<Result<UserPublicProfileResponse>> Handle(GetPublicProfileQuery request, CancellationToken cancellationToken)
     {
-        var profile = await _userProfileRepository.GetByIdAsync(request.ProfileId, cancellationToken);
+        // Try auth user ID first (used by messaging service for name lookup),
+        // fall back to profile ID for any direct profile lookups.
+        var profile = await _userProfileRepository.GetByAuthUserIdAsync(request.ProfileId, cancellationToken)
+                      ?? await _userProfileRepository.GetByIdAsync(request.ProfileId, cancellationToken);
 
         if (profile == null)
         {
