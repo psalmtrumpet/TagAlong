@@ -495,6 +495,26 @@ services:
           cpus: '0.5'
           memory: 256M
 
+  mail-service:
+    build:
+      context: src/Services/MailService
+      dockerfile: Dockerfile
+    container_name: tagalong-mail-service
+    environment:
+      - SMTP_HOST=${SMTP_HOST:-smtp.hostinger.com}
+      - SMTP_PORT=${SMTP_PORT:-465}
+      - SMTP_USER=${SMTP_USER:-info@tlimc.net}
+      - SMTP_PASS=${SMTP_PASS}
+      - PORT=3001
+    networks:
+      - tagalong-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 64M
+
 networks:
   tagalong-network:
     driver: bridge
