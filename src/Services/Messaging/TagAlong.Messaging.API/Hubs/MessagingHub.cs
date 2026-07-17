@@ -131,6 +131,11 @@ public class MessagingHub : Hub<IMessagingClient>
         var conversation = await _conversationRepository.GetByIdAsync(conversationId);
         if (conversation == null || !conversation.IsParticipant(userId.Value)) return;
 
+        // Persist last-known carrier location so the public tracking page can poll it
+        conversation.UpdateHelperLocation(latitude, longitude);
+        _conversationRepository.Update(conversation);
+        await _conversationRepository.SaveChangesAsync();
+
         var convIdStr = conversationId.ToString();
         await Clients.Group($"conversation_{conversationId}").ReceiveHelperLocation(convIdStr, latitude, longitude);
 

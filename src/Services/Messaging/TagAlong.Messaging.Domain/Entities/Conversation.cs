@@ -17,6 +17,9 @@ public class Conversation : AggregateRoot
     public double? PassengerDestLat { get; private set; }
     public double? PassengerDestLng { get; private set; }
     public string? PassengerDestAddress { get; private set; }
+    public double? HelperLastLat { get; private set; }
+    public double? HelperLastLng { get; private set; }
+    public DateTime? HelperLastSeenAt { get; private set; }
 
     private readonly List<Message> _messages = new();
     public IReadOnlyCollection<Message> Messages => _messages.AsReadOnly();
@@ -156,6 +159,14 @@ public class Conversation : AggregateRoot
     public void AddMessage(Message message)
     {
         _messages.Add(message);
+        SetUpdated();
+    }
+
+    public void UpdateHelperLocation(double lat, double lng)
+    {
+        HelperLastLat = lat;
+        HelperLastLng = lng;
+        HelperLastSeenAt = DateTime.UtcNow;
         SetUpdated();
     }
 }

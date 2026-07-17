@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Track your TagAlong delivery</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8f8f8;height:100dvh;display:flex;flex-direction:column}
+  #map{flex:1;min-height:0}
+  /* Download banner */
+  #banner{background:#FF6B00;color:#fff;padding:14px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+  #banner img{width:40px;height:40px;border-radius:10px;background:#fff;padding:4px}
+  #banner-text h2{font-size:14px;font-weight:700;margin:0}
+  #banner-text p{font-size:11px;opacity:0.85;margin:0}
+  #dl-btn{margin-left:auto;background:#fff;color:#FF6B00;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0}
+  /* Info panel */
+  #panel{background:#fff;padding:14px 20px 20px;border-top:1px solid #eee;flex-shrink:0}
+  #status-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  #live-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;animation:pulse 1.5s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+  #status-label{font-size:13px;font-weight:600;color:#111}
+  #last-seen{font-size:11px;color:#888}
+  #dest-row{font-size:12px;color:#555;display:flex;align-items:flex-start;gap:6px}
+  #dest-row svg{flex-shrink:0;margin-top:1px}
+  /* Open-in-app hint */
+  #open-app{margin-top:10px;background:#fff3e8;border:1px solid #ffe0c4;border-radius:8px;padding:8px 12px;font-size:12px;color:#b45309;display:none}
+  #open-app a{color:#FF6B00;font-weight:700;text-decoration:none}
+  /* Waiting overlay */
+  #waiting{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(255,255,255,0.92);border-radius:14px;padding:24px 28px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.12);z-index:1000;pointer-events:none}
+  #waiting.hidden{display:none}
+  .spinner{width:36px;height:36px;border:3px solid #f0f0f0;border-top-color:#FF6B00;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #waiting p{font-size:13px;color:#666;max-width:180px}
+  /* Delivered overlay */
+  #delivered{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:14px;padding:24px 28px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.12);z-index:1000;display:none}
+  #delivered span{font-size:40px}
+  #delivered h3{font-size:16px;font-weight:700;margin:8px 0 4px}
+  #delivered p{font-size:12px;color:#666}
+</style>
+</head>
+<body>
+
+<!-- Download banner -->
+<div id="banner">
+  <div id="banner-text">
+    <h2>Track with TagAlong</h2>
+    <p>Get real-time updates &amp; notifications</p>
+  </div>
+  <button id="dl-btn" onclick="downloadApp()">Download App</button>
+</div>
+
+<!-- Map fills remaining space -->
+<div id="map" style="position:relative">
+  <div id="waiting">
+    <div class="spinner"></div>
+    <p>Waiting for carrier to share location…</p>
+  </div>
+  <div id="delivered">
+    <span>📦</span>
+    <h3>Package Delivered!</h3>
+    <p>Your delivery has been completed.</p>
+  </div>
+</div>
+
+<!-- Info panel -->
+<div id="panel">
+  <div id="status-row">
+    <div id="live-dot"></div>
+    <span id="status-label">Loading…</span>
+  </div>
+  <div id="last-seen"></div>
+  <div id="dest-row" style="margin-top:6px;display:none">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+    <span id="dest-text"></span>
+  </div>
+  <div id="open-app">
+    Already have the app? <a id="open-link" href="#">Open tracking in TagAlong →</a>
+  </div>
+</div>
+
+<script>
+const convId = location.pathname.replace(/^\/track\//,'').replace(/\/$/,'');
+const API    = '/api/public/tracking/' + convId;
+const SCHEME = 'tagalong://track/' + convId;
+
+// --- Map setup ---
+const map = L.map('map', { zoomControl: false, attributionControl: false });
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '© OpenStreetMap'
+}).addTo(map);
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+const truckIcon = L.divIcon({
+  className: '',
+  html: '<div style="background:#FF6B00;color:#fff;border-radius:20px;padding:4px 8px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.2)">🚛 Carrier</div>',
+  iconAnchor: [32, 14]
+});
+const destIcon = L.divIcon({
+  className: '',
+  html: '<div style="background:#1d4ed8;color:#fff;border-radius:20px;padding:4px 8px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.2)">📍 Drop-off</div>',
+  iconAnchor: [32, 14]
+});
+
+let carrierMarker = null;
+let destMarker    = null;
+let routeLine     = null;
+let firstFix      = true;
+
+// --- Deep link ---
+document.getElementById('open-link').href = SCHEME;
+document.getElementById('open-app').style.display = 'block';
+
+function downloadApp() {
+  const ua = navigator.userAgent.toLowerCase();
+  if (/iphone|ipad|ipod/.test(ua)) {
+    location.href = 'https://apps.apple.com/app/tagalong/id000000000'; // replace with real ID
+  } else {
+    location.href = 'https://play.google.com/store/apps/details?id=com.example.tagalong_mobile';
+  }
+}
+
+// --- Route via OSRM ---
+async function drawRoute(from, to) {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+    const r = await fetch(url);
+    if (!r.ok) return;
+    const d = await r.json();
+    const coords = d?.routes?.[0]?.geometry?.coordinates;
+    if (!coords) return;
+    const pts = coords.map(c => [c[1], c[0]]);
+    if (routeLine) map.removeLayer(routeLine);
+    routeLine = L.polyline(pts, { color: '#FF6B00', weight: 4, opacity: 0.85 }).addTo(map);
+  } catch(_) {}
+}
+
+// --- Poll API ---
+async function poll() {
+  try {
+    const r = await fetch(API);
+    if (!r.ok) return;
+    const d = await r.json();
+
+    const statusLabel = document.getElementById('status-label');
+    const lastSeen    = document.getElementById('last-seen');
+    const waiting     = document.getElementById('waiting');
+    const delivered   = document.getElementById('delivered');
+    const destRow     = document.getElementById('dest-row');
+    const destText    = document.getElementById('dest-text');
+    const liveDot     = document.getElementById('live-dot');
+
+    // Status text
+    const statusMap = {
+      Pending:'Waiting for carrier to accept',
+      Negotiating:'Negotiating with carrier',
+      Active:'Carrier accepted — awaiting pickup',
+      LockedIn:'Carrier is on the way to pick up',
+      InProgress:'Carrier is delivering your package',
+      Closed:'Delivered',
+      Declined:'Request declined'
+    };
+    statusLabel.textContent = statusMap[d.status] || d.status;
+
+    // Destination pin
+    if (d.destLat && d.destLng) {
+      if (!destMarker) {
+        destMarker = L.marker([d.destLat, d.destLng], { icon: destIcon }).addTo(map);
+      }
+      destRow.style.display = 'flex';
+      destText.textContent  = d.destAddress || `${d.destLat.toFixed(4)}, ${d.destLng.toFixed(4)}`;
+    }
+
+    // Delivered state
+    if (d.status === 'Closed') {
+      waiting.classList.add('hidden');
+      delivered.style.display = 'block';
+      liveDot.style.background = '#9ca3af';
+      return;
+    }
+
+    // Carrier location
+    if (d.helperLat && d.helperLng) {
+      waiting.classList.add('hidden');
+      if (!carrierMarker) {
+        carrierMarker = L.marker([d.helperLat, d.helperLng], { icon: truckIcon }).addTo(map);
+      } else {
+        carrierMarker.setLatLng([d.helperLat, d.helperLng]);
+      }
+
+      // Route carrier → dest (InProgress) or just show carrier (other)
+      if (d.status === 'InProgress' && d.destLat && d.destLng) {
+        drawRoute([d.helperLat, d.helperLng], [d.destLat, d.destLng]);
+      }
+
+      if (firstFix) {
+        firstFix = false;
+        if (d.destLat && d.destLng) {
+          map.fitBounds([[d.helperLat, d.helperLng], [d.destLat, d.destLng]], { padding: [60, 60] });
+        } else {
+          map.setView([d.helperLat, d.helperLng], 14);
+        }
+      }
+
+      // Last seen
+      if (d.helperLastSeen) {
+        const ago = Math.round((Date.now() - new Date(d.helperLastSeen)) / 1000);
+        lastSeen.textContent = ago < 10 ? 'Updated just now' : `Updated ${ago}s ago`;
+      }
+    }
+  } catch(_) {}
+}
+
+// Initial map view (Lagos)
+map.setView([6.5244, 3.3792], 12);
+
+poll();
+setInterval(poll, 4000);
+</script>
+</body>
+</html>

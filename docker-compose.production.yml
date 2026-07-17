@@ -82,6 +82,8 @@ services:
       - ./nginx/certbot/www:/var/www/certbot:ro
       - /var/www/tlimc:/var/www/tlimc:ro
       - /var/www/tagalong-delivery:/var/www/tagalong-delivery:ro
+      - ./nginx/www/track.html:/var/www/tagalong-delivery/track.html:ro
+      - ./nginx/www/.well-known:/var/www/tagalong-delivery/.well-known:ro
     depends_on:
       - api-gateway
     networks:
