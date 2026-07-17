@@ -36,6 +36,9 @@ public class MessagingDbContext : DbContext
             entity.Property(c => c.PassengerDestLat).HasColumnName("passenger_dest_lat");
             entity.Property(c => c.PassengerDestLng).HasColumnName("passenger_dest_lng");
             entity.Property(c => c.PassengerDestAddress).HasColumnName("passenger_dest_address").HasMaxLength(500);
+            entity.Property(c => c.HelperLastLat).HasColumnName("helper_last_lat");
+            entity.Property(c => c.HelperLastLng).HasColumnName("helper_last_lng");
+            entity.Property(c => c.HelperLastSeenAt).HasColumnName("helper_last_seen_at");
             entity.Property(c => c.CreatedAt).HasColumnName("created_at").IsRequired();
             entity.Property(c => c.UpdatedAt).HasColumnName("updated_at");
 

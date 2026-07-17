@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.example.tagalong_mobile",
+      "sha256_cert_fingerprints": [
+        "D4:07:47:12:F9:DF:C9:9B:2A:3E:6A:58:70:DE:87:AA:AE:1D:42:AF:49:0D:58:70:3C:BB:04:06:26:1D:E4:02"
+      ]
+    }
+  }
+]

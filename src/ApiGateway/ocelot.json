@@ -97,6 +97,18 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/api/public/tracking/{conversationId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "messaging-api",
+          "Port": 80
+        }
+      ],
+      "UpstreamPathTemplate": "/api/public/tracking/{conversationId}",
+      "UpstreamHttpMethod": [ "GET" ]
+    },
+    {
       "DownstreamPathTemplate": "/api/conversations",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
