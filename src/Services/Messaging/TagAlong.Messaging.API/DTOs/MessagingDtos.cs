@@ -19,7 +19,9 @@ public record ConversationDto(
     DateTime? DeliveredAt = null,
     double? PassengerDestLat = null,
     double? PassengerDestLng = null,
-    string? PassengerDestAddress = null);
+    string? PassengerDestAddress = null,
+    double? HelperLastLat = null,
+    double? HelperLastLng = null);
 
 public record MessageDto(
     Guid Id,

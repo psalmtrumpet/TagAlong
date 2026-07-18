@@ -80,7 +80,9 @@ public class GetConversationByIdQueryHandler : IQueryHandler<GetConversationById
             conversation.DeliveredAt,
             conversation.PassengerDestLat,
             conversation.PassengerDestLng,
-            conversation.PassengerDestAddress);
+            conversation.PassengerDestAddress,
+            conversation.HelperLastLat,
+            conversation.HelperLastLng);
     }
 }
 
@@ -165,7 +167,9 @@ public class GetUserConversationsQueryHandler : IQueryHandler<GetUserConversatio
             conversation.DeliveredAt,
             conversation.PassengerDestLat,
             conversation.PassengerDestLng,
-            conversation.PassengerDestAddress);
+            conversation.PassengerDestAddress,
+            conversation.HelperLastLat,
+            conversation.HelperLastLng);
     }
 }
 
