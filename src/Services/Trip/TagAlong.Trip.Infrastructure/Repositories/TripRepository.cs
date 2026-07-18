@@ -74,14 +74,28 @@ public class TripRepository : ITripRepository
             query = query.Where(t => t.DepartureTime >= startOfDay && t.DepartureTime < endOfDay);
         }
 
-        // SQL bounding-box pre-filter for trip origin (fast, approximate).
+        // SQL bounding-box pre-filter for origin search coordinate.
+        // Passenger: trip must START near the search origin.
+        // Delivery: pickup point just needs to be within the route bounding box — the
+        //           carrier doesn't start at the pickup, they pass through it.
         if (originLat.HasValue && originLon.HasValue)
         {
             var latDelta = radiusKm / 111.0;
             var lonDelta = radiusKm / (111.0 * Math.Cos(originLat.Value * Math.PI / 180));
-            query = query.Where(t =>
-                t.OriginLatitude  >= originLat.Value - latDelta && t.OriginLatitude  <= originLat.Value + latDelta &&
-                t.OriginLongitude >= originLon.Value - lonDelta && t.OriginLongitude <= originLon.Value + lonDelta);
+            if (tripType == TripType.Delivery)
+            {
+                query = query.Where(t =>
+                    originLat.Value >= (t.OriginLatitude  < t.DestinationLatitude  ? t.OriginLatitude  : t.DestinationLatitude)  - latDelta &&
+                    originLat.Value <= (t.OriginLatitude  > t.DestinationLatitude  ? t.OriginLatitude  : t.DestinationLatitude)  + latDelta &&
+                    originLon.Value >= (t.OriginLongitude < t.DestinationLongitude ? t.OriginLongitude : t.DestinationLongitude) - lonDelta &&
+                    originLon.Value <= (t.OriginLongitude > t.DestinationLongitude ? t.OriginLongitude : t.DestinationLongitude) + lonDelta);
+            }
+            else
+            {
+                query = query.Where(t =>
+                    t.OriginLatitude  >= originLat.Value - latDelta && t.OriginLatitude  <= originLat.Value + latDelta &&
+                    t.OriginLongitude >= originLon.Value - lonDelta && t.OriginLongitude <= originLon.Value + lonDelta);
+            }
         }
 
         // SQL loose pre-filter for destination: keep any trip whose route bounding
@@ -103,11 +117,23 @@ public class TripRepository : ITripRepository
             .OrderBy(t => t.DepartureTime)
             .ToListAsync(cancellationToken);
 
-        // Exact in-memory filter: pickup must be near trip origin.
+        // Exact in-memory origin filter.
+        // Passenger: pickup must be near trip's actual start point.
+        // Delivery: pickup location must be along the carrier's route segment.
         if (originLat.HasValue && originLon.HasValue)
-            candidates = candidates
-                .Where(t => HaversineKm(originLat.Value, originLon.Value, t.OriginLatitude, t.OriginLongitude) <= radiusKm)
-                .ToList();
+        {
+            if (tripType == TripType.Delivery)
+                candidates = candidates
+                    .Where(t => PointToSegmentKm(
+                        originLat.Value, originLon.Value,
+                        t.OriginLatitude, t.OriginLongitude,
+                        t.DestinationLatitude, t.DestinationLongitude) <= radiusKm)
+                    .ToList();
+            else
+                candidates = candidates
+                    .Where(t => HaversineKm(originLat.Value, originLon.Value, t.OriginLatitude, t.OriginLongitude) <= radiusKm)
+                    .ToList();
+        }
 
         // Exact in-memory filter: user's destination must be along the route.
         // For trips with a stored RouteLine, use NTS distance to the polyline.
