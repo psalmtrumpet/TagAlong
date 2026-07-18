@@ -137,7 +137,9 @@ public class MessagingHub : Hub<IMessagingClient>
         await _conversationRepository.SaveChangesAsync();
 
         var convIdStr = conversationId.ToString();
-        await Clients.Group($"conversation_{conversationId}").ReceiveHelperLocation(convIdStr, latitude, longitude);
+        // OthersInGroup prevents the sender from seeing their own location echoed back.
+        // The other user also receives it via their personal user_ group.
+        await Clients.OthersInGroup($"conversation_{conversationId}").ReceiveHelperLocation(convIdStr, latitude, longitude);
 
         var otherUserId = conversation.GetOtherParticipant(userId.Value);
         await Clients.Group($"user_{otherUserId}").ReceiveHelperLocation(convIdStr, latitude, longitude);
