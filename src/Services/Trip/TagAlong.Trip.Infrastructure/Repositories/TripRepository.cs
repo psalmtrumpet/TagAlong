@@ -119,12 +119,14 @@ public class TripRepository : ITripRepository
 
         // Exact in-memory origin filter.
         // Passenger: pickup must be near trip's actual start point.
-        // Delivery: pickup location must be along the carrier's route segment.
+        // Delivery: pickup just needs to be within radiusKm of the nearest point on the
+        //           carrier's route — including near the start or end. Direction check is
+        //           left to DetourVerifier; using PointToRouteKm (both ends clamped, no rejection).
         if (originLat.HasValue && originLon.HasValue)
         {
             if (tripType == TripType.Delivery)
                 candidates = candidates
-                    .Where(t => PointToSegmentKm(
+                    .Where(t => PointToRouteKm(
                         originLat.Value, originLon.Value,
                         t.OriginLatitude, t.OriginLongitude,
                         t.DestinationLatitude, t.DestinationLongitude) <= radiusKm)
@@ -197,6 +199,35 @@ public class TripRepository : ITripRepository
         double t = (px * bx + py * by) / segLenSq;
         if (t < 0) return double.MaxValue;
         if (t > 1) t = 1;
+        double dx = px - t * bx;
+        double dy = py - t * by;
+        return Math.Sqrt(dx * dx + dy * dy);
+    }
+
+    // Distance (km) from point P to the nearest point on segment A→B, clamping to both
+    // endpoints. Unlike PointToSegmentKm this does NOT reject t < 0, so a point that
+    // is "before" the start is measured as distance to the start point A.
+    // Used as a lenient pre-filter for delivery pickup locations — the DetourVerifier
+    // performs the authoritative directional check afterwards.
+    private static double PointToRouteKm(
+        double pLat, double pLon,
+        double aLat, double aLon,
+        double bLat, double bLon)
+    {
+        const double KmPerDeg = 111.0;
+        double cosLat = Math.Cos((aLat + bLat) / 2 * Math.PI / 180);
+
+        double px = (pLon - aLon) * KmPerDeg * cosLat;
+        double py = (pLat - aLat) * KmPerDeg;
+        double bx = (bLon - aLon) * KmPerDeg * cosLat;
+        double by = (bLat - aLat) * KmPerDeg;
+
+        double segLenSq = bx * bx + by * by;
+        if (segLenSq < 1e-10)
+            return Math.Sqrt(px * px + py * py);
+
+        double t = (px * bx + py * by) / segLenSq;
+        t = Math.Max(0.0, Math.Min(1.0, t)); // clamp to [0, 1] — both endpoints included
         double dx = px - t * bx;
         double dy = py - t * by;
         return Math.Sqrt(dx * dx + dy * dy);
