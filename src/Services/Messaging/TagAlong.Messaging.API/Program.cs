@@ -90,10 +90,16 @@ builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Progr
 builder.Services.AddValidatorsFromAssemblyContaining<CreateConversationCommandValidator>();
 
 // SignalR with Redis backplane for scaling
+// Use camelCase so the Flutter client's fromJson helpers can read property names.
+// ASP.NET Core SignalR defaults to PascalCase (separate from the REST API convention).
 var redisConnection = builder.Configuration.GetConnectionString("Redis");
 if (!string.IsNullOrEmpty(redisConnection))
 {
     builder.Services.AddSignalR()
+        .AddJsonProtocol(options =>
+        {
+            options.PayloadSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        })
         .AddStackExchangeRedis(redisConnection, options =>
         {
             options.Configuration.ChannelPrefix = "TagAlong.Messaging";
@@ -101,7 +107,11 @@ if (!string.IsNullOrEmpty(redisConnection))
 }
 else
 {
-    builder.Services.AddSignalR();
+    builder.Services.AddSignalR()
+        .AddJsonProtocol(options =>
+        {
+            options.PayloadSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        });
 }
 
 // RabbitMQ
