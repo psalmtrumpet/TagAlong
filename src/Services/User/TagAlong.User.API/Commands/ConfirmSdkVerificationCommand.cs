@@ -117,7 +117,7 @@ public class ConfirmSdkVerificationCommandHandler : ICommandHandler<ConfirmSdkVe
 
         await _kycRepo.AddAsync(kyc, cancellationToken);
 
-        profile.Verify();
+        profile.Verify(photoPath);
         _profiles.Update(profile);
 
         await _kycRepo.SaveChangesAsync(cancellationToken);

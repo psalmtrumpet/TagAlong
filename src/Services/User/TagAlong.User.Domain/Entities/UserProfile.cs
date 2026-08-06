@@ -111,11 +111,13 @@ public class UserProfile : AggregateRoot
         SetUpdated();
     }
 
-    public void Verify()
+    public void Verify(string? identityDocumentUrl = null)
     {
         IsVerified = true;
         VerificationStatus = UserVerificationStatus.Verified;
         VerifiedAt = DateTime.UtcNow;
+        if (!string.IsNullOrEmpty(identityDocumentUrl))
+            IdentityDocumentUrl = identityDocumentUrl;
         SetUpdated();
     }
 

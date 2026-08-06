@@ -125,7 +125,7 @@ public class VerifyNinCommandHandler : ICommandHandler<VerifyNinCommand, KycStat
         _kycRepo.Update(kyc);
 
         // Mark user as verified
-        profile.Verify();
+        profile.Verify(photoPath);
         _profiles.Update(profile);
 
         await _kycRepo.SaveChangesAsync(cancellationToken);
