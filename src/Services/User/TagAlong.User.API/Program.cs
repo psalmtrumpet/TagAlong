@@ -16,6 +16,7 @@ using TagAlong.User.API.Queries;
 using TagAlong.User.Domain.Repositories;
 using TagAlong.User.Infrastructure.Persistence;
 using TagAlong.User.Infrastructure.Repositories;
+using TagAlong.User.Infrastructure.Services;
 
 Console.ForegroundColor = ConsoleColor.Green;
 Console.WriteLine(@"
@@ -71,6 +72,9 @@ builder.Services.AddDbContext<UserDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("UserDb")));
 
 builder.Services.AddScoped<IUserProfileRepository, UserProfileRepository>();
+builder.Services.AddScoped<IKycVerificationRepository, KycVerificationRepository>();
+builder.Services.AddSingleton<FileService>();
+builder.Services.AddHttpClient();
 
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<GetUserProfileQuery>());
 builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
