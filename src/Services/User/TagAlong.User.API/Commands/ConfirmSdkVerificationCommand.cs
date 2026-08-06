@@ -55,7 +55,8 @@ public class ConfirmSdkVerificationCommandHandler : ICommandHandler<ConfirmSdkVe
 
         try
         {
-            var url = $"https://api.dojah.io/api/v1/kyc/verification/{Uri.EscapeDataString(request.ReferenceId)}";
+            var baseUrl = secretKey.StartsWith("test_") ? "https://sandbox.dojah.io" : "https://api.dojah.io";
+            var url = $"{baseUrl}/api/v1/kyc/verification/{Uri.EscapeDataString(request.ReferenceId)}";
             var response = await http.GetAsync(url, cancellationToken);
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
 

@@ -70,7 +70,8 @@ public class VerifyNinCommandHandler : ICommandHandler<VerifyNinCommand, KycStat
         DojahNinEntity? entity = null;
         try
         {
-            var url = $"https://api.dojah.io/api/v1/kyc/nin?nin={Uri.EscapeDataString(request.NIN)}";
+            var baseUrl = secretKey.StartsWith("test_") ? "https://sandbox.dojah.io" : "https://api.dojah.io";
+            var url = $"{baseUrl}/api/v1/kyc/nin?nin={Uri.EscapeDataString(request.NIN)}";
             var response = await http.GetAsync(url, cancellationToken);
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
 
