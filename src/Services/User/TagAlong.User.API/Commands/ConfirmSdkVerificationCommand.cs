@@ -62,7 +62,7 @@ public class ConfirmSdkVerificationCommandHandler : ICommandHandler<ConfirmSdkVe
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Dojah verification fetch failed: {Status} {Body}", response.StatusCode, json);
-                return Result.Failure<KycStatusResponse>(Error.Internal("Could not confirm verification. Please try again."));
+                return Result.Failure<KycStatusResponse>(new Error("Error.Internal", "Could not confirm verification. Please try again."));
             }
 
             using var doc = JsonDocument.Parse(json);
@@ -92,7 +92,7 @@ public class ConfirmSdkVerificationCommandHandler : ICommandHandler<ConfirmSdkVe
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error fetching Dojah verification for ref {Ref}", request.ReferenceId);
-            return Result.Failure<KycStatusResponse>(Error.Internal("Verification service error. Please try again."));
+            return Result.Failure<KycStatusResponse>(new Error("Error.Internal", "Verification service error. Please try again."));
         }
 
         // Download and save the NIN photo (URL expires in 1 hour)
