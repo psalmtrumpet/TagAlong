@@ -124,13 +124,10 @@ public class VerifyNinCommandHandler : ICommandHandler<VerifyNinCommand, KycStat
 
         _kycRepo.Update(kyc);
 
-        // Mark user as verified
-        profile.Verify(photoPath);
-        _profiles.Update(profile);
-
         await _kycRepo.SaveChangesAsync(cancellationToken);
 
-        return Result.Success(new KycStatusResponse(true, "Verified", "Identity verified successfully"));
+        // NIN is valid — frontend will now launch liveness check before marking verified
+        return Result.Success(new KycStatusResponse(true, "NinValidated", "NIN verified. Please complete the face check."));
     }
 
     private static DojahNinEntity? ParseNinEntity(JsonElement root)
