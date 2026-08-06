@@ -93,7 +93,7 @@ public class VerifyNinCommandHandler : ICommandHandler<VerifyNinCommand, KycStat
             kyc.Fail("Network error calling verification service");
             _kycRepo.Update(kyc);
             await _kycRepo.SaveChangesAsync(cancellationToken);
-            return Result.Failure<KycStatusResponse>(Error.Internal("Verification service unavailable. Please try again."));
+            return Result.Failure<KycStatusResponse>(new Error("Error.Internal", "Verification service unavailable. Please try again."));
         }
 
         if (entity == null)
