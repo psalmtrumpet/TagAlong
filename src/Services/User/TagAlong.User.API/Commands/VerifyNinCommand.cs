@@ -78,7 +78,6 @@ public class VerifyNinCommandHandler : ICommandHandler<VerifyNinCommand, KycStat
             {
                 _logger.LogWarning("Dojah NIN lookup failed for user {UserId}: {Status} {Body}", request.AuthUserId, response.StatusCode, json);
                 kyc.Fail($"Dojah error: {response.StatusCode}");
-                _kycRepo.Update(kyc);
                 await _kycRepo.SaveChangesAsync(cancellationToken);
                 return Result.Success(new KycStatusResponse(false, "Failed", "NIN verification failed. Please check your NIN and try again."));
             }
@@ -91,7 +90,6 @@ public class VerifyNinCommandHandler : ICommandHandler<VerifyNinCommand, KycStat
         {
             _logger.LogError(ex, "Error calling Dojah NIN API for user {UserId}", request.AuthUserId);
             kyc.Fail("Network error calling verification service");
-            _kycRepo.Update(kyc);
             await _kycRepo.SaveChangesAsync(cancellationToken);
             return Result.Failure<KycStatusResponse>(new Error("Error.Internal", "Verification service unavailable. Please try again."));
         }
@@ -99,7 +97,6 @@ public class VerifyNinCommandHandler : ICommandHandler<VerifyNinCommand, KycStat
         if (entity == null)
         {
             kyc.Fail("No data returned from Dojah");
-            _kycRepo.Update(kyc);
             await _kycRepo.SaveChangesAsync(cancellationToken);
             return Result.Success(new KycStatusResponse(false, "Failed", "NIN not found. Please check your NIN."));
         }
@@ -121,8 +118,6 @@ public class VerifyNinCommandHandler : ICommandHandler<VerifyNinCommand, KycStat
             entity.Nationality,
             entity.ResidenceState,
             photoPath);
-
-        _kycRepo.Update(kyc);
 
         await _kycRepo.SaveChangesAsync(cancellationToken);
 
