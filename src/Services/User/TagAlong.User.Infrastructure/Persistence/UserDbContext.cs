@@ -10,6 +10,7 @@ public class UserDbContext : DbContext
     }
 
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
+    public DbSet<KycVerification> KycVerifications => Set<KycVerification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -98,6 +99,24 @@ public class UserDbContext : DbContext
                 .HasFilter("[IsAvailable] = 1 AND [IsDeleted] = 0");
 
             entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        modelBuilder.Entity<KycVerification>(entity =>
+        {
+            entity.ToTable("kyc_verifications");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.NIN).HasMaxLength(11);
+            entity.Property(e => e.FirstName).HasMaxLength(100);
+            entity.Property(e => e.LastName).HasMaxLength(100);
+            entity.Property(e => e.MiddleName).HasMaxLength(100);
+            entity.Property(e => e.DateOfBirth).HasMaxLength(20);
+            entity.Property(e => e.Gender).HasMaxLength(10);
+            entity.Property(e => e.Nationality).HasMaxLength(100);
+            entity.Property(e => e.ResidenceState).HasMaxLength(100);
+            entity.Property(e => e.PhotoPath).HasMaxLength(512);
+            entity.Property(e => e.FailureReason).HasMaxLength(500);
+            entity.Property(e => e.Status).HasConversion<string>();
+            entity.HasIndex(e => e.AuthUserId);
         });
     }
 }
