@@ -233,6 +233,62 @@
       "UpstreamHttpMethod": [ "GET", "POST" ]
     }
   ],
+    {
+      "DownstreamPathTemplate": "/api/admin/auth/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "identity-api", "Port": 80 }],
+      "UpstreamPathTemplate": "/api/admin/auth/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/admin/users/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "user-api", "Port": 80 }],
+      "UpstreamPathTemplate": "/api/admin/users/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
+      "DownstreamPathTemplate": "/api/admin/users",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "user-api", "Port": 80 }],
+      "UpstreamPathTemplate": "/api/admin/users",
+      "UpstreamHttpMethod": [ "GET" ],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
+      "DownstreamPathTemplate": "/api/admin/trips/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "trip-api", "Port": 80 }],
+      "UpstreamPathTemplate": "/api/admin/trips/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
+      "DownstreamPathTemplate": "/api/admin/trips",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "trip-api", "Port": 80 }],
+      "UpstreamPathTemplate": "/api/admin/trips",
+      "UpstreamHttpMethod": [ "GET" ],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
+      "DownstreamPathTemplate": "/api/admin/conversations/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "messaging-api", "Port": 80 }],
+      "UpstreamPathTemplate": "/api/admin/conversations/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
+      "DownstreamPathTemplate": "/api/admin/conversations",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "messaging-api", "Port": 80 }],
+      "UpstreamPathTemplate": "/api/admin/conversations",
+      "UpstreamHttpMethod": [ "GET" ],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    }
+  ],
   "GlobalConfiguration": {
     "BaseUrl": "http://localhost:5000",
     "RateLimitOptions": {

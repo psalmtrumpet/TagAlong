@@ -43,6 +43,11 @@ public class UserProfile : AggregateRoot
     public double MaxTravelRadiusKm { get; private set; } = 10.0;
     public bool AllowLocationSharing { get; private set; } = true;
 
+    // Suspension
+    public bool IsSuspended { get; private set; }
+    public DateTime? SuspendedAt { get; private set; }
+    public string? SuspensionReason { get; private set; }
+
     private UserProfile() { }
 
     public static UserProfile Create(
@@ -124,6 +129,22 @@ public class UserProfile : AggregateRoot
     public void RejectVerification()
     {
         VerificationStatus = UserVerificationStatus.Rejected;
+        SetUpdated();
+    }
+
+    public void Suspend(string reason)
+    {
+        IsSuspended = true;
+        SuspendedAt = DateTime.UtcNow;
+        SuspensionReason = reason;
+        SetUpdated();
+    }
+
+    public void Unsuspend()
+    {
+        IsSuspended = false;
+        SuspendedAt = null;
+        SuspensionReason = null;
         SetUpdated();
     }
 

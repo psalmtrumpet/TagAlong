@@ -55,6 +55,11 @@ public class IdentityDbContext : DbContext
             entity.Property(e => e.ProfileImageUrl)
                 .HasMaxLength(1024);
 
+            entity.Property(e => e.Role)
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasDefaultValue("User");
+
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 

@@ -17,6 +17,7 @@ public class ApplicationUser : AggregateRoot
     public DateTime? LastLoginAt { get; private set; }
     public bool IsActive { get; private set; } = true;
     public string? ProfileImageUrl { get; private set; }
+    public string Role { get; private set; } = "User";
 
     private ApplicationUser() { }
 
@@ -115,6 +116,12 @@ public class ApplicationUser : AggregateRoot
     public void Activate()
     {
         IsActive = true;
+        SetUpdated();
+    }
+
+    public void SetRole(string role)
+    {
+        Role = role;
         SetUpdated();
     }
 
