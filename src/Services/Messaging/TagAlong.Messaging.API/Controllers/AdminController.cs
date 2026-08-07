@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TagAlong.Messaging.API.DTOs;
 using TagAlong.Messaging.API.Services;
+using TagAlong.Messaging.Domain.Entities;
 using TagAlong.Messaging.Infrastructure.Persistence;
 
 namespace TagAlong.Messaging.API.Controllers;
@@ -30,8 +31,8 @@ public class AdminController : ControllerBase
     {
         var query = _db.Conversations.AsQueryable();
 
-        if (status != "all")
-            query = query.Where(c => c.Status.ToString() == status);
+        if (status != "all" && Enum.TryParse<ConversationStatus>(status, true, out var statusEnum))
+            query = query.Where(c => c.Status == statusEnum);
 
         var total = await query.CountAsync(cancellationToken);
 
@@ -103,11 +104,11 @@ public class AdminController : ControllerBase
     public async Task<IActionResult> GetStats(CancellationToken cancellationToken)
     {
         var total      = await _db.Conversations.CountAsync(cancellationToken);
-        var pending    = await _db.Conversations.CountAsync(c => c.Status.ToString() == "Pending", cancellationToken);
-        var active     = await _db.Conversations.CountAsync(c => c.Status.ToString() == "Active", cancellationToken);
-        var lockedIn   = await _db.Conversations.CountAsync(c => c.Status.ToString() == "LockedIn", cancellationToken);
-        var inProgress = await _db.Conversations.CountAsync(c => c.Status.ToString() == "InProgress", cancellationToken);
-        var closed     = await _db.Conversations.CountAsync(c => c.Status.ToString() == "Closed", cancellationToken);
+        var pending    = await _db.Conversations.CountAsync(c => c.Status == ConversationStatus.Pending, cancellationToken);
+        var active     = await _db.Conversations.CountAsync(c => c.Status == ConversationStatus.Active, cancellationToken);
+        var lockedIn   = await _db.Conversations.CountAsync(c => c.Status == ConversationStatus.LockedIn, cancellationToken);
+        var inProgress = await _db.Conversations.CountAsync(c => c.Status == ConversationStatus.InProgress, cancellationToken);
+        var closed     = await _db.Conversations.CountAsync(c => c.Status == ConversationStatus.Closed, cancellationToken);
 
         return Ok(new { total, pending, active, lockedIn, inProgress, closed });
     }
