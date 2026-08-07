@@ -15,7 +15,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (res.status === 401) {
     clearToken()
-    window.location.href = '/login'
+    window.location.href = '/admin/login'
     throw new Error('Unauthorized')
   }
 
