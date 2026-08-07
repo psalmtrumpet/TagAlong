@@ -231,8 +231,7 @@
       ],
       "UpstreamPathTemplate": "/notificationHub/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST" ]
-    }
-  ],
+    },
     {
       "DownstreamPathTemplate": "/api/admin/auth/{everything}",
       "DownstreamScheme": "http",
