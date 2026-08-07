@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TagAlong.Trip.API.DTOs;
+using TagAlong.Trip.Domain.Entities;
 using TagAlong.Trip.Infrastructure.Persistence;
 
 namespace TagAlong.Trip.API.Controllers;
@@ -85,11 +86,11 @@ public class AdminController : ControllerBase
     public async Task<IActionResult> GetStats(CancellationToken cancellationToken)
     {
         var total      = await _db.Trips.IgnoreQueryFilters().CountAsync(cancellationToken);
-        var scheduled  = await _db.Trips.IgnoreQueryFilters().CountAsync(t => t.Status.ToString() == "Scheduled", cancellationToken);
-        var inProgress = await _db.Trips.IgnoreQueryFilters().CountAsync(t => t.Status.ToString() == "InProgress", cancellationToken);
-        var completed  = await _db.Trips.IgnoreQueryFilters().CountAsync(t => t.Status.ToString() == "Completed", cancellationToken);
-        var passenger  = await _db.Trips.IgnoreQueryFilters().CountAsync(t => t.TripType.ToString() == "Passenger", cancellationToken);
-        var delivery   = await _db.Trips.IgnoreQueryFilters().CountAsync(t => t.TripType.ToString() == "Delivery", cancellationToken);
+        var scheduled  = await _db.Trips.IgnoreQueryFilters().CountAsync(t => t.Status == TripStatus.Scheduled, cancellationToken);
+        var inProgress = await _db.Trips.IgnoreQueryFilters().CountAsync(t => t.Status == TripStatus.InProgress, cancellationToken);
+        var completed  = await _db.Trips.IgnoreQueryFilters().CountAsync(t => t.Status == TripStatus.Completed, cancellationToken);
+        var passenger  = await _db.Trips.IgnoreQueryFilters().CountAsync(t => t.TripType == TripType.Passenger, cancellationToken);
+        var delivery   = await _db.Trips.IgnoreQueryFilters().CountAsync(t => t.TripType == TripType.Delivery, cancellationToken);
 
         return Ok(new { total, scheduled, inProgress, completed, passenger, delivery });
     }
