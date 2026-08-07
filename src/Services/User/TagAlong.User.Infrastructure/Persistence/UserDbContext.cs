@@ -94,6 +94,15 @@ public class UserDbContext : DbContext
                 .IsRequired()
                 .HasDefaultValue(true);
 
+            entity.Property(e => e.IsSuspended)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            entity.Property(e => e.SuspendedAt);
+
+            entity.Property(e => e.SuspensionReason)
+                .HasMaxLength(500);
+
             // Index for finding available users by location
             entity.HasIndex(e => new { e.IsAvailable, e.CurrentLatitude, e.CurrentLongitude })
                 .HasFilter("[IsAvailable] = 1 AND [IsDeleted] = 0");

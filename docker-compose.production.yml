@@ -159,6 +159,7 @@ services:
       - GoogleAuth__ClientId=${GOOGLE_CLIENT_ID}
       - Google__ClientId=${GOOGLE_CLIENT_ID}
       - Google__ClientSecret=${GOOGLE_CLIENT_SECRET}
+      - Admin__SeedSecret=${ADMIN_SEED_SECRET}
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -495,6 +496,21 @@ services:
         limits:
           cpus: '0.5'
           memory: 256M
+
+  admin-portal:
+    image: ${DOCKER_REGISTRY:-tagalong}/admin-portal:${TAG:-latest}
+    build:
+      context: src/AdminPortal
+      dockerfile: Dockerfile
+    container_name: tagalong-admin-portal
+    networks:
+      - tagalong-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 64M
 
   mail-service:
     build:

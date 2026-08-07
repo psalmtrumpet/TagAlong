@@ -36,6 +36,7 @@ public class JwtService : IJwtService
             new(ClaimTypes.Email, user.Email),
             new(ClaimTypes.GivenName, user.FirstName),
             new(ClaimTypes.Surname, user.LastName),
+            new(ClaimTypes.Role, user.Role),
             new("phone_number", user.PhoneNumber ?? string.Empty),
             new("email_verified", user.IsEmailVerified.ToString().ToLower()),
             new("phone_verified", user.IsPhoneVerified.ToString().ToLower())
