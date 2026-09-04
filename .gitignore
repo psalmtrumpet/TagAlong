@@ -119,3 +119,4 @@ docker-compose.override.local.yml
 *.swp
 *~
 nul
+CLAUDE.md

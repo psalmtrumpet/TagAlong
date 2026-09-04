@@ -70,8 +70,33 @@ public class KycController : ControllerBase
     }
 
     /// <summary>
-    /// Called by the app after Dojah SDK onSuccess fires. Fetches verification details
-    /// from Dojah using the referenceId and marks the user as verified.
+    /// Verify identity using NIN + selfie photo via QoreID.
+    /// Performs NIN lookup and facial comparison in one call.
+    /// </summary>
+    [Authorize]
+    [HttpPost("verify-face")]
+    public async Task<IActionResult> VerifyFace([FromBody] VerifyFaceRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        if (string.IsNullOrWhiteSpace(request.NIN) || request.NIN.Trim().Length != 11)
+            return BadRequest(new { error = "NIN must be exactly 11 digits" });
+
+        if (string.IsNullOrWhiteSpace(request.PhotoBase64))
+            return BadRequest(new { error = "Selfie photo is required" });
+
+        var command = new QoreidFaceVerificationCommand(userId.Value, request.NIN.Trim(), request.PhotoBase64.Trim());
+        var result = await _mediator.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+            return StatusCode(500, new { error = result.Error.Message });
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Called by the app after Dojah SDK onSuccess fires (legacy — kept for backwards compat).
     /// </summary>
     [Authorize]
     [HttpPost("confirm-sdk")]
@@ -100,4 +125,5 @@ public class KycController : ControllerBase
 }
 
 public record VerifyNinRequest(string NIN);
+public record VerifyFaceRequest(string NIN, string PhotoBase64);
 public record ConfirmSdkRequest(string ReferenceId);

@@ -20,6 +20,10 @@ public class KycVerificationRepository : IKycVerificationRepository
             .OrderByDescending(k => k.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
+    public async Task<KycVerification?> GetByQoreIdReferenceAsync(string reference, CancellationToken cancellationToken = default)
+        => await _context.KycVerifications
+            .FirstOrDefaultAsync(k => k.QoreIdReference == reference, cancellationToken);
+
     public async Task AddAsync(KycVerification kyc, CancellationToken cancellationToken = default)
         => await _context.KycVerifications.AddAsync(kyc, cancellationToken);
 

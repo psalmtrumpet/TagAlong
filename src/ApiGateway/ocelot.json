@@ -13,6 +13,13 @@
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "PATCH", "DELETE" ]
     },
     {
+      "DownstreamPathTemplate": "/api/users/kyc/qoreid-webhook",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "user-api", "Port": 80 }],
+      "UpstreamPathTemplate": "/api/users/kyc/qoreid-webhook",
+      "UpstreamHttpMethod": [ "POST" ]
+    },
+    {
       "DownstreamPathTemplate": "/api/users/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
