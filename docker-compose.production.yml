@@ -197,6 +197,9 @@ services:
       - Jwt__Issuer=${JWT_ISSUER}
       - Jwt__Audience=${JWT_AUDIENCE}
       - GoogleMaps__ApiKey=${GOOGLE_MAPS_API_KEY}
+      - QoreId__ApiKey=${QOREID_API_KEY}
+      - QoreId__ClientId=${QOREID_CLIENT_ID}
+      - QoreId__WebhookSecret=${QOREID_WEBHOOK_SECRET}
     depends_on:
       sqlserver:
         condition: service_healthy
