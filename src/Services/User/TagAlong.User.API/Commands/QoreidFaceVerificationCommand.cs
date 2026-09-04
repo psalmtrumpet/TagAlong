@@ -166,7 +166,7 @@ public class QoreidFaceVerificationCommandHandler
             firstName: applicant?.Firstname,
             lastName: applicant?.Lastname,
             middleName: applicant?.Middlename,
-            birthDate: applicant?.Dob,
+            dateOfBirth: applicant?.Dob,
             gender: applicant?.Gender,
             nationality: "Nigerian",
             residenceState: null,
