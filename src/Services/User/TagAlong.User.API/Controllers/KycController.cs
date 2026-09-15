@@ -96,6 +96,32 @@ public class KycController : ControllerBase
     }
 
     /// <summary>
+    /// Called by the app after Smile ID SDK successfully submits the job.
+    /// Stores the job ID so the backend can match the incoming Smile ID webhook.
+    /// </summary>
+    [Authorize]
+    [HttpPost("record-smile-job")]
+    public async Task<IActionResult> RecordSmileJob([FromBody] RecordSmileJobRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        if (string.IsNullOrWhiteSpace(request.JobId))
+            return BadRequest(new { error = "jobId is required" });
+
+        if (string.IsNullOrWhiteSpace(request.NIN) || request.NIN.Trim().Length != 11)
+            return BadRequest(new { error = "NIN must be exactly 11 digits" });
+
+        var command = new RecordSmileJobCommand(userId.Value, request.JobId.Trim(), request.NIN.Trim());
+        var result = await _mediator.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+            return StatusCode(500, new { error = result.Error.Message });
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
     /// Called by the app after Dojah SDK onSuccess fires (legacy — kept for backwards compat).
     /// </summary>
     [Authorize]
@@ -127,3 +153,4 @@ public class KycController : ControllerBase
 public record VerifyNinRequest(string NIN);
 public record VerifyFaceRequest(string NIN, string PhotoBase64);
 public record ConfirmSdkRequest(string ReferenceId);
+public record RecordSmileJobRequest(string JobId, string NIN);

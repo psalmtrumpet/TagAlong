@@ -16,19 +16,26 @@ public class KycVerification
     public KycStatus Status { get; private set; }
     public string? FailureReason { get; private set; }
     public string? QoreIdReference { get; private set; }
+    public string? SmileJobId { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime? CompletedAt { get; private set; }
 
     private KycVerification() { }
 
-    public static KycVerification Create(Guid authUserId, string? qoreIdReference = null) => new()
+    public static KycVerification Create(Guid authUserId, string? qoreIdReference = null, string? smileJobId = null) => new()
     {
         Id = Guid.NewGuid(),
         AuthUserId = authUserId,
         QoreIdReference = qoreIdReference,
+        SmileJobId = smileJobId,
         Status = KycStatus.Pending,
         CreatedAt = DateTime.UtcNow
     };
+
+    public void SetSmileJobId(string jobId)
+    {
+        SmileJobId = jobId;
+    }
 
     public void Complete(
         string nin,

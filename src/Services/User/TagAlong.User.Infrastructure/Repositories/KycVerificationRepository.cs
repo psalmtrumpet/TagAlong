@@ -24,6 +24,10 @@ public class KycVerificationRepository : IKycVerificationRepository
         => await _context.KycVerifications
             .FirstOrDefaultAsync(k => k.QoreIdReference == reference, cancellationToken);
 
+    public async Task<KycVerification?> GetBySmileJobIdAsync(string jobId, CancellationToken cancellationToken = default)
+        => await _context.KycVerifications
+            .FirstOrDefaultAsync(k => k.SmileJobId == jobId, cancellationToken);
+
     public async Task AddAsync(KycVerification kyc, CancellationToken cancellationToken = default)
         => await _context.KycVerifications.AddAsync(kyc, cancellationToken);
 

@@ -1,0 +1,178 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using TagAlong.Common.CQRS;
+using TagAlong.Common.Results;
+using TagAlong.User.Domain.Entities;
+using TagAlong.User.Domain.Repositories;
+
+namespace TagAlong.User.API.Commands;
+
+public record ProcessSmileWebhookCommand(string RawBody, string ApiKey, string PartnerId) : ICommand<WebhookResult>;
+
+public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWebhookCommand, WebhookResult>
+{
+    private readonly IKycVerificationRepository _kycRepo;
+    private readonly IUserProfileRepository _profiles;
+    private readonly ILogger<ProcessSmileWebhookCommandHandler> _logger;
+
+    public ProcessSmileWebhookCommandHandler(
+        IKycVerificationRepository kycRepo,
+        IUserProfileRepository profiles,
+        ILogger<ProcessSmileWebhookCommandHandler> logger)
+    {
+        _kycRepo = kycRepo;
+        _profiles = profiles;
+        _logger = logger;
+    }
+
+    public async Task<Result<WebhookResult>> Handle(ProcessSmileWebhookCommand request, CancellationToken cancellationToken)
+    {
+        SmileWebhookPayload? payload;
+        try
+        {
+            payload = JsonSerializer.Deserialize<SmileWebhookPayload>(request.RawBody,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize Smile ID webhook payload");
+            return Result.Success(new WebhookResult(false, "Invalid payload"));
+        }
+
+        if (payload == null)
+            return Result.Success(new WebhookResult(false, "Empty payload"));
+
+        // Verify signature if API key is available
+        if (!string.IsNullOrEmpty(request.ApiKey) && !string.IsNullOrEmpty(payload.Timestamp))
+        {
+            if (!VerifySignature(payload.Signature, payload.Timestamp, request.PartnerId, request.ApiKey))
+            {
+                _logger.LogWarning("Smile ID webhook signature mismatch");
+                return Result.Success(new WebhookResult(false, "Invalid signature"));
+            }
+        }
+
+        // Extract job_id from PartnerParams
+        var jobId = payload.PartnerParams?.JobId;
+        if (string.IsNullOrEmpty(jobId))
+        {
+            _logger.LogWarning("Smile ID webhook missing partner_params.job_id");
+            return Result.Success(new WebhookResult(false, "Missing job_id"));
+        }
+
+        _logger.LogInformation("Smile ID webhook: job={JobId} resultCode={Code}", jobId, payload.ResultCode);
+
+        var kyc = await _kycRepo.GetBySmileJobIdAsync(jobId, cancellationToken);
+        if (kyc == null)
+        {
+            _logger.LogWarning("Smile ID webhook: no KYC record for job {JobId}", jobId);
+            return Result.Success(new WebhookResult(false, "Job not found"));
+        }
+
+        if (kyc.Status == KycStatus.Completed)
+            return Result.Success(new WebhookResult(true, "Already processed"));
+
+        // Result code 1210 = Verified match; 1220 = Failed match; 1012 = ID data callback (ignore)
+        var resultCode = payload.ResultCode ?? string.Empty;
+
+        if (resultCode == "1012")
+            return Result.Success(new WebhookResult(true, "ID data callback — no action needed"));
+
+        var ninVerified = string.Equals(payload.Actions?.VerifyIdNumber, "Verified", StringComparison.OrdinalIgnoreCase);
+        var faceMatched = string.Equals(payload.Actions?.HumanReviewCompare, "Passed", StringComparison.OrdinalIgnoreCase)
+                       || string.Equals(payload.Actions?.HumanReviewCompare, "Not Applicable", StringComparison.OrdinalIgnoreCase);
+        var isSuccess = resultCode == "1210" && ninVerified;
+
+        if (!isSuccess)
+        {
+            var reason = $"Smile ID result: code={resultCode} nin={payload.Actions?.VerifyIdNumber} face={payload.Actions?.HumanReviewCompare}";
+            kyc.Fail(reason);
+            _kycRepo.Update(kyc);
+            await _kycRepo.SaveChangesAsync(cancellationToken);
+            _logger.LogWarning("Smile ID webhook: verification failed for job {JobId} — {Reason}", jobId, reason);
+            return Result.Success(new WebhookResult(true, "Processed: failed"));
+        }
+
+        kyc.Complete(
+            nin: kyc.NIN ?? payload.IdNumber ?? string.Empty,
+            firstName: payload.FirstName,
+            lastName: payload.LastName,
+            middleName: payload.MiddleName,
+            dateOfBirth: payload.Dob,
+            gender: payload.Gender,
+            nationality: "Nigerian",
+            residenceState: null,
+            photoPath: kyc.PhotoPath);
+
+        _kycRepo.Update(kyc);
+
+        var profile = await _profiles.GetByAuthUserIdAsync(kyc.AuthUserId, cancellationToken);
+        if (profile != null && !profile.IsVerified)
+        {
+            profile.Verify(kyc.PhotoPath);
+            _profiles.Update(profile);
+        }
+
+        await _kycRepo.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Smile ID webhook: user {UserId} verified via job {JobId}", kyc.AuthUserId, jobId);
+
+        return Result.Success(new WebhookResult(true, "Processed: verified"));
+    }
+
+    private static bool VerifySignature(string? signature, string timestamp, string partnerId, string apiKey)
+    {
+        if (string.IsNullOrEmpty(signature)) return false;
+        try
+        {
+            var message = $"{timestamp}{partnerId}sid_response";
+            using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(apiKey));
+            var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(message));
+            var computed = Convert.ToBase64String(hash);
+            return CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(computed),
+                Encoding.UTF8.GetBytes(signature));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // ── Webhook payload models ──
+
+    private class SmileWebhookPayload
+    {
+        public string? ResultCode { get; set; }
+        public string? ResultText { get; set; }
+        public string? SmileJobId { get; set; }
+        public string? Signature { get; set; }
+        public string? Timestamp { get; set; }
+        public string? SmileClientId { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? MiddleName { get; set; }
+        public string? Dob { get; set; }
+        public string? Gender { get; set; }
+        public string? IdNumber { get; set; }
+        public SmilePartnerParams? PartnerParams { get; set; }
+        public SmileActions? Actions { get; set; }
+        public bool? IsFinalResult { get; set; }
+    }
+
+    private class SmilePartnerParams
+    {
+        public string? JobId { get; set; }
+        public string? UserId { get; set; }
+        public string? JobType { get; set; }
+    }
+
+    private class SmileActions
+    {
+        public string? VerifyIdNumber { get; set; }
+        public string? HumanReviewCompare { get; set; }
+        public string? LivenessCheck { get; set; }
+        public string? SelfieCheck { get; set; }
+    }
+}
