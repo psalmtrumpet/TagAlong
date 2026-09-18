@@ -96,8 +96,7 @@ public class KycController : ControllerBase
     }
 
     /// <summary>
-    /// Called by the app after Smile ID SDK successfully submits the job.
-    /// Stores the job ID so the backend can match the incoming Smile ID webhook.
+    /// Called by the app after SmileID SDK completes. Marks the user as verified.
     /// </summary>
     [Authorize]
     [HttpPost("record-smile-job")]
@@ -109,10 +108,10 @@ public class KycController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.JobId))
             return BadRequest(new { error = "jobId is required" });
 
-        if (string.IsNullOrWhiteSpace(request.NIN) || request.NIN.Trim().Length != 11)
-            return BadRequest(new { error = "NIN must be exactly 11 digits" });
+        if (string.IsNullOrWhiteSpace(request.IdNumber) || request.IdNumber.Trim().Length != 11)
+            return BadRequest(new { error = "idNumber must be exactly 11 digits" });
 
-        var command = new RecordSmileJobCommand(userId.Value, request.JobId.Trim(), request.NIN.Trim());
+        var command = new RecordSmileJobCommand(userId.Value, request.JobId.Trim(), request.IdNumber.Trim());
         var result = await _mediator.Send(command, cancellationToken);
 
         if (result.IsFailure)
@@ -153,4 +152,4 @@ public class KycController : ControllerBase
 public record VerifyNinRequest(string NIN);
 public record VerifyFaceRequest(string BVN, string PhotoBase64);
 public record ConfirmSdkRequest(string ReferenceId);
-public record RecordSmileJobRequest(string JobId, string NIN);
+public record RecordSmileJobRequest(string JobId, string IdNumber);
