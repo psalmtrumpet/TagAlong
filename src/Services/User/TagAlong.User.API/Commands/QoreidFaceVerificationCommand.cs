@@ -123,7 +123,8 @@ public class QoreidFaceVerificationCommandHandler
                 $"{BaseUrl}/v1/ng/identities/face-verification/nin", content, cancellationToken);
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
 
-            _logger.LogInformation("QoreID response for user {UserId}: {Status}", request.AuthUserId, response.StatusCode);
+            _logger.LogInformation("QoreID response for user {UserId}: {Status} body={Body}",
+                request.AuthUserId, response.StatusCode, json);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -138,7 +139,7 @@ public class QoreidFaceVerificationCommandHandler
             }
 
             qoreResponse = JsonSerializer.Deserialize<QoreidResponse>(json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
         }
         catch (Exception ex)
         {
