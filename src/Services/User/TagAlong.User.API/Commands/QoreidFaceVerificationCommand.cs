@@ -8,7 +8,7 @@ using TagAlong.User.Infrastructure.Services;
 
 namespace TagAlong.User.API.Commands;
 
-public record QoreidFaceVerificationCommand(Guid AuthUserId, string NIN, string PhotoBase64)
+public record QoreidFaceVerificationCommand(Guid AuthUserId, string BVN, string PhotoBase64)
     : ICommand<KycStatusResponse>;
 
 public class QoreidFaceVerificationCommandHandler
@@ -114,13 +114,13 @@ public class QoreidFaceVerificationCommandHandler
 
             var payload = JsonSerializer.Serialize(new
             {
-                idNumber = request.NIN,
+                idNumber = request.BVN,
                 photoBase64 = request.PhotoBase64
             });
 
             var content = new StringContent(payload, Encoding.UTF8, "application/json");
             var response = await http.PostAsync(
-                $"{BaseUrl}/v1/ng/identities/face-verification/nin", content, cancellationToken);
+                $"{BaseUrl}/v1/ng/identities/face-verification/bvn", content, cancellationToken);
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
 
             _logger.LogInformation("QoreID response for user {UserId}: {Status} body={Body}",
@@ -184,7 +184,7 @@ public class QoreidFaceVerificationCommandHandler
 
         var applicant = qoreResponse.Applicant;
         kyc.Complete(
-            nin: request.NIN,
+            nin: request.BVN,
             firstName: applicant?.Firstname,
             lastName: applicant?.Lastname,
             middleName: applicant?.Middlename,

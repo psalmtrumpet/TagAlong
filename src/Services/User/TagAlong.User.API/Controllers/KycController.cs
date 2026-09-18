@@ -70,8 +70,8 @@ public class KycController : ControllerBase
     }
 
     /// <summary>
-    /// Verify identity using NIN + selfie photo via QoreID.
-    /// Performs NIN lookup and facial comparison in one call.
+    /// Verify identity using BVN + selfie photo via QoreID.
+    /// Performs BVN lookup and facial comparison in one call.
     /// </summary>
     [Authorize]
     [HttpPost("verify-face")]
@@ -80,13 +80,13 @@ public class KycController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
-        if (string.IsNullOrWhiteSpace(request.NIN) || request.NIN.Trim().Length != 11)
-            return BadRequest(new { error = "NIN must be exactly 11 digits" });
+        if (string.IsNullOrWhiteSpace(request.BVN) || request.BVN.Trim().Length != 11)
+            return BadRequest(new { error = "BVN must be exactly 11 digits" });
 
         if (string.IsNullOrWhiteSpace(request.PhotoBase64))
             return BadRequest(new { error = "Selfie photo is required" });
 
-        var command = new QoreidFaceVerificationCommand(userId.Value, request.NIN.Trim(), request.PhotoBase64.Trim());
+        var command = new QoreidFaceVerificationCommand(userId.Value, request.BVN.Trim(), request.PhotoBase64.Trim());
         var result = await _mediator.Send(command, cancellationToken);
 
         if (result.IsFailure)
@@ -151,6 +151,6 @@ public class KycController : ControllerBase
 }
 
 public record VerifyNinRequest(string NIN);
-public record VerifyFaceRequest(string NIN, string PhotoBase64);
+public record VerifyFaceRequest(string BVN, string PhotoBase64);
 public record ConfirmSdkRequest(string ReferenceId);
 public record RecordSmileJobRequest(string JobId, string NIN);
