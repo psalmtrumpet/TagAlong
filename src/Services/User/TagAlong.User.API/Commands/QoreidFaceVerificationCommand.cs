@@ -50,19 +50,16 @@ public class QoreidFaceVerificationCommandHandler
         if (profile.IsVerified)
             return Result.Success(new KycStatusResponse(true, "Verified", "Already verified"));
 
-        var apiKey = _config["QoreId:ApiKey"] ?? string.Empty;
         var clientId = _config["QoreId:ClientId"] ?? string.Empty;
-        if (string.IsNullOrEmpty(apiKey))
+        var secret   = _config["QoreId:Secret"]   ?? string.Empty;
+        if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(secret))
         {
-            _logger.LogError("QoreId:ApiKey not configured");
+            _logger.LogError("QoreId:ClientId or QoreId:Secret not configured");
             return Result.Failure<KycStatusResponse>(
                 new Error("Error.Config", "Verification service not configured"));
         }
 
-        // Generate a unique reference so the webhook can match back to this user
-        var reference = Guid.NewGuid().ToString();
-
-        // Upsert KYC record, storing the reference
+        // Upsert KYC record
         var existing = await _kycRepo.GetByAuthUserIdAsync(request.AuthUserId, cancellationToken);
         KycVerification kyc;
         if (existing != null && existing.Status == KycStatus.Pending)
@@ -71,33 +68,66 @@ public class QoreidFaceVerificationCommandHandler
         }
         else
         {
-            kyc = KycVerification.Create(request.AuthUserId, reference);
+            kyc = KycVerification.Create(request.AuthUserId, Guid.NewGuid().ToString());
             await _kycRepo.AddAsync(kyc, cancellationToken);
         }
 
-        // Call QoreID NIN + Face endpoint
+        // Step 1: get a short-lived access token from QoreID
+        string accessToken;
+        try
+        {
+            var http = _httpFactory.CreateClient();
+            var tokenPayload = JsonSerializer.Serialize(new { clientId, secret });
+            var tokenContent = new StringContent(tokenPayload, Encoding.UTF8, "application/json");
+            var tokenResponse = await http.PostAsync($"{BaseUrl}/token", tokenContent, cancellationToken);
+            var tokenJson = await tokenResponse.Content.ReadAsStringAsync(cancellationToken);
+
+            if (!tokenResponse.IsSuccessStatusCode)
+            {
+                _logger.LogError("QoreID token exchange failed: {Status} {Body}", tokenResponse.StatusCode, tokenJson);
+                kyc.Fail("QoreID auth failed");
+                await _kycRepo.SaveChangesAsync(cancellationToken);
+                return Result.Failure<KycStatusResponse>(
+                    new Error("Error.Internal", "Verification service unavailable. Please try again."));
+            }
+
+            using var tokenDoc = JsonDocument.Parse(tokenJson);
+            accessToken = tokenDoc.RootElement.GetProperty("accessToken").GetString() ?? string.Empty;
+            if (string.IsNullOrEmpty(accessToken))
+                throw new InvalidOperationException("Empty access token from QoreID");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error obtaining QoreID token for user {UserId}", request.AuthUserId);
+            kyc.Fail("Network error obtaining QoreID token");
+            await _kycRepo.SaveChangesAsync(cancellationToken);
+            return Result.Failure<KycStatusResponse>(
+                new Error("Error.Internal", "Verification service unavailable. Please try again."));
+        }
+
+        // Step 2: Call QoreID NIN + Face verification endpoint
         QoreidResponse? qoreResponse = null;
         try
         {
             var http = _httpFactory.CreateClient();
-            http.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+            http.DefaultRequestHeaders.Add("Authorization", $"Bearer {accessToken}");
 
             var payload = JsonSerializer.Serialize(new
             {
-                id = request.NIN,
-                photo = request.PhotoBase64,
-                reference   // QoreID echoes this back in the webhook
+                idNumber = request.NIN,
+                photoBase64 = request.PhotoBase64
             });
 
             var content = new StringContent(payload, Encoding.UTF8, "application/json");
-            var response = await http.PostAsync($"{BaseUrl}/v1/ng/identities/nin-face", content, cancellationToken);
+            var response = await http.PostAsync(
+                $"{BaseUrl}/v1/ng/identities/face-verification/nin", content, cancellationToken);
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
 
             _logger.LogInformation("QoreID response for user {UserId}: {Status}", request.AuthUserId, response.StatusCode);
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogWarning("QoreID NIN-face failed for user {UserId}: {Status} {Body}",
+                _logger.LogWarning("QoreID face-verification failed for user {UserId}: {Status} {Body}",
                     request.AuthUserId, response.StatusCode, json);
 
                 var errMsg = TryGetErrorMessage(json);
@@ -126,28 +156,19 @@ public class QoreidFaceVerificationCommandHandler
             return Result.Success(new KycStatusResponse(false, "Failed", "NIN not found. Please check your NIN."));
         }
 
-        // Check NIN verification
-        var ninStatus = qoreResponse.Summary?.NinCheck?.Status ?? string.Empty;
-        if (!ninStatus.Equals("VERIFIED", StringComparison.OrdinalIgnoreCase))
-        {
-            kyc.Fail($"NIN check not verified: {ninStatus}");
-            await _kycRepo.SaveChangesAsync(cancellationToken);
-            return Result.Success(new KycStatusResponse(false, "Failed",
-                "NIN could not be verified. Please ensure your NIN is correct."));
-        }
+        // Check face match — QoreID returns summary.face_verification_check.match (bool) and match_score
+        var faceCheck = qoreResponse.Summary?.FaceVerificationCheck;
+        var matched   = faceCheck?.Match ?? false;
+        var score     = faceCheck?.MatchScore ?? 0.0;
 
-        // Check face match
-        var faceStatus = qoreResponse.Summary?.FaceCheck?.Status ?? string.Empty;
-        var confidence = qoreResponse.Summary?.FaceCheck?.Confidence ?? 0.0;
-
-        if (!faceStatus.Equals("MATCH", StringComparison.OrdinalIgnoreCase) || confidence < MinConfidence)
+        if (!matched || score < MinConfidence)
         {
-            kyc.Fail($"Face match failed: status={faceStatus} confidence={confidence}");
+            kyc.Fail($"Face match failed: matched={matched} score={score}");
             await _kycRepo.SaveChangesAsync(cancellationToken);
 
-            var faceMsg = faceStatus.Equals("NO_FACE_FOUND", StringComparison.OrdinalIgnoreCase)
-                ? "No face detected in the selfie. Please retake your photo in good lighting."
-                : $"Face match failed (confidence: {confidence:F0}%). Please retake your selfie ensuring your face is clearly visible.";
+            var faceMsg = !matched
+                ? $"Your selfie did not match your NIN photo (score: {score:F0}%). Please retake in good lighting, facing the camera directly."
+                : $"Face match confidence too low ({score:F0}%). Please retake your selfie.";
 
             return Result.Success(new KycStatusResponse(false, "FaceMatchFailed", faceMsg));
         }
@@ -179,7 +200,7 @@ public class QoreidFaceVerificationCommandHandler
         await _profiles.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("User {UserId} verified via QoreID. Face confidence: {Confidence}",
-            request.AuthUserId, confidence);
+            request.AuthUserId, score);
 
         return Result.Success(new KycStatusResponse(true, "Verified", "Identity verified successfully"));
     }
@@ -217,19 +238,13 @@ public class QoreidFaceVerificationCommandHandler
 
     private class QoreidSummary
     {
-        public QoreidCheck? NinCheck { get; set; }
-        public QoreidFaceCheck? FaceCheck { get; set; }
+        public QoreidFaceVerificationCheck? FaceVerificationCheck { get; set; }
     }
 
-    private class QoreidCheck
+    private class QoreidFaceVerificationCheck
     {
-        public string? Status { get; set; }
-    }
-
-    private class QoreidFaceCheck
-    {
-        public string? Status { get; set; }
-        public double Confidence { get; set; }
+        public bool Match { get; set; }
+        public double MatchScore { get; set; }
     }
 
     private class QoreidStatus
