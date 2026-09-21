@@ -87,7 +87,14 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         var kyc = await _kycRepo.GetBySmileJobIdAsync(jobId, cancellationToken);
         if (kyc == null)
         {
-            _logger.LogWarning("Smile ID webhook: no KYC record for job {JobId}", jobId);
+            // Race condition: webhook can arrive before Flutter calls record-smile-job.
+            // Wait briefly and retry once before giving up.
+            await Task.Delay(3000, cancellationToken);
+            kyc = await _kycRepo.GetBySmileJobIdAsync(jobId, cancellationToken);
+        }
+        if (kyc == null)
+        {
+            _logger.LogWarning("Smile ID webhook: no KYC record for job {JobId} (after retry)", jobId);
             return Result.Success(new WebhookResult(false, "Job not found"));
         }
 
@@ -97,8 +104,9 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         // Result code 1210 = Verified match; 1220 = Failed match; 1012 = ID data callback (ignore)
         var resultCode = payload.ResultCode ?? string.Empty;
 
-        if (resultCode == "1012")
-            return Result.Success(new WebhookResult(true, "ID data callback — no action needed"));
+        // 1012 = ID data callback, 0810 = selfie registered — both are non-final, ignore
+        if (resultCode == "1012" || resultCode == "0810")
+            return Result.Success(new WebhookResult(true, "Non-final callback — no action needed"));
 
         var ninVerified = string.Equals(payload.Actions?.VerifyIdNumber, "Verified", StringComparison.OrdinalIgnoreCase);
         // Accept either a human-review comparison or the selfie-to-authority comparison passing
