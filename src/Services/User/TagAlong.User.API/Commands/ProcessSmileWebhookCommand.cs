@@ -56,8 +56,10 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         {
             if (!VerifySignature(payload.Signature, payload.Timestamp, request.PartnerId, request.ApiKey))
             {
-                _logger.LogWarning("Smile ID webhook signature mismatch. ts={TS} pid={PID} sigLen={SL}",
-                    payload.Timestamp, request.PartnerId, payload.Signature?.Length);
+                var snippet = request.RawBody.Length > 300 ? request.RawBody[..300] : request.RawBody;
+                _logger.LogWarning(
+                    "Smile ID webhook signature mismatch. ts={TS} pid={PID} sigLen={SL} body={Body}",
+                    payload.Timestamp, request.PartnerId, payload.Signature?.Length, snippet);
                 return Result.Success(new WebhookResult(false, "Invalid signature"));
             }
         }
@@ -89,9 +91,12 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
             return Result.Success(new WebhookResult(true, "ID data callback — no action needed"));
 
         var ninVerified = string.Equals(payload.Actions?.VerifyIdNumber, "Verified", StringComparison.OrdinalIgnoreCase);
-        var faceMatched = string.Equals(payload.Actions?.HumanReviewCompare, "Passed", StringComparison.OrdinalIgnoreCase)
-                       || string.Equals(payload.Actions?.HumanReviewCompare, "Not Applicable", StringComparison.OrdinalIgnoreCase);
-        var isSuccess = resultCode == "1210" && ninVerified;
+        // Accept either a human-review comparison or the selfie-to-authority comparison passing
+        var faceAction = payload.Actions?.HumanReviewCompare ?? payload.Actions?.SelfieToIdAuthorityCompare;
+        var faceMatched = faceAction == null
+                       || string.Equals(faceAction, "Passed", StringComparison.OrdinalIgnoreCase)
+                       || string.Equals(faceAction, "Not Applicable", StringComparison.OrdinalIgnoreCase);
+        var isSuccess = resultCode == "1210";
 
         if (!isSuccess)
         {
@@ -105,13 +110,15 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
 
         var nin = kyc.NIN ?? payload.IdNumber ?? string.Empty;
 
+        var (resolvedFirst, resolvedLast) = payload.ResolvedName();
+
         // Name check: profile name must match at least one direction against the NIN name
         var profile = await _profiles.GetByAuthUserIdAsync(kyc.AuthUserId, cancellationToken);
         if (profile != null && !NinNameMatcher.NamesMatch(
-                profile.FirstName, profile.LastName, payload.FirstName, payload.LastName))
+                profile.FirstName, profile.LastName, resolvedFirst, resolvedLast))
         {
             var reason = NinNameMatcher.BuildMismatchReason(
-                profile.FirstName, profile.LastName, payload.FirstName, payload.LastName);
+                profile.FirstName, profile.LastName, resolvedFirst, resolvedLast);
             kyc.Fail(reason);
             _kycRepo.Update(kyc);
 
@@ -120,10 +127,10 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
             {
                 var cacheEntry = await _ninCache.GetByNinAsync(nin, cancellationToken);
                 if (cacheEntry == null)
-                    await _ninCache.AddAsync(NinCache.Create(nin, payload.FirstName, payload.LastName,
+                    await _ninCache.AddAsync(NinCache.Create(nin, resolvedFirst, resolvedLast,
                         payload.MiddleName, payload.Dob, payload.Gender), cancellationToken);
                 else
-                    cacheEntry.Refresh(payload.FirstName, payload.LastName,
+                    cacheEntry.Refresh(resolvedFirst, resolvedLast,
                         payload.MiddleName, payload.Dob, payload.Gender);
             }
 
@@ -142,8 +149,8 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
 
         kyc.Complete(
             nin: nin,
-            firstName: payload.FirstName,
-            lastName: payload.LastName,
+            firstName: resolvedFirst,
+            lastName: resolvedLast,
             middleName: payload.MiddleName,
             dateOfBirth: payload.Dob,
             gender: payload.Gender,
@@ -164,10 +171,10 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         {
             var cacheEntry = await _ninCache.GetByNinAsync(nin, cancellationToken);
             if (cacheEntry == null)
-                await _ninCache.AddAsync(NinCache.Create(nin, payload.FirstName, payload.LastName,
+                await _ninCache.AddAsync(NinCache.Create(nin, resolvedFirst, resolvedLast,
                     payload.MiddleName, payload.Dob, payload.Gender), cancellationToken);
             else
-                cacheEntry.Refresh(payload.FirstName, payload.LastName,
+                cacheEntry.Refresh(resolvedFirst, resolvedLast,
                     payload.MiddleName, payload.Dob, payload.Gender);
         }
 
@@ -213,29 +220,57 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         public string? Signature { get; set; }
         public string? Timestamp { get; set; }
         public string? SmileClientId { get; set; }
+        // SmileID may return individual fields or FullName depending on the ID type
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
         public string? MiddleName { get; set; }
+        [JsonPropertyName("FullName")]
+        public string? FullName { get; set; }
+        [JsonPropertyName("DOB")]
         public string? Dob { get; set; }
         public string? Gender { get; set; }
+        [JsonPropertyName("IDNumber")]
         public string? IdNumber { get; set; }
         public SmilePartnerParams? PartnerParams { get; set; }
         public SmileActions? Actions { get; set; }
         public bool? IsFinalResult { get; set; }
+
+        // Resolve first/last from either individual fields or FullName split
+        public (string? first, string? last) ResolvedName()
+        {
+            if (!string.IsNullOrWhiteSpace(FirstName) || !string.IsNullOrWhiteSpace(LastName))
+                return (FirstName?.Trim(), LastName?.Trim());
+
+            if (string.IsNullOrWhiteSpace(FullName)) return (null, null);
+
+            // NIN FullName order is typically: SURNAME FIRSTNAME MIDDLENAME
+            var parts = FullName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 1) return (parts[0], parts[0]);
+            return (parts[1], parts[0]); // firstName = parts[1], lastName = parts[0]
+        }
     }
 
     private class SmilePartnerParams
     {
+        [JsonPropertyName("job_id")]
         public string? JobId { get; set; }
+        [JsonPropertyName("user_id")]
         public string? UserId { get; set; }
+        [JsonPropertyName("job_type")]
         public string? JobType { get; set; }
     }
 
     private class SmileActions
     {
+        [JsonPropertyName("Verify_ID_Number")]
         public string? VerifyIdNumber { get; set; }
+        [JsonPropertyName("Selfie_To_ID_Authority_Compare")]
+        public string? SelfieToIdAuthorityCompare { get; set; }
+        [JsonPropertyName("Human_Review_Compare")]
         public string? HumanReviewCompare { get; set; }
+        [JsonPropertyName("Liveness_Check")]
         public string? LivenessCheck { get; set; }
+        [JsonPropertyName("Selfie_Check")]
         public string? SelfieCheck { get; set; }
     }
 }
