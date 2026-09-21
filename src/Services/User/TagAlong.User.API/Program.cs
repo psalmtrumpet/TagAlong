@@ -13,6 +13,7 @@ using StackExchange.Redis;
 using TagAlong.User.API.Hubs;
 using TagAlong.User.API.IntegrationEvents;
 using TagAlong.User.API.Queries;
+using TagAlong.User.API.Services;
 using TagAlong.User.Domain.Repositories;
 using TagAlong.User.Infrastructure.Persistence;
 using TagAlong.User.Infrastructure.Repositories;
@@ -74,6 +75,7 @@ builder.Services.AddDbContext<UserDbContext>(options =>
 builder.Services.AddScoped<IUserProfileRepository, UserProfileRepository>();
 builder.Services.AddScoped<IKycVerificationRepository, KycVerificationRepository>();
 builder.Services.AddScoped<INinCacheRepository, NinCacheRepository>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddSingleton<FileService>();
 builder.Services.AddHttpClient();
 

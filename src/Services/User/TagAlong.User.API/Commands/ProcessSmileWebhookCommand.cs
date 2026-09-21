@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using TagAlong.Common.CQRS;
 using TagAlong.Common.Results;
+using TagAlong.User.API.Services;
 using TagAlong.User.Domain.Entities;
 using TagAlong.User.Domain.Repositories;
 using NinCache = TagAlong.User.Domain.Entities.NinCache;
@@ -16,17 +17,20 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
     private readonly IKycVerificationRepository _kycRepo;
     private readonly IUserProfileRepository _profiles;
     private readonly INinCacheRepository _ninCache;
+    private readonly IEmailService _email;
     private readonly ILogger<ProcessSmileWebhookCommandHandler> _logger;
 
     public ProcessSmileWebhookCommandHandler(
         IKycVerificationRepository kycRepo,
         IUserProfileRepository profiles,
         INinCacheRepository ninCache,
+        IEmailService email,
         ILogger<ProcessSmileWebhookCommandHandler> logger)
     {
         _kycRepo = kycRepo;
         _profiles = profiles;
         _ninCache = ninCache;
+        _email = email;
         _logger = logger;
     }
 
@@ -100,6 +104,41 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
 
         var nin = kyc.NIN ?? payload.IdNumber ?? string.Empty;
 
+        // Name check: profile name must match at least one direction against the NIN name
+        var profile = await _profiles.GetByAuthUserIdAsync(kyc.AuthUserId, cancellationToken);
+        if (profile != null && !NinNameMatcher.NamesMatch(
+                profile.FirstName, profile.LastName, payload.FirstName, payload.LastName))
+        {
+            var reason = NinNameMatcher.BuildMismatchReason(
+                profile.FirstName, profile.LastName, payload.FirstName, payload.LastName);
+            kyc.Fail(reason);
+            _kycRepo.Update(kyc);
+
+            // Upsert NIN cache even on mismatch — data is still valid for future lookups
+            if (!string.IsNullOrEmpty(nin))
+            {
+                var cacheEntry = await _ninCache.GetByNinAsync(nin, cancellationToken);
+                if (cacheEntry == null)
+                    await _ninCache.AddAsync(NinCache.Create(nin, payload.FirstName, payload.LastName,
+                        payload.MiddleName, payload.Dob, payload.Gender), cancellationToken);
+                else
+                    cacheEntry.Refresh(payload.FirstName, payload.LastName,
+                        payload.MiddleName, payload.Dob, payload.Gender);
+            }
+
+            await _kycRepo.SaveChangesAsync(cancellationToken);
+
+            await _email.SendAsync(
+                profile.Email,
+                $"{profile.FirstName} {profile.LastName}",
+                "TagAlong — Identity Verification Failed",
+                NinNameMatcher.BuildFailureEmailHtml(profile.FirstName, reason),
+                cancellationToken);
+
+            _logger.LogWarning("SmileID webhook: name mismatch for user {UserId} job {JobId}", kyc.AuthUserId, jobId);
+            return Result.Success(new WebhookResult(true, "Processed: name mismatch"));
+        }
+
         kyc.Complete(
             nin: nin,
             firstName: payload.FirstName,
@@ -113,7 +152,6 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
 
         _kycRepo.Update(kyc);
 
-        var profile = await _profiles.GetByAuthUserIdAsync(kyc.AuthUserId, cancellationToken);
         if (profile != null && !profile.IsVerified)
         {
             profile.Verify(kyc.PhotoPath);
