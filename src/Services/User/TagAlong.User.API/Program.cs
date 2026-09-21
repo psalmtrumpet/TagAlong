@@ -75,6 +75,7 @@ builder.Services.AddDbContext<UserDbContext>(options =>
 builder.Services.AddScoped<IUserProfileRepository, UserProfileRepository>();
 builder.Services.AddScoped<IKycVerificationRepository, KycVerificationRepository>();
 builder.Services.AddScoped<INinCacheRepository, NinCacheRepository>();
+builder.Services.AddScoped<ISmileWebhookLogRepository, SmileWebhookLogRepository>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<TagAlong.User.API.Services.SmileIdPollService>();
 builder.Services.AddSingleton<FileService>();

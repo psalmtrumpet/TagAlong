@@ -12,6 +12,7 @@ public class UserDbContext : DbContext
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<KycVerification> KycVerifications => Set<KycVerification>();
     public DbSet<NinCache> NinCaches => Set<NinCache>();
+    public DbSet<SmileWebhookLog> SmileWebhookLogs => Set<SmileWebhookLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -121,6 +122,18 @@ public class UserDbContext : DbContext
             entity.Property(e => e.MiddleName).HasMaxLength(100);
             entity.Property(e => e.DateOfBirth).HasMaxLength(20);
             entity.Property(e => e.Gender).HasMaxLength(10);
+        });
+
+        modelBuilder.Entity<SmileWebhookLog>(entity =>
+        {
+            entity.ToTable("smile_webhook_logs");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.JobId).HasMaxLength(100);
+            entity.Property(e => e.ResultCode).HasMaxLength(20);
+            entity.Property(e => e.Outcome).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.BodySnippet).HasMaxLength(1000);
+            entity.HasIndex(e => e.JobId);
+            entity.HasIndex(e => e.ReceivedAt);
         });
 
         modelBuilder.Entity<KycVerification>(entity =>

@@ -28,6 +28,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
     private readonly INinCacheRepository _ninCache;
     private readonly IEmailService _email;
     private readonly IHubContext<LocationHub, ILocationClient> _hub;
+    private readonly ISmileWebhookLogRepository _webhookLog;
     private readonly ILogger<ProcessSmileWebhookCommandHandler> _logger;
 
     public ProcessSmileWebhookCommandHandler(
@@ -36,6 +37,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         INinCacheRepository ninCache,
         IEmailService email,
         IHubContext<LocationHub, ILocationClient> hub,
+        ISmileWebhookLogRepository webhookLog,
         ILogger<ProcessSmileWebhookCommandHandler> logger)
     {
         _kycRepo = kycRepo;
@@ -43,6 +45,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         _ninCache = ninCache;
         _email = email;
         _hub = hub;
+        _webhookLog = webhookLog;
         _logger = logger;
     }
 
@@ -101,11 +104,15 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         if (kyc == null)
         {
             _logger.LogWarning("Smile ID webhook: no KYC record for job {JobId} (after retry)", jobId);
+            await LogAsync(jobId, payload.ResultCode, null, request.IsJobStatusResult, "job-not-found", request.RawBody, cancellationToken);
             return Result.Success(new WebhookResult(false, "Job not found"));
         }
 
         if (kyc.Status == KycStatus.Completed)
+        {
+            await LogAsync(jobId, payload.ResultCode, kyc.AuthUserId, request.IsJobStatusResult, "already-processed", request.RawBody, cancellationToken);
             return Result.Success(new WebhookResult(true, "Already processed"));
+        }
 
         // Result code 1210 = Verified match; 1220 = Failed match; 1012 = ID data callback (ignore)
         var resultCode = payload.ResultCode ?? string.Empty;
@@ -123,6 +130,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
                 await _kycRepo.SaveChangesAsync(cancellationToken);
                 _logger.LogWarning("SmileID job_status: job={JobId} stuck at {Code} — marking failed", jobId, resultCode);
                 await PushKycStatusAsync(kyc.AuthUserId, "Failed", reason, cancellationToken);
+                await LogAsync(jobId, resultCode, kyc.AuthUserId, true, "biometric-incomplete", request.RawBody, cancellationToken);
                 return Result.Success(new WebhookResult(true, "Processed: biometric incomplete"));
             }
             // From webhook: store the SmileID user_id so the status endpoint can poll get_job_status later.
@@ -133,6 +141,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
                 _kycRepo.Update(kyc);
                 await _kycRepo.SaveChangesAsync(cancellationToken);
             }
+            await LogAsync(jobId, resultCode, kyc.AuthUserId, request.IsJobStatusResult, $"non-final-{resultCode}", request.RawBody, cancellationToken);
             return Result.Success(new WebhookResult(true, "Non-final callback — no action needed"));
         }
 
@@ -152,6 +161,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
             await _kycRepo.SaveChangesAsync(cancellationToken);
             _logger.LogWarning("Smile ID webhook: verification failed for job {JobId} — {Reason}", jobId, reason);
             await PushKycStatusAsync(kyc.AuthUserId, "Failed", reason, cancellationToken);
+            await LogAsync(jobId, resultCode, kyc.AuthUserId, request.IsJobStatusResult, "failed", request.RawBody, cancellationToken);
             return Result.Success(new WebhookResult(true, "Processed: failed"));
         }
 
@@ -191,6 +201,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
                 cancellationToken);
 
             await PushKycStatusAsync(kyc.AuthUserId, "Failed", reason, cancellationToken);
+            await LogAsync(jobId, resultCode, kyc.AuthUserId, request.IsJobStatusResult, "name-mismatch", request.RawBody, cancellationToken);
             _logger.LogWarning("SmileID webhook: name mismatch for user {UserId} job {JobId}", kyc.AuthUserId, jobId);
             return Result.Success(new WebhookResult(true, "Processed: name mismatch"));
         }
@@ -229,9 +240,25 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         await _kycRepo.SaveChangesAsync(cancellationToken);
 
         await PushKycStatusAsync(kyc.AuthUserId, "Verified", null, cancellationToken);
+        await LogAsync(jobId, resultCode, kyc.AuthUserId, request.IsJobStatusResult, "verified", request.RawBody, cancellationToken);
         _logger.LogInformation("Smile ID webhook: user {UserId} verified via job {JobId}", kyc.AuthUserId, jobId);
 
         return Result.Success(new WebhookResult(true, "Processed: verified"));
+    }
+
+    private async Task LogAsync(string? jobId, string? resultCode, Guid? authUserId, bool isJobStatusResult,
+        string outcome, string rawBody, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var entry = SmileWebhookLog.Create(jobId, resultCode, authUserId, isJobStatusResult, outcome, rawBody);
+            await _webhookLog.AddAsync(entry, cancellationToken);
+            await _webhookLog.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to persist SmileWebhookLog for job {JobId}", jobId);
+        }
     }
 
     private async Task PushKycStatusAsync(Guid authUserId, string status, string? failureReason, CancellationToken cancellationToken)
