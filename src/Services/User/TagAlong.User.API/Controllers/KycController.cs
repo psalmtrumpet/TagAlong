@@ -3,6 +3,8 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TagAlong.User.API.Commands;
+using TagAlong.User.API.Services;
+using TagAlong.User.Domain.Entities;
 using TagAlong.User.Domain.Repositories;
 
 namespace TagAlong.User.API.Controllers;
@@ -15,14 +17,21 @@ public class KycController : ControllerBase
     private readonly IKycVerificationRepository _kycRepo;
     private readonly IUserProfileRepository _profiles;
     private readonly INinCacheRepository _ninCache;
+    private readonly SmileIdPollService _smilePoll;
+    private readonly IConfiguration _config;
+    private readonly ILogger<KycController> _logger;
 
     public KycController(IMediator mediator, IKycVerificationRepository kycRepo,
-        IUserProfileRepository profiles, INinCacheRepository ninCache)
+        IUserProfileRepository profiles, INinCacheRepository ninCache,
+        SmileIdPollService smilePoll, IConfiguration config, ILogger<KycController> logger)
     {
         _mediator = mediator;
         _kycRepo = kycRepo;
         _profiles = profiles;
         _ninCache = ninCache;
+        _smilePoll = smilePoll;
+        _config = config;
+        _logger = logger;
     }
 
     /// <summary>
@@ -62,11 +71,39 @@ public class KycController : ControllerBase
 
         var kyc = await _kycRepo.GetByAuthUserIdAsync(userId.Value, cancellationToken);
 
+        // If KYC is still Pending after SmileID has registered the selfie (SmileUserId set),
+        // proactively poll get_job_status so the result isn't gated on the final 1210 webhook.
+        if (kyc?.Status == KycStatus.Pending
+            && !string.IsNullOrEmpty(kyc.SmileJobId)
+            && !string.IsNullOrEmpty(kyc.SmileUserId)
+            && (DateTime.UtcNow - kyc.CreatedAt).TotalSeconds > 8)
+        {
+            var apiKey    = _config["SmileId:ApiKey"]    ?? string.Empty;
+            var partnerId = _config["SmileId:PartnerId"] ?? string.Empty;
+            if (!string.IsNullOrEmpty(apiKey))
+            {
+                var resultJson = await _smilePoll.GetJobStatusResultJsonAsync(
+                    kyc.SmileJobId, kyc.SmileUserId, apiKey, partnerId, cancellationToken);
+
+                if (!string.IsNullOrEmpty(resultJson))
+                {
+                    _logger.LogInformation("KycStatus polling: dispatching job_status result for job={Job}", kyc.SmileJobId);
+                    // Pass empty ApiKey so the handler skips signature check (we already authenticated)
+                    var cmd = new ProcessSmileWebhookCommand(resultJson, string.Empty, partnerId);
+                    await _mediator.Send(cmd, cancellationToken);
+
+                    // Refresh after processing
+                    kyc     = await _kycRepo.GetByAuthUserIdAsync(userId.Value, cancellationToken);
+                    profile = await _profiles.GetByAuthUserIdAsync(userId.Value, cancellationToken);
+                }
+            }
+        }
+
         return Ok(new
         {
-            isVerified = profile.IsVerified,
-            verificationStatus = profile.VerificationStatus.ToString(),
-            verifiedAt = profile.VerifiedAt,
+            isVerified = profile?.IsVerified ?? false,
+            verificationStatus = profile?.VerificationStatus.ToString() ?? "None",
+            verifiedAt = profile?.VerifiedAt,
             kycStatus = kyc?.Status.ToString(),
             failureReason = kyc?.FailureReason
         });

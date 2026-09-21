@@ -17,6 +17,7 @@ public class KycVerification
     public string? FailureReason { get; private set; }
     public string? QoreIdReference { get; private set; }
     public string? SmileJobId { get; private set; }
+    public string? SmileUserId { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime? CompletedAt { get; private set; }
 
@@ -35,6 +36,11 @@ public class KycVerification
     public void SetSmileJobId(string jobId)
     {
         SmileJobId = jobId;
+    }
+
+    public void SetSmileUserId(string userId)
+    {
+        SmileUserId = userId;
     }
 
     public void ResetForRetry(string smileJobId)

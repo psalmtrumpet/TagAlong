@@ -104,9 +104,19 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         // Result code 1210 = Verified match; 1220 = Failed match; 1012 = ID data callback (ignore)
         var resultCode = payload.ResultCode ?? string.Empty;
 
-        // 1012 = ID data callback, 0810 = selfie registered — both are non-final, ignore
+        // 1012 = ID data callback, 0810 = selfie registered — both are non-final.
+        // Store the SmileID user_id so the status endpoint can poll get_job_status later.
         if (resultCode == "1012" || resultCode == "0810")
+        {
+            var smileUserId = payload.PartnerParams?.UserId;
+            if (!string.IsNullOrEmpty(smileUserId) && string.IsNullOrEmpty(kyc.SmileUserId))
+            {
+                kyc.SetSmileUserId(smileUserId);
+                _kycRepo.Update(kyc);
+                await _kycRepo.SaveChangesAsync(cancellationToken);
+            }
             return Result.Success(new WebhookResult(true, "Non-final callback — no action needed"));
+        }
 
         var ninVerified = string.Equals(payload.Actions?.VerifyIdNumber, "Verified", StringComparison.OrdinalIgnoreCase);
         // Accept either a human-review comparison or the selfie-to-authority comparison passing
