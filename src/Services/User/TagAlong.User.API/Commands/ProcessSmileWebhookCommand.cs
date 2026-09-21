@@ -258,7 +258,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         [JsonPropertyName("user_id")]
         public string? UserId { get; set; }
         [JsonPropertyName("job_type")]
-        public string? JobType { get; set; }
+        public int? JobType { get; set; }
     }
 
     private class SmileActions
