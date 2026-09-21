@@ -31,9 +31,15 @@ public class SmileWebhookController : ControllerBase
         var apiKey = _config["SmileId:ApiKey"] ?? string.Empty;
         var partnerId = _config["SmileId:PartnerId"] ?? "6808";
 
-        _logger.LogInformation("Smile ID webhook received.");
+        // SmileID puts signature + timestamp in Response-Signature / Response-Timestamp headers
+        var headerSig = Request.Headers["Response-Signature"].FirstOrDefault();
+        var headerTs = Request.Headers["Response-Timestamp"].FirstOrDefault();
 
-        var command = new ProcessSmileWebhookCommand(rawBody, apiKey, partnerId);
+        _logger.LogInformation("Smile ID webhook received. headerSig={HS} headerTs={HT}",
+            headerSig != null ? (headerSig.Length > 8 ? headerSig[..8] : headerSig) : "none",
+            headerTs ?? "none");
+
+        var command = new ProcessSmileWebhookCommand(rawBody, apiKey, partnerId, headerSig, headerTs);
         var result = await _mediator.Send(command, cancellationToken);
 
         if (result.IsFailure)

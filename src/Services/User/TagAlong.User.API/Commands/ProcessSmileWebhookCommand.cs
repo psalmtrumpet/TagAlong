@@ -11,7 +11,12 @@ using NinCache = TagAlong.User.Domain.Entities.NinCache;
 
 namespace TagAlong.User.API.Commands;
 
-public record ProcessSmileWebhookCommand(string RawBody, string ApiKey, string PartnerId) : ICommand<WebhookResult>;
+public record ProcessSmileWebhookCommand(
+    string RawBody,
+    string ApiKey,
+    string PartnerId,
+    string? HeaderSignature = null,
+    string? HeaderTimestamp = null) : ICommand<WebhookResult>;
 
 public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWebhookCommand, WebhookResult>
 {
@@ -52,15 +57,19 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         if (payload == null)
             return Result.Success(new WebhookResult(false, "Empty payload"));
 
-        // Verify signature if API key is available
-        if (!string.IsNullOrEmpty(request.ApiKey) && !string.IsNullOrEmpty(payload.Timestamp))
+        // SmileID puts sig+ts in Response-Signature/Response-Timestamp headers; fall back to JSON body fields
+        var sigToVerify = !string.IsNullOrEmpty(request.HeaderSignature) ? request.HeaderSignature : payload.Signature;
+        var tsToVerify  = !string.IsNullOrEmpty(request.HeaderTimestamp)  ? request.HeaderTimestamp  : payload.Timestamp;
+
+        if (!string.IsNullOrEmpty(request.ApiKey) && !string.IsNullOrEmpty(tsToVerify))
         {
-            if (!VerifySignature(payload.Signature, payload.Timestamp, request.PartnerId, request.ApiKey))
+            if (!VerifySignature(sigToVerify, tsToVerify, request.PartnerId, request.ApiKey))
             {
                 var snippet = request.RawBody.Length > 300 ? request.RawBody[..300] : request.RawBody;
                 _logger.LogWarning(
-                    "Smile ID webhook signature mismatch. ts={TS} pid={PID} sigLen={SL} body={Body}",
-                    payload.Timestamp, request.PartnerId, payload.Signature?.Length, snippet);
+                    "Smile ID webhook signature mismatch. ts={TS} pid={PID} sigLen={SL} fromHeader={FH} body={Body}",
+                    tsToVerify, request.PartnerId, sigToVerify?.Length,
+                    !string.IsNullOrEmpty(request.HeaderSignature), snippet);
                 return Result.Success(new WebhookResult(false, "Invalid signature"));
             }
         }
@@ -191,7 +200,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         if (string.IsNullOrEmpty(signature)) return false;
         try
         {
-            var message = $"{timestamp}{partnerId}sid_response";
+            var message = $"{timestamp}{partnerId}sid_request";
             using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(apiKey));
             var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(message));
             var computed = Convert.ToBase64String(hash);
