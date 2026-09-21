@@ -90,7 +90,7 @@ public class KycController : ControllerBase
                 {
                     _logger.LogInformation("KycStatus polling: dispatching job_status result for job={Job}", kyc.SmileJobId);
                     // Pass empty ApiKey so the handler skips signature check (we already authenticated)
-                    var cmd = new ProcessSmileWebhookCommand(resultJson, string.Empty, partnerId);
+                    var cmd = new ProcessSmileWebhookCommand(resultJson, string.Empty, partnerId, IsJobStatusResult: true);
                     await _mediator.Send(cmd, cancellationToken);
 
                     // Refresh after processing

@@ -16,7 +16,8 @@ public record ProcessSmileWebhookCommand(
     string ApiKey,
     string PartnerId,
     string? HeaderSignature = null,
-    string? HeaderTimestamp = null) : ICommand<WebhookResult>;
+    string? HeaderTimestamp = null,
+    bool IsJobStatusResult = false) : ICommand<WebhookResult>;
 
 public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWebhookCommand, WebhookResult>
 {
@@ -104,10 +105,21 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         // Result code 1210 = Verified match; 1220 = Failed match; 1012 = ID data callback (ignore)
         var resultCode = payload.ResultCode ?? string.Empty;
 
-        // 1012 = ID data callback, 0810 = selfie registered — both are non-final.
-        // Store the SmileID user_id so the status endpoint can poll get_job_status later.
+        // 1012 = ID data callback, 0810 = selfie registered — both are non-final from webhooks.
+        // From job_status (IsJobStatusResult=true), job_complete=true + 0810 means the biometric
+        // comparison never ran — treat as a retriable failure rather than looping forever.
         if (resultCode == "1012" || resultCode == "0810")
         {
+            if (request.IsJobStatusResult)
+            {
+                var reason = "Biometric comparison did not complete (SmileID returned code " + resultCode + "). Please try again.";
+                kyc.Fail(reason);
+                _kycRepo.Update(kyc);
+                await _kycRepo.SaveChangesAsync(cancellationToken);
+                _logger.LogWarning("SmileID job_status: job={JobId} stuck at {Code} — marking failed", jobId, resultCode);
+                return Result.Success(new WebhookResult(true, "Processed: biometric incomplete"));
+            }
+            // From webhook: store the SmileID user_id so the status endpoint can poll get_job_status later.
             var smileUserId = payload.PartnerParams?.UserId;
             if (!string.IsNullOrEmpty(smileUserId) && string.IsNullOrEmpty(kyc.SmileUserId))
             {
