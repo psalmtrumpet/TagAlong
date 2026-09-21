@@ -189,10 +189,10 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
             var computed = Convert.ToBase64String(hash);
             // Trim in case of trailing whitespace or newlines in the payload value
             var received = signature.Trim();
-            _logger.LogDebug("Webhook sig check: computed[0..7]={C} received[0..7]={R} ts={TS} pid={PID}",
+            _logger.LogWarning("Webhook sig check: computed[0..8]={C} received[0..8]={R} ts={TS} pid={PID} keyLen={KL}",
                 computed.Length >= 8 ? computed[..8] : computed,
                 received.Length >= 8 ? received[..8] : received,
-                timestamp, partnerId);
+                timestamp, partnerId, apiKey.Length);
             return CryptographicOperations.FixedTimeEquals(
                 Encoding.UTF8.GetBytes(computed),
                 Encoding.UTF8.GetBytes(received));
