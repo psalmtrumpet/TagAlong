@@ -261,7 +261,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         public string? IdNumber { get; set; }
         public SmilePartnerParams? PartnerParams { get; set; }
         public SmileActions? Actions { get; set; }
-        public bool? IsFinalResult { get; set; }
+        public string? IsFinalResult { get; set; }
 
         // Resolve first/last from either individual fields or FullName split
         public (string? first, string? last) ResolvedName()
