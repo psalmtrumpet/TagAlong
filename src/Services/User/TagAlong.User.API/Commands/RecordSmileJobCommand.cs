@@ -11,15 +11,18 @@ public class RecordSmileJobCommandHandler : ICommandHandler<RecordSmileJobComman
 {
     private readonly IKycVerificationRepository _kycRepo;
     private readonly IUserProfileRepository _profiles;
+    private readonly INinCacheRepository _ninCache;
     private readonly ILogger<RecordSmileJobCommandHandler> _logger;
 
     public RecordSmileJobCommandHandler(
         IKycVerificationRepository kycRepo,
         IUserProfileRepository profiles,
+        INinCacheRepository ninCache,
         ILogger<RecordSmileJobCommandHandler> logger)
     {
         _kycRepo = kycRepo;
         _profiles = profiles;
+        _ninCache = ninCache;
         _logger = logger;
     }
 
@@ -34,10 +37,13 @@ public class RecordSmileJobCommandHandler : ICommandHandler<RecordSmileJobComman
 
         var existing = await _kycRepo.GetByAuthUserIdAsync(request.AuthUserId, cancellationToken);
 
-        KycVerification kyc;
         if (existing != null && existing.Status == KycStatus.Completed)
             return Result.Success(new KycStatusResponse(true, "Verified", "Already verified"));
 
+        // Check NIN cache — if this NIN was previously verified, use cached personal data
+        var cached = await _ninCache.GetByNinAsync(request.IdNumber, cancellationToken);
+
+        KycVerification kyc;
         if (existing != null)
         {
             kyc = existing;
@@ -52,12 +58,12 @@ public class RecordSmileJobCommandHandler : ICommandHandler<RecordSmileJobComman
 
         kyc.Complete(
             nin: request.IdNumber,
-            firstName: null,
-            lastName: null,
-            middleName: null,
-            dateOfBirth: null,
-            gender: null,
-            nationality: null,
+            firstName: cached?.FirstName,
+            lastName: cached?.LastName,
+            middleName: cached?.MiddleName,
+            dateOfBirth: cached?.DateOfBirth,
+            gender: cached?.Gender,
+            nationality: cached != null ? "Nigerian" : null,
             residenceState: null,
             photoPath: null);
 
@@ -67,7 +73,10 @@ public class RecordSmileJobCommandHandler : ICommandHandler<RecordSmileJobComman
         _profiles.Update(profile);
         await _profiles.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("SmileID job {JobId} verified user {UserId}", request.JobId, request.AuthUserId);
+        if (cached != null)
+            _logger.LogInformation("SmileID job {JobId} verified user {UserId} using NIN cache", request.JobId, request.AuthUserId);
+        else
+            _logger.LogInformation("SmileID job {JobId} verified user {UserId} (webhook will populate name data)", request.JobId, request.AuthUserId);
 
         return Result.Success(new KycStatusResponse(true, "Verified", "Identity verified successfully"));
     }

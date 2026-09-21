@@ -14,12 +14,15 @@ public class KycController : ControllerBase
     private readonly IMediator _mediator;
     private readonly IKycVerificationRepository _kycRepo;
     private readonly IUserProfileRepository _profiles;
+    private readonly INinCacheRepository _ninCache;
 
-    public KycController(IMediator mediator, IKycVerificationRepository kycRepo, IUserProfileRepository profiles)
+    public KycController(IMediator mediator, IKycVerificationRepository kycRepo,
+        IUserProfileRepository profiles, INinCacheRepository ninCache)
     {
         _mediator = mediator;
         _kycRepo = kycRepo;
         _profiles = profiles;
+        _ninCache = ninCache;
     }
 
     /// <summary>
@@ -140,6 +143,33 @@ public class KycController : ControllerBase
             return StatusCode(500, new { error = result.Error.Message });
 
         return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Check if a NIN has been previously verified by SmileID and is cached.
+    /// Returns 200 with name data if cached, 404 if not.
+    /// Flutter uses this to skip the SmileID SDK when the NIN is already known.
+    /// </summary>
+    [Authorize]
+    [HttpGet("nin-lookup/{nin}")]
+    public async Task<IActionResult> NinLookup(string nin, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(nin) || nin.Trim().Length != 11)
+            return BadRequest(new { error = "NIN must be exactly 11 digits" });
+
+        var entry = await _ninCache.GetByNinAsync(nin.Trim(), cancellationToken);
+        if (entry == null)
+            return NotFound(new { cached = false });
+
+        return Ok(new
+        {
+            cached = true,
+            firstName = entry.FirstName,
+            lastName = entry.LastName,
+            middleName = entry.MiddleName,
+            dateOfBirth = entry.DateOfBirth,
+            gender = entry.Gender
+        });
     }
 
     private Guid? GetCurrentUserId()

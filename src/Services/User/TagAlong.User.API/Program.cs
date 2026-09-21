@@ -73,6 +73,7 @@ builder.Services.AddDbContext<UserDbContext>(options =>
 
 builder.Services.AddScoped<IUserProfileRepository, UserProfileRepository>();
 builder.Services.AddScoped<IKycVerificationRepository, KycVerificationRepository>();
+builder.Services.AddScoped<INinCacheRepository, NinCacheRepository>();
 builder.Services.AddSingleton<FileService>();
 builder.Services.AddHttpClient();
 

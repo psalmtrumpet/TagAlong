@@ -5,6 +5,7 @@ using TagAlong.Common.CQRS;
 using TagAlong.Common.Results;
 using TagAlong.User.Domain.Entities;
 using TagAlong.User.Domain.Repositories;
+using NinCache = TagAlong.User.Domain.Entities.NinCache;
 
 namespace TagAlong.User.API.Commands;
 
@@ -14,15 +15,18 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
 {
     private readonly IKycVerificationRepository _kycRepo;
     private readonly IUserProfileRepository _profiles;
+    private readonly INinCacheRepository _ninCache;
     private readonly ILogger<ProcessSmileWebhookCommandHandler> _logger;
 
     public ProcessSmileWebhookCommandHandler(
         IKycVerificationRepository kycRepo,
         IUserProfileRepository profiles,
+        INinCacheRepository ninCache,
         ILogger<ProcessSmileWebhookCommandHandler> logger)
     {
         _kycRepo = kycRepo;
         _profiles = profiles;
+        _ninCache = ninCache;
         _logger = logger;
     }
 
@@ -94,8 +98,10 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
             return Result.Success(new WebhookResult(true, "Processed: failed"));
         }
 
+        var nin = kyc.NIN ?? payload.IdNumber ?? string.Empty;
+
         kyc.Complete(
-            nin: kyc.NIN ?? payload.IdNumber ?? string.Empty,
+            nin: nin,
             firstName: payload.FirstName,
             lastName: payload.LastName,
             middleName: payload.MiddleName,
@@ -112,6 +118,18 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         {
             profile.Verify(kyc.PhotoPath);
             _profiles.Update(profile);
+        }
+
+        // Upsert NIN cache so future verifications of this NIN skip the SmileID call
+        if (!string.IsNullOrEmpty(nin))
+        {
+            var cacheEntry = await _ninCache.GetByNinAsync(nin, cancellationToken);
+            if (cacheEntry == null)
+                await _ninCache.AddAsync(NinCache.Create(nin, payload.FirstName, payload.LastName,
+                    payload.MiddleName, payload.Dob, payload.Gender), cancellationToken);
+            else
+                cacheEntry.Refresh(payload.FirstName, payload.LastName,
+                    payload.MiddleName, payload.Dob, payload.Gender);
         }
 
         await _kycRepo.SaveChangesAsync(cancellationToken);

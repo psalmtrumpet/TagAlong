@@ -11,6 +11,7 @@ public class UserDbContext : DbContext
 
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<KycVerification> KycVerifications => Set<KycVerification>();
+    public DbSet<NinCache> NinCaches => Set<NinCache>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -108,6 +109,18 @@ public class UserDbContext : DbContext
                 .HasFilter("[IsAvailable] = 1 AND [IsDeleted] = 0");
 
             entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        modelBuilder.Entity<NinCache>(entity =>
+        {
+            entity.ToTable("nin_cache");
+            entity.HasKey(e => e.NIN);
+            entity.Property(e => e.NIN).HasMaxLength(11).IsRequired();
+            entity.Property(e => e.FirstName).HasMaxLength(100);
+            entity.Property(e => e.LastName).HasMaxLength(100);
+            entity.Property(e => e.MiddleName).HasMaxLength(100);
+            entity.Property(e => e.DateOfBirth).HasMaxLength(20);
+            entity.Property(e => e.Gender).HasMaxLength(10);
         });
 
         modelBuilder.Entity<KycVerification>(entity =>
