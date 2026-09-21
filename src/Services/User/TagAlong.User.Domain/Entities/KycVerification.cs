@@ -37,6 +37,14 @@ public class KycVerification
         SmileJobId = jobId;
     }
 
+    public void ResetForRetry(string smileJobId)
+    {
+        SmileJobId = smileJobId;
+        Status = KycStatus.Pending;
+        FailureReason = null;
+        CompletedAt = null;
+    }
+
     public void Complete(
         string nin,
         string? firstName,

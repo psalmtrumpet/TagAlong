@@ -56,7 +56,8 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         {
             if (!VerifySignature(payload.Signature, payload.Timestamp, request.PartnerId, request.ApiKey))
             {
-                _logger.LogWarning("Smile ID webhook signature mismatch");
+                _logger.LogWarning("Smile ID webhook signature mismatch. ts={TS} pid={PID} sigLen={SL}",
+                    payload.Timestamp, request.PartnerId, payload.Signature?.Length);
                 return Result.Success(new WebhookResult(false, "Invalid signature"));
             }
         }
@@ -177,7 +178,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         return Result.Success(new WebhookResult(true, "Processed: verified"));
     }
 
-    private static bool VerifySignature(string? signature, string timestamp, string partnerId, string apiKey)
+    private bool VerifySignature(string? signature, string timestamp, string partnerId, string apiKey)
     {
         if (string.IsNullOrEmpty(signature)) return false;
         try
@@ -186,9 +187,15 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
             using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(apiKey));
             var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(message));
             var computed = Convert.ToBase64String(hash);
+            // Trim in case of trailing whitespace or newlines in the payload value
+            var received = signature.Trim();
+            _logger.LogDebug("Webhook sig check: computed[0..7]={C} received[0..7]={R} ts={TS} pid={PID}",
+                computed.Length >= 8 ? computed[..8] : computed,
+                received.Length >= 8 ? received[..8] : received,
+                timestamp, partnerId);
             return CryptographicOperations.FixedTimeEquals(
                 Encoding.UTF8.GetBytes(computed),
-                Encoding.UTF8.GetBytes(signature));
+                Encoding.UTF8.GetBytes(received));
         }
         catch
         {

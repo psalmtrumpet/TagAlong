@@ -47,7 +47,8 @@ public class RecordSmileJobCommandHandler : ICommandHandler<RecordSmileJobComman
         if (existing != null)
         {
             kyc = existing;
-            kyc.SetSmileJobId(request.JobId);
+            // Reset so a previously failed attempt (e.g. QoreID, old flow) doesn't bleed through
+            kyc.ResetForRetry(request.JobId);
             _kycRepo.Update(kyc);
         }
         else
