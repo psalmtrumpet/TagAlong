@@ -138,6 +138,7 @@ public class UserDbContext : DbContext
             entity.Property(e => e.PhotoPath).HasMaxLength(512);
             entity.Property(e => e.FailureReason).HasMaxLength(500);
             entity.Property(e => e.SmileUserId).HasMaxLength(100);
+            entity.Property(e => e.JobStartedAt);
             entity.Property(e => e.Status).HasConversion<string>();
             entity.HasIndex(e => e.AuthUserId);
         });

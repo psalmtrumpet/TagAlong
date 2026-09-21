@@ -19,6 +19,7 @@ public class KycVerification
     public string? SmileJobId { get; private set; }
     public string? SmileUserId { get; private set; }
     public DateTime CreatedAt { get; private set; }
+    public DateTime? JobStartedAt { get; private set; }
     public DateTime? CompletedAt { get; private set; }
 
     private KycVerification() { }
@@ -30,7 +31,8 @@ public class KycVerification
         QoreIdReference = qoreIdReference,
         SmileJobId = smileJobId,
         Status = KycStatus.Pending,
-        CreatedAt = DateTime.UtcNow
+        CreatedAt = DateTime.UtcNow,
+        JobStartedAt = DateTime.UtcNow
     };
 
     public void SetSmileJobId(string jobId)
@@ -46,9 +48,11 @@ public class KycVerification
     public void ResetForRetry(string smileJobId)
     {
         SmileJobId = smileJobId;
+        SmileUserId = null;
         Status = KycStatus.Pending;
         FailureReason = null;
         CompletedAt = null;
+        JobStartedAt = DateTime.UtcNow;
     }
 
     public void Complete(

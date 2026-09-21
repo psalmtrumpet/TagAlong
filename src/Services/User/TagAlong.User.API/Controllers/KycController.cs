@@ -76,7 +76,8 @@ public class KycController : ControllerBase
         if (kyc?.Status == KycStatus.Pending
             && !string.IsNullOrEmpty(kyc.SmileJobId)
             && !string.IsNullOrEmpty(kyc.SmileUserId)
-            && (DateTime.UtcNow - kyc.CreatedAt).TotalSeconds > 8)
+            && kyc.JobStartedAt.HasValue
+            && (DateTime.UtcNow - kyc.JobStartedAt.Value).TotalSeconds > 20)
         {
             var apiKey    = _config["SmileId:ApiKey"]    ?? string.Empty;
             var partnerId = _config["SmileId:PartnerId"] ?? string.Empty;
