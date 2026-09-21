@@ -18,6 +18,9 @@ public interface ILocationClient
     // Route-match notifications
     Task HelperGoingYourWay(RouteMatchNotification helper);
     Task SenderAlongYourRoute(RouteMatchNotification sender);
+
+    // KYC status push
+    Task KycStatusChanged(string status, string? failureReason);
 }
 
 public record LocationUpdateDto(

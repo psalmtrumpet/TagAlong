@@ -2,8 +2,10 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.SignalR;
 using TagAlong.Common.CQRS;
 using TagAlong.Common.Results;
+using TagAlong.User.API.Hubs;
 using TagAlong.User.API.Services;
 using TagAlong.User.Domain.Entities;
 using TagAlong.User.Domain.Repositories;
@@ -25,6 +27,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
     private readonly IUserProfileRepository _profiles;
     private readonly INinCacheRepository _ninCache;
     private readonly IEmailService _email;
+    private readonly IHubContext<LocationHub, ILocationClient> _hub;
     private readonly ILogger<ProcessSmileWebhookCommandHandler> _logger;
 
     public ProcessSmileWebhookCommandHandler(
@@ -32,12 +35,14 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         IUserProfileRepository profiles,
         INinCacheRepository ninCache,
         IEmailService email,
+        IHubContext<LocationHub, ILocationClient> hub,
         ILogger<ProcessSmileWebhookCommandHandler> logger)
     {
         _kycRepo = kycRepo;
         _profiles = profiles;
         _ninCache = ninCache;
         _email = email;
+        _hub = hub;
         _logger = logger;
     }
 
@@ -117,6 +122,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
                 _kycRepo.Update(kyc);
                 await _kycRepo.SaveChangesAsync(cancellationToken);
                 _logger.LogWarning("SmileID job_status: job={JobId} stuck at {Code} — marking failed", jobId, resultCode);
+                await PushKycStatusAsync(kyc.AuthUserId, "Failed", reason, cancellationToken);
                 return Result.Success(new WebhookResult(true, "Processed: biometric incomplete"));
             }
             // From webhook: store the SmileID user_id so the status endpoint can poll get_job_status later.
@@ -145,6 +151,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
             _kycRepo.Update(kyc);
             await _kycRepo.SaveChangesAsync(cancellationToken);
             _logger.LogWarning("Smile ID webhook: verification failed for job {JobId} — {Reason}", jobId, reason);
+            await PushKycStatusAsync(kyc.AuthUserId, "Failed", reason, cancellationToken);
             return Result.Success(new WebhookResult(true, "Processed: failed"));
         }
 
@@ -183,6 +190,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
                 NinNameMatcher.BuildFailureEmailHtml(profile.FirstName, reason),
                 cancellationToken);
 
+            await PushKycStatusAsync(kyc.AuthUserId, "Failed", reason, cancellationToken);
             _logger.LogWarning("SmileID webhook: name mismatch for user {UserId} job {JobId}", kyc.AuthUserId, jobId);
             return Result.Success(new WebhookResult(true, "Processed: name mismatch"));
         }
@@ -220,9 +228,23 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
 
         await _kycRepo.SaveChangesAsync(cancellationToken);
 
+        await PushKycStatusAsync(kyc.AuthUserId, "Verified", null, cancellationToken);
         _logger.LogInformation("Smile ID webhook: user {UserId} verified via job {JobId}", kyc.AuthUserId, jobId);
 
         return Result.Success(new WebhookResult(true, "Processed: verified"));
+    }
+
+    private async Task PushKycStatusAsync(Guid authUserId, string status, string? failureReason, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _hub.Clients.Group($"user_{authUserId}")
+                .KycStatusChanged(status, failureReason);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to push KycStatusChanged to user {UserId}", authUserId);
+        }
     }
 
     private bool VerifySignature(string? signature, string timestamp, string partnerId, string apiKey)
