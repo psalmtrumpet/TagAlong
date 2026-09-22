@@ -100,10 +100,22 @@ public class KycController : ControllerBase
             }
         }
 
+        // Self-heal: if profile is stuck in Pending with no active KYC record, reset to None.
+        // This prevents permanent "in progress" banners after interrupted verification sessions.
+        var effectiveVerifStatus = profile?.VerificationStatus.ToString() ?? "None";
+        if (effectiveVerifStatus == "Pending" && kyc == null && profile != null)
+        {
+            profile.ResetVerificationStatus();
+            _profiles.Update(profile);
+            await _profiles.SaveChangesAsync(cancellationToken);
+            effectiveVerifStatus = "None";
+            _logger.LogInformation("Self-healed stale Pending status for user {UserId}", userId);
+        }
+
         return Ok(new
         {
             isVerified = profile?.IsVerified ?? false,
-            verificationStatus = profile?.VerificationStatus.ToString() ?? "None",
+            verificationStatus = effectiveVerifStatus,
             verifiedAt = profile?.VerifiedAt,
             kycStatus = kyc?.Status.ToString(),
             failureReason = kyc?.FailureReason

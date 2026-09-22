@@ -132,6 +132,12 @@ public class UserProfile : AggregateRoot
         SetUpdated();
     }
 
+    public void ResetVerificationStatus()
+    {
+        VerificationStatus = UserVerificationStatus.None;
+        SetUpdated();
+    }
+
     public void Suspend(string reason)
     {
         IsSuspended = true;
