@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Mvc;
 using TagAlong.User.API.Commands;
 using TagAlong.User.API.DTOs;
 using TagAlong.User.API.Queries;
+using TagAlong.User.Domain.Entities;
+using TagAlong.User.Domain.Repositories;
 
 namespace TagAlong.User.API.Controllers;
 
@@ -13,10 +15,17 @@ namespace TagAlong.User.API.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly IUserProfileRepository _profiles;
+    private readonly IKycVerificationRepository _kycRepo;
+    private readonly ILogger<UsersController> _logger;
 
-    public UsersController(IMediator mediator)
+    public UsersController(IMediator mediator, IUserProfileRepository profiles,
+        IKycVerificationRepository kycRepo, ILogger<UsersController> logger)
     {
         _mediator = mediator;
+        _profiles = profiles;
+        _kycRepo = kycRepo;
+        _logger = logger;
     }
 
     [Authorize]
@@ -36,7 +45,27 @@ public class UsersController : ControllerBase
             return NotFound(new { error = result.Error.Message });
         }
 
-        return Ok(result.Value);
+        var profile = result.Value;
+
+        // Self-heal: if profile is stuck in Pending with no active KYC record, reset it.
+        if (profile.VerificationStatus == "Pending" && !profile.IsVerified)
+        {
+            var kyc = await _kycRepo.GetByAuthUserIdAsync(userId.Value, cancellationToken);
+            if (kyc == null)
+            {
+                var entity = await _profiles.GetByAuthUserIdAsync(userId.Value, cancellationToken);
+                if (entity != null)
+                {
+                    entity.ResetVerificationStatus();
+                    _profiles.Update(entity);
+                    await _profiles.SaveChangesAsync(cancellationToken);
+                    _logger.LogInformation("Self-healed stale Pending on /users/me for user {UserId}", userId);
+                    profile = profile with { VerificationStatus = "None" };
+                }
+            }
+        }
+
+        return Ok(profile);
     }
 
     [HttpGet("{id:guid}")]
