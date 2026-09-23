@@ -42,7 +42,8 @@ public class RegisterCommandHandler : ICommandHandler<RegisterCommand, AuthRespo
     {
         if (await _userRepository.ExistsAsync(request.Email, cancellationToken))
         {
-            return Result.Failure<AuthResponse>(Error.Conflict("A user with this email already exists"));
+            // Generic message — do not confirm whether the email is registered
+            return Result.Failure<AuthResponse>(Error.Validation("Unable to complete registration with the provided details"));
         }
 
         var passwordHash = _passwordService.HashPassword(request.Password);

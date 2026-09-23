@@ -123,6 +123,7 @@ public class AvailabilityController : ControllerBase
     /// <summary>
     /// Search for available users nearby
     /// </summary>
+    [Authorize]
     [HttpGet("nearby")]
     [ProducesResponseType(typeof(AvailableUsersPagedResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> SearchNearbyUsers(

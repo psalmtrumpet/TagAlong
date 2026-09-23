@@ -35,14 +35,16 @@ public class ProcessQoreidWebhookCommandHandler
     public async Task<Result<WebhookResult>> Handle(
         ProcessQoreidWebhookCommand request, CancellationToken cancellationToken)
     {
-        // If QoreID sends a signature header, verify it. If they don't, accept the request anyway.
-        if (!string.IsNullOrEmpty(request.Signature) && !string.IsNullOrEmpty(request.WebhookSecret))
+        // Always verify the HMAC signature — fail closed if secret is unconfigured or signature is absent/wrong
+        if (string.IsNullOrEmpty(request.WebhookSecret))
         {
-            if (!VerifySignature(request.RawBody, request.Signature, request.WebhookSecret))
-            {
-                _logger.LogWarning("QoreID webhook signature mismatch — payload rejected");
-                return Result.Success(new WebhookResult(false, "Invalid signature"));
-            }
+            _logger.LogError("QoreID webhook received but QoreId:WebhookSecret is not configured — rejecting all requests");
+            return Result.Success(new WebhookResult(false, "Webhook secret not configured"));
+        }
+        if (string.IsNullOrEmpty(request.Signature) || !VerifySignature(request.RawBody, request.Signature, request.WebhookSecret))
+        {
+            _logger.LogWarning("QoreID webhook signature missing or invalid — payload rejected");
+            return Result.Success(new WebhookResult(false, "Invalid signature"));
         }
 
         QoreidWebhookPayload? payload;

@@ -32,6 +32,11 @@ Console.WriteLine("TagAlong User Service - Starting...\n");
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 10 * 1024 * 1024; // 10 MB
+});
+
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
@@ -87,7 +92,7 @@ builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBeh
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 builder.Services.AddRabbitMQEventBus(
-    builder.Configuration.GetConnectionString("RabbitMQ") ?? "amqp://guest:guest@localhost:5672",
+    builder.Configuration.GetConnectionString("RabbitMQ") ?? throw new InvalidOperationException("RabbitMQ connection string not configured"),
     "user-service-queue");
 
 builder.Services.AddScoped<UserCreatedIntegrationEventHandler>();
@@ -107,7 +112,7 @@ else
     builder.Services.AddSignalR();
 }
 
-// CORS for SignalR
+// CORS for SignalR — explicit allowlist, no wildcard with credentials
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("SignalRPolicy", policy =>
@@ -115,7 +120,10 @@ builder.Services.AddCors(options =>
         policy.AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials()
-              .SetIsOriginAllowed(_ => true);
+              .WithOrigins(
+                  "https://www.tlimc.net",
+                  "https://tlimc.net",
+                  "https://tagalong.delivery");
     });
 });
 

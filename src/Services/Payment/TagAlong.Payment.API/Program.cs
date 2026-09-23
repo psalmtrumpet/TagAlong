@@ -80,7 +80,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<InitiatePaymentCommandValid
 
 // RabbitMQ
 builder.Services.AddRabbitMQEventBus(
-    builder.Configuration.GetConnectionString("RabbitMQ") ?? "amqp://guest:guest@localhost:5672",
+    builder.Configuration.GetConnectionString("RabbitMQ") ?? throw new InvalidOperationException("RabbitMQ connection string not configured"),
     "payment-service-queue");
 
 // Integration event handlers

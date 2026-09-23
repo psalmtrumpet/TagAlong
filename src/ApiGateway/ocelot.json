@@ -251,7 +251,8 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "identity-api", "Port": 80 }],
       "UpstreamPathTemplate": "/api/admin/auth/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ]
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
     },
     {
       "DownstreamPathTemplate": "/api/admin/users/{everything}",

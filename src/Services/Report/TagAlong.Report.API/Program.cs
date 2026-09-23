@@ -41,7 +41,7 @@ builder.Services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
 
 // Add RabbitMQ Event Bus
 var rabbitMQConnectionString = builder.Configuration["RabbitMQ:ConnectionString"]
-    ?? "amqp://guest:guest@localhost:5672/";
+    ?? throw new InvalidOperationException("RabbitMQ connection string not configured");
 builder.Services.AddRabbitMQEventBus(rabbitMQConnectionString, "report_queue");
 
 // Add JWT Authentication

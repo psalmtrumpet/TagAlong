@@ -132,6 +132,7 @@ public class KycController : ControllerBase
     /// </summary>
     [Authorize]
     [HttpPost("verify-face")]
+    [RequestSizeLimit(5 * 1024 * 1024)] // 5 MB — selfie base64 should never exceed this
     public async Task<IActionResult> VerifyFace([FromBody] VerifyFaceRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();

@@ -248,7 +248,7 @@ public class LocationHub : Hub<ILocationClient>
             if (oldGridCell != null)
             {
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, oldGridCell);
-                await Clients.Group(oldGridCell).UserBecameUnavailable(profile.Id);
+                await Clients.Group(oldGridCell).UserBecameUnavailable(profile.AuthUserId);
             }
 
             await Clients.Caller.AvailabilityStatusChanged(new AvailabilityStatusDto(false, null));
@@ -281,7 +281,7 @@ public class LocationHub : Hub<ILocationClient>
             latitude, longitude, radiusKm, 1, 50);
 
         var userDtos = nearbyUsers.Select(u => new AvailableUserDto(
-            u.Id,
+            u.AuthUserId,
             u.FirstName,
             u.LastName,
             u.ProfileImageUrl,

@@ -79,6 +79,9 @@ public class MessagingHub : Hub<IMessagingClient>
         var userId = GetUserId();
         if (!userId.HasValue) return;
 
+        if (string.IsNullOrEmpty(content) || content.Length > 2000)
+            throw new HubException("Message content must be between 1 and 2000 characters");
+
         var conversation = await _conversationRepository.GetByIdAsync(conversationId);
         if (conversation == null || !conversation.IsParticipant(userId.Value))
         {
@@ -152,6 +155,10 @@ public class MessagingHub : Hub<IMessagingClient>
 
         var message = await _messageRepository.GetByIdAsync(messageId);
         if (message == null || message.SenderId == userId.Value) return;
+
+        // Verify the caller is a participant in the conversation before marking
+        var conversation = await _conversationRepository.GetByIdAsync(message.ConversationId);
+        if (conversation == null || !conversation.IsParticipant(userId.Value)) return;
 
         message.MarkAsRead();
         _messageRepository.Update(message);

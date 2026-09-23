@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using TagAlong.Identity.Domain.Entities;
 using TagAlong.Identity.Infrastructure.Persistence;
 using TagAlong.Identity.Infrastructure.Services;
+using Microsoft.Extensions.Hosting;
 
 namespace TagAlong.Identity.API.Controllers;
 
@@ -15,13 +16,15 @@ public class AdminController : ControllerBase
     private readonly IPasswordService _passwords;
     private readonly IJwtService _jwt;
     private readonly IConfiguration _config;
+    private readonly IHostEnvironment _env;
 
-    public AdminController(IdentityDbContext db, IPasswordService passwords, IJwtService jwt, IConfiguration config)
+    public AdminController(IdentityDbContext db, IPasswordService passwords, IJwtService jwt, IConfiguration config, IHostEnvironment env)
     {
         _db = db;
         _passwords = passwords;
         _jwt = jwt;
         _config = config;
+        _env = env;
     }
 
     /// <summary>
@@ -33,6 +36,9 @@ public class AdminController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> SeedAdmin([FromBody] SeedAdminRequest request, CancellationToken cancellationToken)
     {
+        if (!_env.IsDevelopment())
+            return NotFound();
+
         var expectedSecret = _config["Admin:SeedSecret"];
         if (string.IsNullOrEmpty(expectedSecret) || request.AdminSecret != expectedSecret)
             return Unauthorized(new { error = "Invalid admin seed secret" });

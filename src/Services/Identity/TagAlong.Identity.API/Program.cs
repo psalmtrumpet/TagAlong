@@ -1,11 +1,13 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using System.Text;
+using System.Threading.RateLimiting;
 using TagAlong.Common.Behaviors;
 using TagAlong.EventBus.RabbitMQ;
 using TagAlong.Identity.API.Commands;
@@ -28,6 +30,11 @@ Console.ResetColor();
 Console.WriteLine("TagAlong Identity Service - Starting...\n");
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 10 * 1024 * 1024; // 10 MB
+});
 
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
@@ -92,7 +99,7 @@ builder.Services.AddHttpContextAccessor();
 
 // RabbitMQ
 builder.Services.AddRabbitMQEventBus(
-    builder.Configuration.GetConnectionString("RabbitMQ") ?? "amqp://guest:guest@localhost:5672",
+    builder.Configuration.GetConnectionString("RabbitMQ") ?? throw new InvalidOperationException("RabbitMQ connection string not configured"),
     "identity-service-queue");
 
 // JWT Authentication
@@ -121,6 +128,20 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
+// Rate limiting — 10 requests per minute per IP on auth endpoints
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddSlidingWindowLimiter("auth", limiterOptions =>
+    {
+        limiterOptions.PermitLimit = 10;
+        limiterOptions.Window = TimeSpan.FromMinutes(1);
+        limiterOptions.SegmentsPerWindow = 6;
+        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        limiterOptions.QueueLimit = 0;
+    });
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
@@ -131,6 +152,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseSerilogRequestLogging();
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();

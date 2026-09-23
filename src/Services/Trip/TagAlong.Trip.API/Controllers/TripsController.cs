@@ -60,6 +60,7 @@ public class TripsController : ControllerBase
         return Ok(result.Value);
     }
 
+    [Authorize]
     [HttpGet("traveler/{travelerId:guid}")]
     [ProducesResponseType(typeof(List<TripResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetTravelerActiveTrips(Guid travelerId, CancellationToken cancellationToken)

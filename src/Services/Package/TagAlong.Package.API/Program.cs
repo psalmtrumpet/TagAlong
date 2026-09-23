@@ -77,7 +77,7 @@ builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBeh
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 builder.Services.AddRabbitMQEventBus(
-    builder.Configuration.GetConnectionString("RabbitMQ") ?? "amqp://guest:guest@localhost:5672",
+    builder.Configuration.GetConnectionString("RabbitMQ") ?? throw new InvalidOperationException("RabbitMQ connection string not configured"),
     "package-service-queue");
 
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
