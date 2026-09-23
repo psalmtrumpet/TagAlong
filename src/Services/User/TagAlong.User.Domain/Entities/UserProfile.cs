@@ -138,6 +138,12 @@ public class UserProfile : AggregateRoot
         SetUpdated();
     }
 
+    public void MarkVerificationPending()
+    {
+        VerificationStatus = UserVerificationStatus.Pending;
+        SetUpdated();
+    }
+
     public void Suspend(string reason)
     {
         IsSuspended = true;

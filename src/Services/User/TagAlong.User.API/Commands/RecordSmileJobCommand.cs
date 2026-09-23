@@ -102,7 +102,10 @@ public class RecordSmileJobCommandHandler : ICommandHandler<RecordSmileJobComman
         }
 
         // No cached name data — store jobId as Pending; webhook will do the name check and complete
+        profile.MarkVerificationPending();
+        _profiles.Update(profile);
         await _kycRepo.SaveChangesAsync(cancellationToken);
+        await _profiles.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Job {JobId} stored as Pending for user {UserId} — awaiting SmileID webhook", request.JobId, request.AuthUserId);
         return Result.Success(new KycStatusResponse(false, "Pending", "Verifying your identity. This usually takes a few seconds."));
     }
