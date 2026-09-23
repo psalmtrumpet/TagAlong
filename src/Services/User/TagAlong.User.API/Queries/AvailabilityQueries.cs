@@ -110,7 +110,7 @@ public class SearchAvailableUsersQueryHandler : IQueryHandler<SearchAvailableUse
             cancellationToken);
 
         var userResponses = users.Select(u => new AvailableUserResponse(
-            u.Id,
+            u.AuthUserId,
             u.FirstName,
             u.LastName,
             u.ProfileImageUrl,

@@ -190,7 +190,7 @@ public class LocationHub : Hub<ILocationClient>
 
             // Notify others in the area
             await Clients.Group(gridCell).UserBecameAvailable(new AvailableUserDto(
-                profile.Id,
+                profile.AuthUserId,
                 profile.FirstName,
                 profile.LastName,
                 profile.ProfileImageUrl,
