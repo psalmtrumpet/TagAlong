@@ -59,19 +59,18 @@ public class RecordSmileJobCommandHandler : ICommandHandler<RecordSmileJobComman
             kyc = existing;
             // Reset so a previously failed attempt (e.g. QoreID, old flow) doesn't bleed through
             kyc.ResetForRetry(request.JobId);
+            // Store SmileUserId on existing entity before Update call
+            if (!string.IsNullOrEmpty(request.SmileUserId) && string.IsNullOrEmpty(kyc.SmileUserId))
+                kyc.SetSmileUserId(request.SmileUserId);
             _kycRepo.Update(kyc);
         }
         else
         {
             kyc = KycVerification.Create(request.AuthUserId, smileJobId: request.JobId);
+            // Set SmileUserId before AddAsync so it's included in the INSERT, not a separate UPDATE
+            if (!string.IsNullOrEmpty(request.SmileUserId))
+                kyc.SetSmileUserId(request.SmileUserId);
             await _kycRepo.AddAsync(kyc, cancellationToken);
-        }
-
-        // Store SmileUserId immediately so GetStatus polling works even if webhooks miss the window
-        if (!string.IsNullOrEmpty(request.SmileUserId) && string.IsNullOrEmpty(kyc.SmileUserId))
-        {
-            kyc.SetSmileUserId(request.SmileUserId);
-            _kycRepo.Update(kyc);
         }
 
         var cached = await _ninCache.GetByNinAsync(request.IdNumber, cancellationToken);
