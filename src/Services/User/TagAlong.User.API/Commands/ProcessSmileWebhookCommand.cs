@@ -128,6 +128,13 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
                 kyc.Fail(reason);
                 _kycRepo.Update(kyc);
                 await _kycRepo.SaveChangesAsync(cancellationToken);
+                var failProfile = await _profiles.GetByAuthUserIdAsync(kyc.AuthUserId, cancellationToken);
+                if (failProfile != null && !failProfile.IsVerified)
+                {
+                    failProfile.ResetVerificationStatus();
+                    _profiles.Update(failProfile);
+                    await _profiles.SaveChangesAsync(cancellationToken);
+                }
                 _logger.LogWarning("SmileID job_status: job={JobId} stuck at {Code} — marking failed", jobId, resultCode);
                 await PushKycStatusAsync(kyc.AuthUserId, "Failed", reason, cancellationToken);
                 await LogAsync(jobId, resultCode, kyc.AuthUserId, true, "biometric-incomplete", request.RawBody, cancellationToken);
@@ -159,6 +166,13 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
             kyc.Fail(reason);
             _kycRepo.Update(kyc);
             await _kycRepo.SaveChangesAsync(cancellationToken);
+            var failProfile2 = await _profiles.GetByAuthUserIdAsync(kyc.AuthUserId, cancellationToken);
+            if (failProfile2 != null && !failProfile2.IsVerified)
+            {
+                failProfile2.ResetVerificationStatus();
+                _profiles.Update(failProfile2);
+                await _profiles.SaveChangesAsync(cancellationToken);
+            }
             _logger.LogWarning("Smile ID webhook: verification failed for job {JobId} — {Reason}", jobId, reason);
             await PushKycStatusAsync(kyc.AuthUserId, "Failed", reason, cancellationToken);
             await LogAsync(jobId, resultCode, kyc.AuthUserId, request.IsJobStatusResult, "failed", request.RawBody, cancellationToken);
@@ -178,6 +192,8 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
                 profile.FirstName, profile.LastName, resolvedFirst, resolvedLast);
             kyc.Fail(reason);
             _kycRepo.Update(kyc);
+            profile.ResetVerificationStatus();
+            _profiles.Update(profile);
 
             // Upsert NIN cache even on mismatch — data is still valid for future lookups
             if (!string.IsNullOrEmpty(nin))
@@ -192,6 +208,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
             }
 
             await _kycRepo.SaveChangesAsync(cancellationToken);
+            await _profiles.SaveChangesAsync(cancellationToken);
 
             await _email.SendAsync(
                 profile.Email,
