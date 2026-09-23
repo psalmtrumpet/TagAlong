@@ -74,5 +74,7 @@ public enum NotificationType
     ReviewReceived,
     ReportSubmitted,
     ReportResolved,
-    System
+    System,
+    IdentityVerified,
+    IdentityFailed
 }

@@ -11,6 +11,7 @@ public class NotificationDbContext : DbContext
 
     public DbSet<Domain.Entities.Notification> Notifications => Set<Domain.Entities.Notification>();
     public DbSet<UserConnection> UserConnections => Set<UserConnection>();
+    public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -63,6 +64,13 @@ public class NotificationDbContext : DbContext
 
             entity.HasIndex(e => e.UserId);
             entity.HasIndex(e => new { e.UserId, e.IsActive });
+        });
+
+        modelBuilder.Entity<DeviceToken>(entity =>
+        {
+            entity.ToTable("device_tokens");
+            entity.HasKey(e => e.UserId);
+            entity.Property(e => e.Token).IsRequired().HasMaxLength(512);
         });
     }
 }

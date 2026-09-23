@@ -1,4 +1,6 @@
 
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -71,6 +73,21 @@ builder.Services.AddDbContext<NotificationDbContext>(options =>
 // Repositories
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IUserConnectionRepository, UserConnectionRepository>();
+builder.Services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
+
+// Firebase (service account JSON stored in env var Firebase__ServiceAccountJson — NOT in git)
+var firebaseJson = builder.Configuration["Firebase:ServiceAccountJson"];
+if (!string.IsNullOrEmpty(firebaseJson))
+{
+    FirebaseApp.Create(new AppOptions
+    {
+        Credential = GoogleCredential.FromJson(firebaseJson)
+    });
+}
+else
+{
+    Log.Warning("Firebase:ServiceAccountJson not configured — FCM push notifications disabled");
+}
 
 // Services
 builder.Services.AddScoped<INotificationService, NotificationService>();
@@ -101,6 +118,7 @@ builder.Services.AddScoped<DeliveryStatusChangedIntegrationEventHandler>();
 builder.Services.AddScoped<PaymentCompletedIntegrationEventHandler>();
 builder.Services.AddScoped<NegotiationMessageSentIntegrationEventHandler>();
 builder.Services.AddScoped<ConversationRequestCreatedIntegrationEventHandler>();
+builder.Services.AddScoped<KycStatusChangedIntegrationEventHandler>();
 
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -182,6 +200,7 @@ eventBus.Subscribe<DeliveryStatusChangedIntegrationEvent, DeliveryStatusChangedI
 eventBus.Subscribe<PaymentCompletedIntegrationEvent, PaymentCompletedIntegrationEventHandler>();
 eventBus.Subscribe<NegotiationMessageSentIntegrationEvent, NegotiationMessageSentIntegrationEventHandler>();
 eventBus.Subscribe<ConversationRequestCreatedIntegrationEvent, ConversationRequestCreatedIntegrationEventHandler>();
+eventBus.Subscribe<KycStatusChangedIntegrationEvent, KycStatusChangedIntegrationEventHandler>();
 
 // Apply migrations
 using (var scope = app.Services.CreateScope())

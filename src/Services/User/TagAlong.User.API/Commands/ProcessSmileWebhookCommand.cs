@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.SignalR;
 using TagAlong.Common.CQRS;
 using TagAlong.Common.Results;
+using TagAlong.EventBus;
 using TagAlong.User.API.Hubs;
 using TagAlong.User.API.Services;
 using TagAlong.User.Domain.Entities;
@@ -12,6 +13,11 @@ using TagAlong.User.Domain.Repositories;
 using NinCache = TagAlong.User.Domain.Entities.NinCache;
 
 namespace TagAlong.User.API.Commands;
+
+public record KycStatusChangedIntegrationEvent(
+    Guid UserId,
+    string Status,
+    string? FailureReason) : IntegrationEvent;
 
 public record ProcessSmileWebhookCommand(
     string RawBody,
@@ -29,6 +35,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
     private readonly IEmailService _email;
     private readonly IHubContext<LocationHub, ILocationClient> _hub;
     private readonly ISmileWebhookLogRepository _webhookLog;
+    private readonly IEventBus _eventBus;
     private readonly ILogger<ProcessSmileWebhookCommandHandler> _logger;
 
     public ProcessSmileWebhookCommandHandler(
@@ -38,6 +45,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         IEmailService email,
         IHubContext<LocationHub, ILocationClient> hub,
         ISmileWebhookLogRepository webhookLog,
+        IEventBus eventBus,
         ILogger<ProcessSmileWebhookCommandHandler> logger)
     {
         _kycRepo = kycRepo;
@@ -46,6 +54,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         _email = email;
         _hub = hub;
         _webhookLog = webhookLog;
+        _eventBus = eventBus;
         _logger = logger;
     }
 
@@ -275,6 +284,15 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to push KycStatusChanged to user {UserId}", authUserId);
+        }
+
+        try
+        {
+            await _eventBus.PublishAsync(new KycStatusChangedIntegrationEvent(authUserId, status, failureReason));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to publish KycStatusChangedIntegrationEvent for user {UserId}", authUserId);
         }
     }
 

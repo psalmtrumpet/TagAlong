@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TagAlong.Notification.API.Hubs;
+using TagAlong.Notification.Domain.Entities;
 using TagAlong.Notification.Domain.Repositories;
 
 namespace TagAlong.Notification.API.Controllers;
@@ -12,10 +13,40 @@ namespace TagAlong.Notification.API.Controllers;
 public class NotificationsController : ControllerBase
 {
     private readonly INotificationRepository _notificationRepository;
+    private readonly IDeviceTokenRepository _deviceTokenRepository;
 
-    public NotificationsController(INotificationRepository notificationRepository)
+    public NotificationsController(
+        INotificationRepository notificationRepository,
+        IDeviceTokenRepository deviceTokenRepository)
     {
         _notificationRepository = notificationRepository;
+        _deviceTokenRepository = deviceTokenRepository;
+    }
+
+    [HttpPost("device-token")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> RegisterDeviceToken(
+        [FromBody] RegisterDeviceTokenRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var existing = await _deviceTokenRepository.GetByUserIdAsync(userId.Value, cancellationToken);
+        if (existing != null)
+        {
+            existing.Update(request.Token);
+            _deviceTokenRepository.Update(existing);
+        }
+        else
+        {
+            var deviceToken = DeviceToken.Create(userId.Value, request.Token);
+            await _deviceTokenRepository.AddAsync(deviceToken, cancellationToken);
+        }
+
+        await _deviceTokenRepository.SaveChangesAsync(cancellationToken);
+        return Ok();
     }
 
     [HttpGet]
@@ -119,3 +150,5 @@ public class NotificationsController : ControllerBase
         return Guid.TryParse(userIdClaim, out var userId) ? userId : null;
     }
 }
+
+public record RegisterDeviceTokenRequest(string Token);
