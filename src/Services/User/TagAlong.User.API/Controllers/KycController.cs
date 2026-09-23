@@ -164,7 +164,7 @@ public class KycController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.IdNumber) || request.IdNumber.Trim().Length != 11)
             return BadRequest(new { error = "idNumber must be exactly 11 digits" });
 
-        var command = new RecordSmileJobCommand(userId.Value, request.JobId.Trim(), request.IdNumber.Trim());
+        var command = new RecordSmileJobCommand(userId.Value, request.JobId.Trim(), request.IdNumber.Trim(), request.SmileUserId?.Trim());
         var result = await _mediator.Send(command, cancellationToken);
 
         if (result.IsFailure)
@@ -232,4 +232,4 @@ public class KycController : ControllerBase
 public record VerifyNinRequest(string NIN);
 public record VerifyFaceRequest(string BVN, string PhotoBase64);
 public record ConfirmSdkRequest(string ReferenceId);
-public record RecordSmileJobRequest(string JobId, string IdNumber);
+public record RecordSmileJobRequest(string JobId, string IdNumber, string? SmileUserId = null);

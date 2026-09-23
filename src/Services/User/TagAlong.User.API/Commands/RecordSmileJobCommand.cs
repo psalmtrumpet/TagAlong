@@ -1,3 +1,4 @@
+using MediatR;
 using TagAlong.Common.CQRS;
 using TagAlong.Common.Results;
 using TagAlong.User.API.Services;
@@ -6,7 +7,7 @@ using TagAlong.User.Domain.Repositories;
 
 namespace TagAlong.User.API.Commands;
 
-public record RecordSmileJobCommand(Guid AuthUserId, string JobId, string IdNumber) : ICommand<KycStatusResponse>;
+public record RecordSmileJobCommand(Guid AuthUserId, string JobId, string IdNumber, string? SmileUserId = null) : ICommand<KycStatusResponse>;
 
 public class RecordSmileJobCommandHandler : ICommandHandler<RecordSmileJobCommand, KycStatusResponse>
 {
@@ -14,6 +15,9 @@ public class RecordSmileJobCommandHandler : ICommandHandler<RecordSmileJobComman
     private readonly IUserProfileRepository _profiles;
     private readonly INinCacheRepository _ninCache;
     private readonly IEmailService _email;
+    private readonly IMediator _mediator;
+    private readonly SmileIdPollService _smilePoll;
+    private readonly IConfiguration _config;
     private readonly ILogger<RecordSmileJobCommandHandler> _logger;
 
     public RecordSmileJobCommandHandler(
@@ -21,12 +25,18 @@ public class RecordSmileJobCommandHandler : ICommandHandler<RecordSmileJobComman
         IUserProfileRepository profiles,
         INinCacheRepository ninCache,
         IEmailService email,
+        IMediator mediator,
+        SmileIdPollService smilePoll,
+        IConfiguration config,
         ILogger<RecordSmileJobCommandHandler> logger)
     {
         _kycRepo = kycRepo;
         _profiles = profiles;
         _ninCache = ninCache;
         _email = email;
+        _mediator = mediator;
+        _smilePoll = smilePoll;
+        _config = config;
         _logger = logger;
     }
 
@@ -55,6 +65,13 @@ public class RecordSmileJobCommandHandler : ICommandHandler<RecordSmileJobComman
         {
             kyc = KycVerification.Create(request.AuthUserId, smileJobId: request.JobId);
             await _kycRepo.AddAsync(kyc, cancellationToken);
+        }
+
+        // Store SmileUserId immediately so GetStatus polling works even if webhooks miss the window
+        if (!string.IsNullOrEmpty(request.SmileUserId) && string.IsNullOrEmpty(kyc.SmileUserId))
+        {
+            kyc.SetSmileUserId(request.SmileUserId);
+            _kycRepo.Update(kyc);
         }
 
         var cached = await _ninCache.GetByNinAsync(request.IdNumber, cancellationToken);
@@ -107,6 +124,42 @@ public class RecordSmileJobCommandHandler : ICommandHandler<RecordSmileJobComman
         await _kycRepo.SaveChangesAsync(cancellationToken);
         await _profiles.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Job {JobId} stored as Pending for user {UserId} — awaiting SmileID webhook", request.JobId, request.AuthUserId);
+
+        // Immediately poll get_job_status — catches results that arrived before this record was created (race condition)
+        if (!string.IsNullOrEmpty(request.SmileUserId))
+        {
+            var apiKey    = _config["SmileId:ApiKey"]    ?? string.Empty;
+            var partnerId = _config["SmileId:PartnerId"] ?? string.Empty;
+            if (!string.IsNullOrEmpty(apiKey))
+            {
+                try
+                {
+                    var resultJson = await _smilePoll.GetJobStatusResultJsonAsync(
+                        request.JobId, request.SmileUserId, apiKey, partnerId, cancellationToken);
+                    if (!string.IsNullOrEmpty(resultJson))
+                    {
+                        _logger.LogInformation("record-smile-job: immediate poll found result for job {JobId}", request.JobId);
+                        var cmd = new ProcessSmileWebhookCommand(resultJson, string.Empty, partnerId, IsJobStatusResult: true);
+                        var pollResult = await _mediator.Send(cmd, cancellationToken);
+                        if (pollResult.IsSuccess && pollResult.Value.Processed)
+                        {
+                            // Re-read to get the updated status after processing
+                            var updatedProfile = await _profiles.GetByAuthUserIdAsync(request.AuthUserId, cancellationToken);
+                            if (updatedProfile?.IsVerified == true)
+                                return Result.Success(new KycStatusResponse(true, "Verified", "Identity verified successfully"));
+                            var updatedKyc = await _kycRepo.GetByAuthUserIdAsync(request.AuthUserId, cancellationToken);
+                            if (updatedKyc?.Status == KycStatus.Failed)
+                                return Result.Success(new KycStatusResponse(false, "Failed", updatedKyc.FailureReason ?? "Verification failed"));
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "record-smile-job: immediate poll failed for job {JobId}", request.JobId);
+                }
+            }
+        }
+
         return Result.Success(new KycStatusResponse(false, "Pending", "Verifying your identity. This usually takes a few seconds."));
     }
 }
