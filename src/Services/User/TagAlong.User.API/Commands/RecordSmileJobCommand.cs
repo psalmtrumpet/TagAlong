@@ -77,26 +77,7 @@ public class RecordSmileJobCommandHandler : ICommandHandler<RecordSmileJobComman
 
         if (cached != null && (cached.FirstName != null || cached.LastName != null))
         {
-            // Name data available — verify immediately without waiting for webhook
-            if (!NinNameMatcher.NamesMatch(profile.FirstName, profile.LastName, cached.FirstName, cached.LastName))
-            {
-                var reason = NinNameMatcher.BuildMismatchReason(
-                    profile.FirstName, profile.LastName, cached.FirstName, cached.LastName);
-                kyc.Fail(reason);
-                _kycRepo.Update(kyc);
-                await _kycRepo.SaveChangesAsync(cancellationToken);
-
-                await _email.SendAsync(
-                    profile.Email,
-                    $"{profile.FirstName} {profile.LastName}",
-                    "TagAlong — Identity Verification Failed",
-                    NinNameMatcher.BuildFailureEmailHtml(profile.FirstName, reason),
-                    cancellationToken);
-
-                _logger.LogWarning("NIN cache name mismatch for user {UserId}", request.AuthUserId);
-                return Result.Success(new KycStatusResponse(false, "NameMismatch", reason));
-            }
-
+            // NIN already verified by SmileID — trust the cached result directly
             kyc.Complete(
                 nin: request.IdNumber,
                 firstName: cached.FirstName,

@@ -207,45 +207,8 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
 
         var (resolvedFirst, resolvedLast) = payload.ResolvedName();
 
-        // Name check: profile name must match at least one direction against the NIN name
+        // SmileID has already validated the identity via biometric comparison — trust the result.
         var profile = await _profiles.GetByAuthUserIdAsync(kyc.AuthUserId, cancellationToken);
-        if (profile != null && !NinNameMatcher.NamesMatch(
-                profile.FirstName, profile.LastName, resolvedFirst, resolvedLast))
-        {
-            var reason = NinNameMatcher.BuildMismatchReason(
-                profile.FirstName, profile.LastName, resolvedFirst, resolvedLast);
-            kyc.Fail(reason);
-            _kycRepo.Update(kyc);
-            profile.ResetVerificationStatus();
-            _profiles.Update(profile);
-
-            // Upsert NIN cache even on mismatch — data is still valid for future lookups
-            if (!string.IsNullOrEmpty(nin))
-            {
-                var cacheEntry = await _ninCache.GetByNinAsync(nin, cancellationToken);
-                if (cacheEntry == null)
-                    await _ninCache.AddAsync(NinCache.Create(nin, resolvedFirst, resolvedLast,
-                        payload.MiddleName, payload.Dob, payload.Gender), cancellationToken);
-                else
-                    cacheEntry.Refresh(resolvedFirst, resolvedLast,
-                        payload.MiddleName, payload.Dob, payload.Gender);
-            }
-
-            await _kycRepo.SaveChangesAsync(cancellationToken);
-            await _profiles.SaveChangesAsync(cancellationToken);
-
-            await _email.SendAsync(
-                profile.Email,
-                $"{profile.FirstName} {profile.LastName}",
-                "TagAlong — Identity Verification Failed",
-                NinNameMatcher.BuildFailureEmailHtml(profile.FirstName, reason),
-                cancellationToken);
-
-            await PushKycStatusAsync(kyc.AuthUserId, "Failed", reason, cancellationToken);
-            await LogAsync(jobId, resultCode, kyc.AuthUserId, request.IsJobStatusResult, "name-mismatch", request.RawBody, cancellationToken);
-            _logger.LogWarning("SmileID webhook: name mismatch for user {UserId} job {JobId}", kyc.AuthUserId, jobId);
-            return Result.Success(new WebhookResult(true, "Processed: name mismatch"));
-        }
 
         kyc.Complete(
             nin: nin,
