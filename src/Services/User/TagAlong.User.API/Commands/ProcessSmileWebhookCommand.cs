@@ -114,51 +114,73 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
             return Result.Success(new WebhookResult(true, "Already processed"));
         }
 
-        // Result code 1210 = Verified match; 1220 = Failed match; 1012 = ID data callback (ignore)
+        // Result code 1210 = Verified match (Document KYC); 1220 = Failed match
+        // 0810 = Biometric KYC Job Type 1 result — Approved when Verify_ID_Number=Verified
+        // 1012 = ID data callback (always non-final)
         var resultCode = payload.ResultCode ?? string.Empty;
 
-        // 1012 = ID data callback, 0810 = selfie registered — both are non-final from webhooks.
-        // From job_status (IsJobStatusResult=true), job_complete=true + 0810 means the biometric
-        // comparison never ran — treat as a retriable failure rather than looping forever.
-        if (resultCode == "1012" || resultCode == "0810")
+        // 1012 = ID data callback — always non-final, no action needed
+        if (resultCode == "1012")
         {
-            if (request.IsJobStatusResult)
+            var smileUserId1012 = payload.PartnerParams?.UserId;
+            if (!string.IsNullOrEmpty(smileUserId1012) && string.IsNullOrEmpty(kyc.SmileUserId))
             {
-                var reason = "Your face scan couldn't be matched clearly enough. Please retry in a well-lit area.";
-                kyc.Fail(reason);
-                _kycRepo.Update(kyc);
-                await _kycRepo.SaveChangesAsync(cancellationToken);
-                var failProfile = await _profiles.GetByAuthUserIdAsync(kyc.AuthUserId, cancellationToken);
-                if (failProfile != null && !failProfile.IsVerified)
-                {
-                    failProfile.ResetVerificationStatus();
-                    _profiles.Update(failProfile);
-                    await _profiles.SaveChangesAsync(cancellationToken);
-                }
-                _logger.LogWarning("SmileID job_status: job={JobId} stuck at {Code} — marking failed", jobId, resultCode);
-                await PushKycStatusAsync(kyc.AuthUserId, "Failed", reason, cancellationToken);
-                await LogAsync(jobId, resultCode, kyc.AuthUserId, true, "biometric-incomplete", request.RawBody, cancellationToken);
-                return Result.Success(new WebhookResult(true, "Processed: biometric incomplete"));
-            }
-            // From webhook: store the SmileID user_id so the status endpoint can poll get_job_status later.
-            var smileUserId = payload.PartnerParams?.UserId;
-            if (!string.IsNullOrEmpty(smileUserId) && string.IsNullOrEmpty(kyc.SmileUserId))
-            {
-                kyc.SetSmileUserId(smileUserId);
+                kyc.SetSmileUserId(smileUserId1012);
                 _kycRepo.Update(kyc);
                 await _kycRepo.SaveChangesAsync(cancellationToken);
             }
-            await LogAsync(jobId, resultCode, kyc.AuthUserId, request.IsJobStatusResult, $"non-final-{resultCode}", request.RawBody, cancellationToken);
+            await LogAsync(jobId, resultCode, kyc.AuthUserId, request.IsJobStatusResult, "non-final-1012", request.RawBody, cancellationToken);
             return Result.Success(new WebhookResult(true, "Non-final callback — no action needed"));
         }
 
+        // 0810 = Biometric KYC (Job Type 1) / NIN_V2.
+        // When Verify_ID_Number=Verified this IS the final approved result — fall through to verify the user.
+        // Without Verify_ID_Number=Verified it is a selfie-registered non-final callback (or biometric incomplete from poll).
+        if (resultCode == "0810")
+        {
+            var ninApproved = string.Equals(payload.Actions?.VerifyIdNumber, "Verified", StringComparison.OrdinalIgnoreCase);
+            if (!ninApproved)
+            {
+                if (request.IsJobStatusResult)
+                {
+                    var reason = "Your face scan couldn't be matched clearly enough. Please retry in a well-lit area.";
+                    kyc.Fail(reason);
+                    _kycRepo.Update(kyc);
+                    await _kycRepo.SaveChangesAsync(cancellationToken);
+                    var failProfile = await _profiles.GetByAuthUserIdAsync(kyc.AuthUserId, cancellationToken);
+                    if (failProfile != null && !failProfile.IsVerified)
+                    {
+                        failProfile.ResetVerificationStatus();
+                        _profiles.Update(failProfile);
+                        await _profiles.SaveChangesAsync(cancellationToken);
+                    }
+                    _logger.LogWarning("SmileID job_status: job={JobId} 0810 without Verify_ID_Number=Verified — marking failed", jobId);
+                    await PushKycStatusAsync(kyc.AuthUserId, "Failed", reason, cancellationToken);
+                    await LogAsync(jobId, resultCode, kyc.AuthUserId, true, "biometric-incomplete", request.RawBody, cancellationToken);
+                    return Result.Success(new WebhookResult(true, "Processed: biometric incomplete"));
+                }
+                var smileUserId0810 = payload.PartnerParams?.UserId;
+                if (!string.IsNullOrEmpty(smileUserId0810) && string.IsNullOrEmpty(kyc.SmileUserId))
+                {
+                    kyc.SetSmileUserId(smileUserId0810);
+                    _kycRepo.Update(kyc);
+                    await _kycRepo.SaveChangesAsync(cancellationToken);
+                }
+                await LogAsync(jobId, resultCode, kyc.AuthUserId, request.IsJobStatusResult, "non-final-0810", request.RawBody, cancellationToken);
+                return Result.Success(new WebhookResult(true, "Non-final callback — no action needed"));
+            }
+            _logger.LogInformation("SmileID: job={JobId} 0810 Approved (Verify_ID_Number=Verified) — processing as verified", jobId);
+        }
+
         var ninVerified = string.Equals(payload.Actions?.VerifyIdNumber, "Verified", StringComparison.OrdinalIgnoreCase);
-        // Accept either a human-review comparison or the selfie-to-authority comparison passing
+        // Accept human-review, selfie-to-authority (Passed/Completed), or Not Applicable
         var faceAction = payload.Actions?.HumanReviewCompare ?? payload.Actions?.SelfieToIdAuthorityCompare;
         var faceMatched = faceAction == null
                        || string.Equals(faceAction, "Passed", StringComparison.OrdinalIgnoreCase)
+                       || string.Equals(faceAction, "Completed", StringComparison.OrdinalIgnoreCase)
                        || string.Equals(faceAction, "Not Applicable", StringComparison.OrdinalIgnoreCase);
-        var isSuccess = resultCode == "1210";
+        // 0810 with Verify_ID_Number=Verified is the approved result for Biometric KYC Job Type 1
+        var isSuccess = resultCode == "1210" || resultCode == "0810";
 
         if (!isSuccess)
         {
