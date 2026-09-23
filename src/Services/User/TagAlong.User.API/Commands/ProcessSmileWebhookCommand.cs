@@ -124,7 +124,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         {
             if (request.IsJobStatusResult)
             {
-                var reason = "Biometric comparison did not complete (SmileID returned code " + resultCode + "). Please try again.";
+                var reason = "Your face scan couldn't be matched clearly enough. Please retry in a well-lit area.";
                 kyc.Fail(reason);
                 _kycRepo.Update(kyc);
                 await _kycRepo.SaveChangesAsync(cancellationToken);
@@ -162,7 +162,9 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
 
         if (!isSuccess)
         {
-            var reason = $"Smile ID result: code={resultCode} nin={payload.Actions?.VerifyIdNumber} face={payload.Actions?.HumanReviewCompare}";
+            var reason = resultCode == "1220"
+                ? "Your face did not match your NIN photo. Please try again in good lighting."
+                : $"Verification could not be completed (code {resultCode}). Please try again.";
             kyc.Fail(reason);
             _kycRepo.Update(kyc);
             await _kycRepo.SaveChangesAsync(cancellationToken);
