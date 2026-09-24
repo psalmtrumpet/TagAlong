@@ -528,7 +528,10 @@ services:
       - SMTP_PORT=${SMTP_PORT:-465}
       - SMTP_USER=${SMTP_USER:-info@tlimc.net}
       - SMTP_PASS=${SMTP_PASS}
+      - ADMIN_KEY=${WAITLIST_ADMIN_KEY}
       - PORT=3001
+    volumes:
+      - waitlist_data:/data
     networks:
       - tagalong-network
     restart: unless-stopped
@@ -545,4 +548,5 @@ networks:
 volumes:
   sqlserver_data:
   rabbitmq_data:
+  waitlist_data:
   redis_data:
