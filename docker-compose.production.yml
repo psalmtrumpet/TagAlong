@@ -114,6 +114,9 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
       - GlobalConfiguration__BaseUrl=${VPS_HOST}
+      - JwtSettings__SecretKey=${JWT_SECRET_KEY}
+      - JwtSettings__Issuer=${JWT_ISSUER}
+      - JwtSettings__Audience=${JWT_AUDIENCE}
     depends_on:
       - identity-api
       - user-api
