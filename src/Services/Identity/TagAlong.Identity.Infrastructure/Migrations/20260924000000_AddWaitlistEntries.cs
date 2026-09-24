@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace TagAlong.Identity.Infrastructure.Migrations
 {
+    [Migration("20260924000000_AddWaitlistEntries")]
     public partial class AddWaitlistEntries : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
