@@ -146,7 +146,7 @@ services:
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__PackageDb=Server=sqlserver;Database=tagalong_package;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
       - ConnectionStrings__RabbitMQ=amqp://guest:guest@rabbitmq:5672
-      - JwtSettings__SecretKey=***REMOVED***
+      - JwtSettings__SecretKey=3f6a8d4e-9c2b-4a7f-b1e2-6d8f9a1c0b34
       - JwtSettings__Issuer=TagAlong
       - JwtSettings__Audience=TagAlong.Mobile
     depends_on:
@@ -167,7 +167,7 @@ services:
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__PaymentDb=Server=sqlserver;Database=tagalong_payment;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
       - ConnectionStrings__RabbitMQ=amqp://guest:guest@rabbitmq:5672
-      - JwtSettings__SecretKey=***REMOVED***
+      - JwtSettings__SecretKey=3f6a8d4e-9c2b-4a7f-b1e2-6d8f9a1c0b34
       - JwtSettings__Issuer=TagAlong
       - JwtSettings__Audience=TagAlong.Mobile
     depends_on:
@@ -227,7 +227,7 @@ services:
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=tagalong_review;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
       - ConnectionStrings__RabbitMQ=amqp://guest:guest@rabbitmq:5672
-      - Jwt__Key=***REMOVED***
+      - Jwt__Key=3f6a8d4e-9c2b-4a7f-b1e2-6d8f9a1c0b34
       - Jwt__Issuer=TagAlong
       - Jwt__Audience=TagAlong.Mobile
     depends_on:
@@ -248,7 +248,7 @@ services:
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=tagalong_report;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
       - ConnectionStrings__RabbitMQ=amqp://guest:guest@rabbitmq:5672
-      - Jwt__Key=***REMOVED***
+      - Jwt__Key=3f6a8d4e-9c2b-4a7f-b1e2-6d8f9a1c0b34
       - Jwt__Issuer=TagAlong
       - Jwt__Audience=TagAlong.Mobile
     depends_on:
