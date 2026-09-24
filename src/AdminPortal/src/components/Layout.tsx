@@ -7,6 +7,7 @@ const nav = [
   { label: 'Users',          path: '/users',         icon: '◉' },
   { label: 'Trips',          path: '/trips',         icon: '◎' },
   { label: 'Conversations',  path: '/conversations', icon: '◐' },
+  { label: 'Waitlist',       path: '/waitlist',      icon: '◫' },
 ]
 
 export default function Layout({ children }: { children: React.ReactNode }) {

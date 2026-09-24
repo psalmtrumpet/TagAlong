@@ -231,3 +231,17 @@ export async function getConversation(id: string): Promise<ConversationDetail> {
 export async function getConversationStats(): Promise<ConversationStats> {
   return request('/api/admin/conversations/stats')
 }
+
+// ── Waitlist ───────────────────────────────────────────────────────────────────
+
+export interface WaitlistEntry {
+  id: string
+  name: string
+  email: string
+  phone: string
+  joinedAt: string
+}
+
+export async function getWaitlist(): Promise<WaitlistEntry[]> {
+  return request('/api/admin/waitlist')
+}

@@ -11,6 +11,7 @@ public class IdentityDbContext : DbContext
 
     public DbSet<ApplicationUser> Users => Set<ApplicationUser>();
     public DbSet<VerificationCode> VerificationCodes => Set<VerificationCode>();
+    public DbSet<WaitlistEntry> WaitlistEntries => Set<WaitlistEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -77,6 +78,27 @@ public class IdentityDbContext : DbContext
                 .HasConversion<string>();
 
             entity.HasIndex(e => new { e.UserId, e.Code, e.Type });
+        });
+
+        modelBuilder.Entity<WaitlistEntry>(entity =>
+        {
+            entity.ToTable("waitlist_entries");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(e => e.Email)
+                .IsRequired()
+                .HasMaxLength(254);
+
+            entity.Property(e => e.Phone)
+                .HasMaxLength(20)
+                .HasDefaultValue(string.Empty);
+
+            entity.HasIndex(e => e.Email)
+                .IsUnique();
         });
     }
 }
