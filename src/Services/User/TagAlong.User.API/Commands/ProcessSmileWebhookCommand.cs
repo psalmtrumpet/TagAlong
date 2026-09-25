@@ -83,7 +83,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         {
             if (!VerifySignature(sigToVerify, tsToVerify, request.PartnerId, request.ApiKey))
             {
-                var snippet = request.RawBody.Length > 300 ? request.RawBody[..300] : request.RawBody;
+                var snippet = request.RawBody.Length > 800 ? request.RawBody[..800] : request.RawBody;
                 _logger.LogWarning(
                     "Smile ID webhook signature mismatch. ts={TS} pid={PID} sigLen={SL} fromHeader={FH} body={Body}",
                     tsToVerify, request.PartnerId, sigToVerify?.Length,
@@ -143,12 +143,17 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         }
 
         // 0810 = Biometric KYC (Job Type 1) / NIN_V2.
-        // When Verify_ID_Number=Verified this IS the final approved result — fall through to verify the user.
-        // Without Verify_ID_Number=Verified it is a selfie-registered non-final callback (or biometric incomplete from poll).
+        // For NIN_V2, SmileID sends two callbacks per scan:
+        //   1012 — NIN data (Verify_ID_Number=Verified) — non-final, skipped above
+        //   0810 — biometric result (Liveness_Check=Passed) — final approved result, no Verify_ID_Number
+        // If SmileID wanted to signal failure it would return 1220, not 0810.
+        // So: 0810 + Liveness_Check=Passed from a real webhook = verified, regardless of Verify_ID_Number field.
         if (resultCode == "0810")
         {
             var ninApproved = string.Equals(payload.Actions?.VerifyIdNumber, "Verified", StringComparison.OrdinalIgnoreCase);
-            if (!ninApproved)
+            var biometricApproved = string.Equals(payload.Actions?.LivenessCheck, "Passed", StringComparison.OrdinalIgnoreCase);
+
+            if (!ninApproved && !biometricApproved)
             {
                 if (request.IsJobStatusResult)
                 {
@@ -163,7 +168,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
                         _profiles.Update(failProfile);
                         await _profiles.SaveChangesAsync(cancellationToken);
                     }
-                    _logger.LogWarning("SmileID job_status: job={JobId} 0810 without Verify_ID_Number=Verified — marking failed", jobId);
+                    _logger.LogWarning("SmileID job_status: job={JobId} 0810 without Verify_ID_Number or Liveness_Check=Passed — marking failed", jobId);
                     await PushKycStatusAsync(kyc.AuthUserId, "Failed", reason, cancellationToken);
                     await LogAsync(jobId, resultCode, kyc.AuthUserId, true, "biometric-incomplete", request.RawBody, cancellationToken);
                     return Result.Success(new WebhookResult(true, "Processed: biometric incomplete"));
@@ -178,7 +183,11 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
                 await LogAsync(jobId, resultCode, kyc.AuthUserId, request.IsJobStatusResult, "non-final-0810", request.RawBody, cancellationToken);
                 return Result.Success(new WebhookResult(true, "Non-final callback — no action needed"));
             }
-            _logger.LogInformation("SmileID: job={JobId} 0810 Approved (Verify_ID_Number=Verified) — processing as verified", jobId);
+
+            if (ninApproved)
+                _logger.LogInformation("SmileID: job={JobId} 0810 Approved (Verify_ID_Number=Verified) — processing as verified", jobId);
+            else
+                _logger.LogInformation("SmileID: job={JobId} 0810 Approved (Liveness_Check=Passed, NIN_V2 split-callback) — processing as verified", jobId);
         }
 
         var ninVerified = string.Equals(payload.Actions?.VerifyIdNumber, "Verified", StringComparison.OrdinalIgnoreCase);
@@ -381,6 +390,8 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         public string? HumanReviewCompare { get; set; }
         [JsonPropertyName("Liveness_Check")]
         public string? LivenessCheck { get; set; }
+        [JsonPropertyName("Register_Selfie")]
+        public string? RegisterSelfie { get; set; }
         [JsonPropertyName("Selfie_Check")]
         public string? SelfieCheck { get; set; }
     }
