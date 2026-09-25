@@ -50,8 +50,8 @@ public class RecordSmileJobCommandHandler : ICommandHandler<RecordSmileJobComman
             return Result.Success(new KycStatusResponse(true, "Verified", "Already verified"));
 
         var existing = await _kycRepo.GetByAuthUserIdAsync(request.AuthUserId, cancellationToken);
-        if (existing != null && existing.Status == KycStatus.Completed)
-            return Result.Success(new KycStatusResponse(true, "Verified", "Already verified"));
+        _logger.LogInformation("record-smile-job: userId={UserId} newJobId={JobId} existing={ExistingJobId} existingStatus={Status}",
+            request.AuthUserId, request.JobId, existing?.SmileJobId ?? "none", existing?.Status.ToString() ?? "none");
 
         KycVerification kyc;
         if (existing != null)
