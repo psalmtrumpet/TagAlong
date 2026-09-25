@@ -29,7 +29,7 @@ public class SmileWebhookController : ControllerBase
         }
 
         var apiKey = _config["SmileId:ApiKey"] ?? string.Empty;
-        var partnerId = _config["SmileId:PartnerId"] ?? "6808";
+        var partnerId = _config["SmileId:PartnerId"] ?? string.Empty;
 
         // SmileID puts signature + timestamp in Response-Signature / Response-Timestamp headers
         var headerSig = Request.Headers["Response-Signature"].FirstOrDefault();
