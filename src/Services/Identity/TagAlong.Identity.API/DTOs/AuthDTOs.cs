@@ -36,6 +36,10 @@ public record ChangePasswordRequest(
     string CurrentPassword,
     string NewPassword);
 
+public record UpdateProfileRequest(
+    string FirstName,
+    string LastName);
+
 public record AuthResponse(
     Guid UserId,
     string Email,

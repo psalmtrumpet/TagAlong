@@ -130,4 +130,28 @@ public class ApplicationUser : AggregateRoot
         GoogleId = googleId;
         SetUpdated();
     }
+
+    public void UpdateProfile(string firstName, string lastName)
+    {
+        FirstName = firstName;
+        LastName = lastName;
+        SetUpdated();
+    }
+
+    public string? PasswordResetOtp { get; private set; }
+    public DateTime? PasswordResetOtpExpiry { get; private set; }
+
+    public void SetPasswordResetOtp(string otp)
+    {
+        PasswordResetOtp = otp;
+        PasswordResetOtpExpiry = DateTime.UtcNow.AddMinutes(15);
+        SetUpdated();
+    }
+
+    public void ClearPasswordResetOtp()
+    {
+        PasswordResetOtp = null;
+        PasswordResetOtpExpiry = null;
+        SetUpdated();
+    }
 }

@@ -110,6 +110,46 @@ public class AuthController : ControllerBase
         return Ok(new { message = "Logged out successfully" });
     }
 
+    [Authorize]
+    [HttpPut("profile")]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request, CancellationToken cancellationToken)
+    {
+        var command = new UpdateProfileCommand(request.FirstName, request.LastName);
+        var result = await _mediator.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+            return ToActionResult(result.Error);
+
+        return Ok(result.Value);
+    }
+
+    [HttpPost("forgot-password")]
+    [EnableRateLimiting("auth")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken cancellationToken)
+    {
+        var command = new ForgotPasswordCommand(request.Email);
+        await _mediator.Send(command, cancellationToken);
+        return Ok(new { message = "If an account exists, a reset code has been sent" });
+    }
+
+    [HttpPost("reset-password")]
+    [EnableRateLimiting("auth")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request, CancellationToken cancellationToken)
+    {
+        var command = new ResetPasswordCommand(request.Email, request.Code, request.NewPassword);
+        var result = await _mediator.Send(command, cancellationToken);
+
+        if (result.IsFailure)
+            return ToActionResult(result.Error);
+
+        return Ok(new { message = "Password reset successfully" });
+    }
+
     private IActionResult ToActionResult(Error error)
     {
         return error.Type switch
