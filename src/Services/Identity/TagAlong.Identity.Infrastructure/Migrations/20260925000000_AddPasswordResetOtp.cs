@@ -22,11 +22,6 @@ namespace TagAlong.Identity.Infrastructure.Migrations
                 table: "users",
                 type: "datetime2",
                 nullable: true);
-
-            migrationBuilder.InsertData(
-                table: "__EFMigrationsHistory",
-                columns: new[] { "MigrationId", "ProductVersion" },
-                values: new object[] { "20260925000000_AddPasswordResetOtp", "8.0.0" });
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
