@@ -79,17 +79,20 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         var sigToVerify = !string.IsNullOrEmpty(request.HeaderSignature) ? request.HeaderSignature : payload.Signature;
         var tsToVerify  = !string.IsNullOrEmpty(request.HeaderTimestamp)  ? request.HeaderTimestamp  : payload.Timestamp;
 
-        if (!string.IsNullOrEmpty(request.ApiKey) && !string.IsNullOrEmpty(tsToVerify))
+        if (string.IsNullOrEmpty(request.ApiKey))
         {
-            if (!VerifySignature(sigToVerify, tsToVerify, request.PartnerId, request.ApiKey))
-            {
-                var snippet = request.RawBody.Length > 800 ? request.RawBody[..800] : request.RawBody;
-                _logger.LogWarning(
-                    "Smile ID webhook signature mismatch. ts={TS} pid={PID} sigLen={SL} fromHeader={FH} body={Body}",
-                    tsToVerify, request.PartnerId, sigToVerify?.Length,
-                    !string.IsNullOrEmpty(request.HeaderSignature), snippet);
-                return Result.Success(new WebhookResult(false, "Invalid signature"));
-            }
+            _logger.LogError("SmileID webhook received but SmileId:ApiKey is not configured — rejecting all requests");
+            return Result.Success(new WebhookResult(false, "Webhook secret not configured"));
+        }
+
+        if (string.IsNullOrEmpty(tsToVerify) || !VerifySignature(sigToVerify, tsToVerify, request.PartnerId, request.ApiKey))
+        {
+            var snippet = request.RawBody.Length > 800 ? request.RawBody[..800] : request.RawBody;
+            _logger.LogWarning(
+                "Smile ID webhook signature missing or invalid. ts={TS} pid={PID} sigLen={SL} fromHeader={FH} body={Body}",
+                tsToVerify, request.PartnerId, sigToVerify?.Length,
+                !string.IsNullOrEmpty(request.HeaderSignature), snippet);
+            return Result.Success(new WebhookResult(false, "Invalid signature"));
         }
 
         // Extract job_id from PartnerParams

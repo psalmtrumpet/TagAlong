@@ -37,5 +37,4 @@ public record UserPublicProfileResponse(
 
 public record UserSearchResultDto(
     string UserId,
-    string DisplayName,
-    string? Email);
+    string DisplayName);

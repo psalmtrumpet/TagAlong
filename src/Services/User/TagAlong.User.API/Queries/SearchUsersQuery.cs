@@ -26,8 +26,7 @@ public class SearchUsersQueryHandler : IQueryHandler<SearchUsersQuery, IEnumerab
             .Take(10)
             .Select(u => new UserSearchResultDto(
                 u.AuthUserId.ToString(),
-                u.FirstName + " " + u.LastName,
-                u.Email))
+                u.FirstName + " " + u.LastName))
             .ToListAsync(cancellationToken);
 
         return Result.Success<IEnumerable<UserSearchResultDto>>(results);

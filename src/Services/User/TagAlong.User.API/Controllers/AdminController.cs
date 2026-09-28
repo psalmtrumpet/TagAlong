@@ -28,7 +28,9 @@ public class AdminController : ControllerBase
         [FromQuery] string filter = "all",
         CancellationToken cancellationToken = default)
     {
-        var result = await _mediator.Send(new AdminListUsersQuery(page, pageSize, filter.ToLower()), cancellationToken);
+        var safePage = Math.Max(1, page);
+        var safeSize = Math.Clamp(pageSize, 1, 100);
+        var result = await _mediator.Send(new AdminListUsersQuery(safePage, safeSize, filter.ToLower()), cancellationToken);
         return Ok(result.Value);
     }
 

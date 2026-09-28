@@ -51,9 +51,13 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowCredentials()
+              .WithOrigins(
+                  "https://www.tlimc.net",
+                  "https://tlimc.net",
+                  "https://tagalong.delivery");
     });
 });
 
