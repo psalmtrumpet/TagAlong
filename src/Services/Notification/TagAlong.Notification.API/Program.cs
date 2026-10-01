@@ -124,6 +124,7 @@ builder.Services.AddScoped<PaymentCompletedIntegrationEventHandler>();
 builder.Services.AddScoped<NegotiationMessageSentIntegrationEventHandler>();
 builder.Services.AddScoped<ConversationRequestCreatedIntegrationEventHandler>();
 builder.Services.AddScoped<KycStatusChangedIntegrationEventHandler>();
+builder.Services.AddScoped<DriverApproachingIntegrationEventHandler>();
 
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -209,6 +210,7 @@ eventBus.Subscribe<PaymentCompletedIntegrationEvent, PaymentCompletedIntegration
 eventBus.Subscribe<NegotiationMessageSentIntegrationEvent, NegotiationMessageSentIntegrationEventHandler>();
 eventBus.Subscribe<ConversationRequestCreatedIntegrationEvent, ConversationRequestCreatedIntegrationEventHandler>();
 eventBus.Subscribe<KycStatusChangedIntegrationEvent, KycStatusChangedIntegrationEventHandler>();
+eventBus.Subscribe<DriverApproachingIntegrationEvent, DriverApproachingIntegrationEventHandler>();
 
 // Apply migrations
 using (var scope = app.Services.CreateScope())

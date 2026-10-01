@@ -14,8 +14,11 @@ public class CreateTripCommandValidator : AbstractValidator<CreateTripCommand>
         RuleFor(x => x.OriginLongitude).InclusiveBetween(-180, 180);
         RuleFor(x => x.DestinationLatitude).InclusiveBetween(-90, 90);
         RuleFor(x => x.DestinationLongitude).InclusiveBetween(-180, 180);
-        RuleFor(x => x.DepartureTime).GreaterThan(DateTime.UtcNow);
-        RuleFor(x => x.AvailableCapacity).GreaterThan(0).LessThanOrEqualTo(10000);
+        RuleFor(x => x.DepartureTime)
+            .Must(d => d > DateTime.UtcNow)
+            .WithMessage("Departure time must be in the future.");
+        RuleFor(x => x.AvailableCapacity)
+            .GreaterThanOrEqualTo(0).LessThanOrEqualTo(10000);
         RuleFor(x => x.MaxPackages).GreaterThanOrEqualTo(0).LessThanOrEqualTo(100);
         RuleFor(x => x.VehiclePlateNumber).MaximumLength(20).When(x => x.VehiclePlateNumber != null);
         RuleFor(x => x.Notes).MaximumLength(500).When(x => x.Notes != null);

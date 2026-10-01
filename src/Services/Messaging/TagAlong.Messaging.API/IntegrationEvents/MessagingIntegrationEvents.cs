@@ -25,3 +25,8 @@ public record PriceAcceptedIntegrationEvent(
     Guid TravelerId,
     decimal AcceptedPrice,
     DateTime AcceptedAt) : IntegrationEvent;
+
+public record DriverApproachingIntegrationEvent(
+    Guid ConversationId,
+    Guid PassengerId,
+    string DriverName) : IntegrationEvent;

@@ -214,6 +214,33 @@ public class TripsController : ControllerBase
         });
     }
 
+    // Public endpoint — trip ID acts as the share token (GUIDs are non-guessable)
+    [HttpGet("track/{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> TrackSharedTrip(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new GetTripByIdQuery(id), cancellationToken);
+        if (result.IsFailure || result.Value == null) return NotFound();
+
+        var trip = result.Value;
+        return Ok(new
+        {
+            status = trip.Status,
+            origin = trip.Origin,
+            destination = trip.Destination,
+            originLatitude = trip.OriginLatitude,
+            originLongitude = trip.OriginLongitude,
+            destinationLatitude = trip.DestinationLatitude,
+            destinationLongitude = trip.DestinationLongitude,
+            currentLatitude = trip.Status == "InProgress" ? trip.CurrentLatitude : (double?)null,
+            currentLongitude = trip.Status == "InProgress" ? trip.CurrentLongitude : (double?)null,
+            locationUpdatedAt = trip.LocationUpdatedAt,
+            vehicleType = trip.VehicleType,
+            departureTime = trip.DepartureTime
+        });
+    }
+
     private Guid? GetCurrentUserId()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

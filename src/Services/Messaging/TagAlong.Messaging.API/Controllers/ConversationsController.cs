@@ -290,6 +290,22 @@ public class ConversationsController : ControllerBase
         return Ok(messageResult.Value);
     }
 
+    [HttpPost("{id:guid}/approaching")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> NotifyApproaching(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var result = await _mediator.Send(new NotifyApproachingCommand(id, userId.Value), cancellationToken);
+        if (result.IsFailure)
+            return result.Error.Code.Contains("NotFound")
+                ? NotFound(new { error = result.Error.Message })
+                : BadRequest(new { error = result.Error.Message });
+
+        return Ok();
+    }
+
     private Guid? GetCurrentUserId()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

@@ -51,6 +51,15 @@ public class CreateTripCommandHandler : ICommandHandler<CreateTripCommand, TripR
         var parsedTripType = Enum.TryParse<Domain.Entities.TripType>(request.TripType, true, out var tt)
             ? tt : Domain.Entities.TripType.Passenger;
 
+        // Block same-time duplicates: prevent two scheduled trips within 30 min of each other
+        var existing = await _tripRepository.GetByTravelerIdAsync(request.TravelerId, 1, 100, cancellationToken);
+        var duplicate = existing.FirstOrDefault(t =>
+            t.Status == Domain.Entities.TripStatus.Scheduled &&
+            Math.Abs((t.DepartureTime - request.DepartureTime).TotalMinutes) < 30);
+        if (duplicate != null)
+            return Result.Failure<TripResponse>(Error.Conflict(
+                $"You already have a trip scheduled at that time. Please choose a different departure time."));
+
         var trip = Domain.Entities.Trip.Create(
             request.TravelerId,
             request.Origin,

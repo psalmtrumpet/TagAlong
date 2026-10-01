@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TagAlong Live Trip</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f8f9fb;
+      --card: #ffffff;
+      --border: #e2e6ea;
+      --fg: #1a1d23;
+      --muted: #6b7280;
+      --green: #16a34a;
+      --green-bg: #dcfce7;
+      --amber: #d97706;
+      --amber-bg: #fef3c7;
+      --blue: #2563eb;
+      --blue-bg: #eff6ff;
+      --shadow: 0 2px 8px rgba(0,0,0,.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #0f1117;
+        --card: #1c1f26;
+        --border: #2d3139;
+        --fg: #e8eaf0;
+        --muted: #8b92a0;
+        --green-bg: #14532d;
+        --amber-bg: #451a03;
+        --blue-bg: #1e3a5f;
+        --shadow: 0 2px 8px rgba(0,0,0,.3);
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #0f1117; --card: #1c1f26; --border: #2d3139;
+      --fg: #e8eaf0; --muted: #8b92a0;
+      --green-bg: #14532d; --amber-bg: #451a03; --blue-bg: #1e3a5f;
+      --shadow: 0 2px 8px rgba(0,0,0,.3);
+    }
+
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--fg); min-height: 100vh; display: flex; flex-direction: column; }
+
+    header {
+      padding: 14px 16px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: var(--shadow);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+    .logo { font-size: 18px; font-weight: 700; color: var(--fg); letter-spacing: -0.3px; }
+    .logo span { color: var(--green); }
+
+    #status-bar {
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-dot.live { background: var(--green); animation: pulse 2s infinite; }
+    .status-dot.waiting { background: var(--amber); }
+    .status-dot.done { background: var(--muted); }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.3); }
+    }
+
+    #map { flex: 1; min-height: 300px; }
+
+    #info-panel {
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .route-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .route-dots {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 3px;
+      flex-shrink: 0;
+    }
+    .dot-origin { width: 10px; height: 10px; border-radius: 50%; background: var(--blue); }
+    .dot-line { width: 2px; height: 24px; background: var(--border); margin: 2px 0; }
+    .dot-dest { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+    .route-labels { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+    .route-label { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .route-sub { font-size: 11px; color: var(--muted); }
+
+    .stat-row { display: flex; gap: 10px; }
+    .stat-card {
+      flex: 1; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px;
+    }
+    .stat-label { font-size: 11px; color: var(--muted); font-weight: 500; }
+    .stat-value { font-size: 14px; font-weight: 700; }
+
+    #error-screen {
+      display: none; flex: 1; flex-direction: column; align-items: center; justify-content: center;
+      padding: 32px 24px; text-align: center; gap: 12px;
+    }
+    #error-screen svg { opacity: 0.4; }
+    #error-screen h2 { font-size: 17px; font-weight: 600; }
+    #error-screen p { font-size: 14px; color: var(--muted); max-width: 280px; }
+
+    #loading-screen {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+    }
+    .spinner {
+      width: 32px; height: 32px; border: 3px solid var(--border);
+      border-top-color: var(--green); border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    footer {
+      text-align: center; padding: 10px;
+      font-size: 11px; color: var(--muted);
+      border-top: 1px solid var(--border);
+      background: var(--card);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+    <circle cx="11" cy="11" r="10" fill="#16a34a" fill-opacity="0.15"/>
+    <path d="M11 5C8.24 5 6 7.24 6 10c0 3.75 5 9 5 9s5-5.25 5-9c0-2.76-2.24-5-5-5zm0 6.5A1.5 1.5 0 1 1 11 8a1.5 1.5 0 0 1 0 3z" fill="#16a34a"/>
+  </svg>
+  <span class="logo">Tag<span>Along</span></span>
+  <span style="font-size:13px;color:var(--muted);margin-left:4px">Live Trip Tracker</span>
+</header>
+
+<div id="loading-screen"><div class="spinner"></div></div>
+
+<div id="status-bar" style="display:none">
+  <span class="status-dot" id="status-dot"></span>
+  <span id="status-text"></span>
+</div>
+
+<div id="map" style="display:none"></div>
+
+<div id="info-panel" style="display:none">
+  <div class="route-row">
+    <div class="route-dots">
+      <div class="dot-origin"></div>
+      <div class="dot-line"></div>
+      <div class="dot-dest"></div>
+    </div>
+    <div class="route-labels">
+      <div>
+        <div class="route-label" id="origin-label">—</div>
+        <div class="route-sub">Origin</div>
+      </div>
+      <div>
+        <div class="route-label" id="dest-label">—</div>
+        <div class="route-sub">Destination</div>
+      </div>
+    </div>
+  </div>
+  <div class="stat-row">
+    <div class="stat-card">
+      <span class="stat-label">Status</span>
+      <span class="stat-value" id="stat-status">—</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Vehicle</span>
+      <span class="stat-value" id="stat-vehicle">—</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Updated</span>
+      <span class="stat-value" id="stat-updated">—</span>
+    </div>
+  </div>
+</div>
+
+<div id="error-screen">
+  <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+    <circle cx="28" cy="28" r="26" stroke="currentColor" stroke-width="2"/>
+    <path d="M28 18v12M28 34v2" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+  </svg>
+  <h2 id="error-title">Trip not found</h2>
+  <p id="error-msg">This tracking link may be invalid or the trip may have ended.</p>
+</div>
+
+<footer>Shared via TagAlong &bull; Live tracking updates every 5 seconds</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+  const API_BASE = 'https://www.tlimc.net';
+
+  const params = new URLSearchParams(location.search);
+  const tripId = params.get('trip') || location.pathname.split('/').filter(Boolean).pop();
+
+  const $ = id => document.getElementById(id);
+  const loadingScreen = $('loading-screen');
+  const statusBar = $('status-bar');
+  const mapEl = $('map');
+  const infoPanel = $('info-panel');
+  const errorScreen = $('error-screen');
+
+  let map, carMarker, originMarker, destMarker, routeLine;
+  let firstLoad = true;
+
+  function showError(title, msg) {
+    loadingScreen.style.display = 'none';
+    statusBar.style.display = 'none';
+    mapEl.style.display = 'none';
+    infoPanel.style.display = 'none';
+    errorScreen.style.display = 'flex';
+    $('error-title').textContent = title;
+    $('error-msg').textContent = msg;
+  }
+
+  function initMap(lat, lng) {
+    mapEl.style.display = 'block';
+    map = L.map('map', { zoomControl: true, attributionControl: false }).setView([lat, lng], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
+    }).addTo(map);
+    L.control.attribution({ prefix: '© OpenStreetMap' }).addTo(map);
+  }
+
+  const carIcon = L.divIcon({
+    html: `<div style="background:#16a34a;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);border:3px solid white">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="white">
+        <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
+      </svg>
+    </div>`,
+    className: '',
+    iconSize: [34, 34],
+    iconAnchor: [17, 17]
+  });
+
+  const pinIcon = color => L.divIcon({
+    html: `<div style="background:${color};width:12px;height:12px;border-radius:50%;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.3)"></div>`,
+    className: '',
+    iconSize: [12, 12],
+    iconAnchor: [6, 6]
+  });
+
+  function timeAgo(isoStr) {
+    if (!isoStr) return '—';
+    const diff = Math.floor((Date.now() - new Date(isoStr)) / 1000);
+    if (diff < 5) return 'just now';
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+    return `${Math.floor(diff/3600)}h ago`;
+  }
+
+  async function fetchAndRender() {
+    try {
+      const res = await fetch(`${API_BASE}/api/trips/track/${tripId}`);
+      if (!res.ok) { showError('Trip not found', 'This tracking link may be invalid or the trip has ended.'); return; }
+      const data = await res.json();
+
+      loadingScreen.style.display = 'none';
+
+      const isLive = data.status === 'InProgress' && data.currentLatitude != null;
+      const isScheduled = data.status === 'Scheduled';
+      const isDone = data.status === 'Completed' || data.status === 'Cancelled';
+
+      // Status bar
+      statusBar.style.display = 'flex';
+      const dot = $('status-dot');
+      dot.className = 'status-dot ' + (isLive ? 'live' : isDone ? 'done' : 'waiting');
+      $('status-text').textContent = isLive ? 'Driver is live — location updating every 5s'
+        : isScheduled ? 'Trip is scheduled — tracking begins when driver starts'
+        : isDone ? `Trip ${data.status.toLowerCase()}`
+        : data.status;
+
+      // Info panel
+      infoPanel.style.display = 'flex';
+      $('origin-label').textContent = data.origin || '—';
+      $('dest-label').textContent = data.destination || '—';
+      $('stat-status').textContent = data.status || '—';
+      $('stat-vehicle').textContent = data.vehicleType || 'Vehicle';
+      $('stat-updated').textContent = timeAgo(data.locationUpdatedAt);
+
+      if (!map) initMap(data.originLatitude || 0, data.originLongitude || 0);
+
+      // Origin pin
+      if (!originMarker) {
+        originMarker = L.marker([data.originLatitude, data.originLongitude], { icon: pinIcon('#2563eb') })
+          .addTo(map)
+          .bindPopup(`<b>Origin</b><br>${data.origin}`);
+      }
+
+      // Destination pin
+      if (!destMarker) {
+        destMarker = L.marker([data.destinationLatitude, data.destinationLongitude], { icon: pinIcon('#6b7280') })
+          .addTo(map)
+          .bindPopup(`<b>Destination</b><br>${data.destination}`);
+      }
+
+      // Straight-line route overlay
+      if (!routeLine) {
+        routeLine = L.polyline([
+          [data.originLatitude, data.originLongitude],
+          [data.destinationLatitude, data.destinationLongitude]
+        ], { color: '#2563eb', weight: 2, dashArray: '6 4', opacity: 0.5 }).addTo(map);
+      }
+
+      // Car marker — only when InProgress with valid coords
+      if (isLive) {
+        const pos = [data.currentLatitude, data.currentLongitude];
+        if (!carMarker) {
+          carMarker = L.marker(pos, { icon: carIcon, zIndexOffset: 100 })
+            .addTo(map)
+            .bindPopup('<b>Driver location</b>');
+          if (firstLoad) { map.setView(pos, 15); firstLoad = false; }
+        } else {
+          carMarker.setLatLng(pos);
+        }
+      } else if (carMarker) {
+        carMarker.remove();
+        carMarker = null;
+      }
+
+      if (firstLoad && !isLive) {
+        const bounds = L.latLngBounds(
+          [data.originLatitude, data.originLongitude],
+          [data.destinationLatitude, data.destinationLongitude]
+        );
+        map.fitBounds(bounds, { padding: [40, 40] });
+        firstLoad = false;
+      }
+
+    } catch (e) {
+      if (firstLoad) showError('Connection error', 'Could not load trip data. Check your connection and try again.');
+    }
+  }
+
+  if (!tripId || tripId.length < 30) {
+    showError('Invalid link', 'This tracking link is not valid. Ask the driver to share a new link.');
+  } else {
+    fetchAndRender();
+    setInterval(fetchAndRender, 5000);
+  }
+</script>
+</body>
+</html>
