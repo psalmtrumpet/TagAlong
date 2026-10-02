@@ -38,7 +38,9 @@ public record ChangePasswordRequest(
 
 public record UpdateProfileRequest(
     string FirstName,
-    string LastName);
+    string LastName,
+    string? PhoneNumber = null,
+    string? Gender = null);
 
 public record AuthResponse(
     Guid UserId,
@@ -47,7 +49,9 @@ public record AuthResponse(
     string LastName,
     string AccessToken,
     string RefreshToken,
-    DateTime ExpiresAt);
+    DateTime ExpiresAt,
+    string? PhoneNumber = null,
+    string? Gender = null);
 
 public record UserInfoResponse(
     Guid UserId,

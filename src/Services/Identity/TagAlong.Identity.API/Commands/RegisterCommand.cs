@@ -80,7 +80,9 @@ public class RegisterCommandHandler : ICommandHandler<RegisterCommand, AuthRespo
             user.LastName,
             accessToken,
             refreshToken,
-            DateTime.UtcNow.AddMinutes(int.Parse(_configuration["JwtSettings:ExpirationInMinutes"] ?? "60"))));
+            DateTime.UtcNow.AddMinutes(int.Parse(_configuration["JwtSettings:ExpirationInMinutes"] ?? "60")),
+            user.PhoneNumber,
+            user.Gender));
     }
 }
 
