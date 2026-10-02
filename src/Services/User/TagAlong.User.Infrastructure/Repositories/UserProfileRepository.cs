@@ -63,12 +63,14 @@ public class UserProfileRepository : IUserProfileRepository
         var minLon = longitude - (radiusKm / (111.0 * Math.Cos(latitude * Math.PI / 180)));
         var maxLon = longitude + (radiusKm / (111.0 * Math.Cos(latitude * Math.PI / 180)));
 
+        var now = DateTime.UtcNow;
         var candidates = await _context.UserProfiles
             .Where(u => u.IsAvailable)
             .Where(u => u.CurrentLatitude.HasValue && u.CurrentLongitude.HasValue)
             .Where(u => u.CurrentLatitude >= minLat && u.CurrentLatitude <= maxLat)
             .Where(u => u.CurrentLongitude >= minLon && u.CurrentLongitude <= maxLon)
-            .Where(u => !u.AvailabilityExpiresAt.HasValue || u.AvailabilityExpiresAt > DateTime.UtcNow)
+            // Keep users whose window hasn't expired OR who have an ongoing trip
+            .Where(u => u.HasOngoingTrip || !u.AvailabilityExpiresAt.HasValue || u.AvailabilityExpiresAt > now)
             .ToListAsync(cancellationToken);
 
         // Precise Haversine filter and sort by distance
@@ -91,12 +93,13 @@ public class UserProfileRepository : IUserProfileRepository
         var minLon = longitude - (radiusKm / (111.0 * Math.Cos(latitude * Math.PI / 180)));
         var maxLon = longitude + (radiusKm / (111.0 * Math.Cos(latitude * Math.PI / 180)));
 
+        var now = DateTime.UtcNow;
         var candidates = await _context.UserProfiles
             .Where(u => u.IsAvailable)
             .Where(u => u.CurrentLatitude.HasValue && u.CurrentLongitude.HasValue)
             .Where(u => u.CurrentLatitude >= minLat && u.CurrentLatitude <= maxLat)
             .Where(u => u.CurrentLongitude >= minLon && u.CurrentLongitude <= maxLon)
-            .Where(u => !u.AvailabilityExpiresAt.HasValue || u.AvailabilityExpiresAt > DateTime.UtcNow)
+            .Where(u => u.HasOngoingTrip || !u.AvailabilityExpiresAt.HasValue || u.AvailabilityExpiresAt > now)
             .ToListAsync(cancellationToken);
 
         // Precise Haversine filter
@@ -110,11 +113,12 @@ public class UserProfileRepository : IUserProfileRepository
         double dropoffLng,
         CancellationToken cancellationToken = default)
     {
+        var now = DateTime.UtcNow;
         // Load all currently available helpers who have a trip destination set
         var candidates = await _context.UserProfiles
             .Where(u => u.IsAvailable)
             .Where(u => u.TripDestinationLatitude.HasValue && u.TripDestinationLongitude.HasValue)
-            .Where(u => !u.AvailabilityExpiresAt.HasValue || u.AvailabilityExpiresAt > DateTime.UtcNow)
+            .Where(u => u.HasOngoingTrip || !u.AvailabilityExpiresAt.HasValue || u.AvailabilityExpiresAt > now)
             .Where(u => u.ActivePassengerCount < 3)
             .ToListAsync(cancellationToken);
 
@@ -126,12 +130,13 @@ public class UserProfileRepository : IUserProfileRepository
     {
         var expiredUsers = await _context.UserProfiles
             .Where(u => u.IsAvailable)
+            .Where(u => !u.HasOngoingTrip) // never expire users currently on a trip
             .Where(u => u.AvailabilityExpiresAt.HasValue && u.AvailabilityExpiresAt <= DateTime.UtcNow)
             .ToListAsync(cancellationToken);
 
         foreach (var user in expiredUsers)
         {
-            user.SetUnavailable();
+            user.SetUnavailable(force: true);
         }
 
         await _context.SaveChangesAsync(cancellationToken);

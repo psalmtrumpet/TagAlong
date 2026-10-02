@@ -58,6 +58,9 @@ public class SetAvailabilityCommandHandler : ICommandHandler<SetAvailabilityComm
             }
             else
             {
+                if (profile.HasOngoingTrip)
+                    return Result.Failure<AvailabilityResponse>(Error.Validation("You cannot go offline while you have an active trip in progress."));
+
                 profile.SetUnavailable();
             }
 

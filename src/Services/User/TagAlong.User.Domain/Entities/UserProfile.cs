@@ -39,6 +39,9 @@ public class UserProfile : AggregateRoot
     // Passenger count for current availability session (max 3)
     public int ActivePassengerCount { get; private set; }
 
+    // True while the traveler has an InProgress trip — blocks manual go-offline and time expiry
+    public bool HasOngoingTrip { get; private set; }
+
     // Location Preferences
     public double MaxTravelRadiusKm { get; private set; } = 10.0;
     public bool AllowLocationSharing { get; private set; } = true;
@@ -192,8 +195,35 @@ public class UserProfile : AggregateRoot
         SetUpdated();
     }
 
-    public void SetUnavailable()
+    public void SetUnavailable(bool force = false)
     {
+        if (!force && HasOngoingTrip)
+            throw new InvalidOperationException("You cannot go offline while you have an active trip in progress.");
+
+        IsAvailable = false;
+        CurrentLatitude = null;
+        CurrentLongitude = null;
+        CurrentLocationName = null;
+        TripDestinationLatitude = null;
+        TripDestinationLongitude = null;
+        TripDestinationName = null;
+        ActivePassengerCount = 0;
+        LocationUpdatedAt = null;
+        AvailabilityStartedAt = null;
+        AvailabilityExpiresAt = null;
+        SetUpdated();
+    }
+
+    public void SetTripStarted()
+    {
+        HasOngoingTrip = true;
+        SetUpdated();
+    }
+
+    public void SetTripEnded()
+    {
+        HasOngoingTrip = false;
+        // Auto go offline when trip ends — availability window was for this trip
         IsAvailable = false;
         CurrentLatitude = null;
         CurrentLongitude = null;
@@ -256,6 +286,8 @@ public class UserProfile : AggregateRoot
 
     public bool IsAvailabilityExpired()
     {
+        // Never expire while on an active trip
+        if (HasOngoingTrip) return false;
         return AvailabilityExpiresAt.HasValue && DateTime.UtcNow > AvailabilityExpiresAt.Value;
     }
 

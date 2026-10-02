@@ -87,6 +87,10 @@ public class UserDbContext : DbContext
                 .IsRequired()
                 .HasDefaultValue(0);
 
+            entity.Property(e => e.HasOngoingTrip)
+                .IsRequired()
+                .HasDefaultValue(false);
+
             // Location Preferences
             entity.Property(e => e.MaxTravelRadiusKm)
                 .IsRequired()
