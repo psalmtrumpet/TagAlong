@@ -100,6 +100,8 @@ public class GoogleLoginCommandHandler : ICommandHandler<GoogleLoginCommand, Aut
             user.LastName,
             accessToken,
             refreshToken,
-            DateTime.UtcNow.AddMinutes(int.Parse(_configuration["JwtSettings:ExpirationInMinutes"] ?? "60"))));
+            DateTime.UtcNow.AddMinutes(int.Parse(_configuration["JwtSettings:ExpirationInMinutes"] ?? "60")),
+            user.PhoneNumber,
+            user.Gender));
     }
 }

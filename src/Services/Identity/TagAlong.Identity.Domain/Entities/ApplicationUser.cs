@@ -10,6 +10,7 @@ public class ApplicationUser : AggregateRoot
     public string FirstName { get; private set; } = null!;
     public string LastName { get; private set; } = null!;
     public string PhoneNumber { get; private set; } = null!;
+    public string? Gender { get; private set; }
     public bool IsEmailVerified { get; private set; }
     public bool IsPhoneVerified { get; private set; }
     public string? RefreshToken { get; private set; }
@@ -135,6 +136,12 @@ public class ApplicationUser : AggregateRoot
     {
         FirstName = firstName;
         LastName = lastName;
+        SetUpdated();
+    }
+
+    public void UpdateGender(string gender)
+    {
+        Gender = gender;
         SetUpdated();
     }
 

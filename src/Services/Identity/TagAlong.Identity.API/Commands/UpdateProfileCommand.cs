@@ -7,7 +7,7 @@ using TagAlong.Identity.Infrastructure.Services;
 
 namespace TagAlong.Identity.API.Commands;
 
-public record UpdateProfileCommand(string FirstName, string LastName) : ICommand<AuthResponse>;
+public record UpdateProfileCommand(string FirstName, string LastName, string? PhoneNumber = null, string? Gender = null) : ICommand<AuthResponse>;
 
 public class UpdateProfileCommandHandler : ICommandHandler<UpdateProfileCommand, AuthResponse>
 {
@@ -42,6 +42,15 @@ public class UpdateProfileCommandHandler : ICommandHandler<UpdateProfileCommand,
             return Result.Failure<AuthResponse>(Error.Validation("First and last name are required"));
 
         user.UpdateProfile(request.FirstName.Trim(), request.LastName.Trim());
+
+        var phone = request.PhoneNumber?.Trim();
+        if (!string.IsNullOrEmpty(phone) && phone != user.PhoneNumber)
+            user.UpdatePhoneNumber(phone);
+
+        var gender = request.Gender?.Trim();
+        if (!string.IsNullOrEmpty(gender) && gender != user.Gender)
+            user.UpdateGender(gender);
+
         _userRepository.Update(user);
         await _userRepository.SaveChangesAsync(cancellationToken);
 
@@ -53,6 +62,8 @@ public class UpdateProfileCommandHandler : ICommandHandler<UpdateProfileCommand,
             user.LastName,
             accessToken,
             user.RefreshToken ?? string.Empty,
-            DateTime.UtcNow.AddMinutes(int.Parse(_configuration["JwtSettings:ExpirationInMinutes"] ?? "60"))));
+            DateTime.UtcNow.AddMinutes(int.Parse(_configuration["JwtSettings:ExpirationInMinutes"] ?? "60")),
+            user.PhoneNumber,
+            user.Gender));
     }
 }

@@ -116,7 +116,7 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request, CancellationToken cancellationToken)
     {
-        var command = new UpdateProfileCommand(request.FirstName, request.LastName);
+        var command = new UpdateProfileCommand(request.FirstName, request.LastName, request.PhoneNumber, request.Gender);
         var result = await _mediator.Send(command, cancellationToken);
 
         if (result.IsFailure)

@@ -50,6 +50,9 @@ public class IdentityDbContext : DbContext
             entity.Property(e => e.PhoneNumber)
                 .HasMaxLength(20);
 
+            entity.Property(e => e.Gender)
+                .HasMaxLength(20);
+
             entity.Property(e => e.RefreshToken)
                 .HasMaxLength(512);
 
