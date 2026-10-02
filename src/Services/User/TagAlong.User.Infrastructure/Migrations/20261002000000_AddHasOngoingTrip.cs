@@ -1,13 +1,9 @@
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
-using TagAlong.User.Infrastructure.Persistence;
 
 #nullable disable
 
 namespace TagAlong.User.Infrastructure.Migrations;
 
-[DbContext(typeof(UserDbContext))]
-[Migration("20261002000000_AddHasOngoingTrip")]
 public partial class AddHasOngoingTrip : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)
