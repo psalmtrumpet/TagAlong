@@ -61,6 +61,11 @@ public class TripRepository : ITripRepository
         if (tripType.HasValue)
             query = query.Where(t => t.TripType == tripType.Value);
 
+        // Hide trips with no seats / package slots left
+        query = query.Where(t => t.TripType == TripType.Delivery
+            ? t.CurrentPackageCount < t.MaxPackages
+            : t.CurrentPassengerCount < t.PassengerCapacity);
+
         // Text filter only when no coordinates: coordinates-based filters (bounding box +
         // Haversine) are more accurate and the full autocomplete address won't match
         // trip origin strings anyway.

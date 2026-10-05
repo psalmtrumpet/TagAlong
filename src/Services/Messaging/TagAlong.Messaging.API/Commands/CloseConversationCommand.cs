@@ -41,6 +41,7 @@ public class CloseConversationCommandHandler : ICommandHandler<CloseConversation
             return Result.Failure<ConversationDto>(new Error("Conversation.Forbidden", "Not a participant in this conversation"));
 
         var wasInProgress = conversation.Status == ConversationStatus.InProgress;
+        var heldBooking = wasInProgress || conversation.Status == ConversationStatus.LockedIn;
         conversation.Close();
         _conversationRepository.Update(conversation);
 
@@ -50,7 +51,9 @@ public class CloseConversationCommandHandler : ICommandHandler<CloseConversation
         await _conversationRepository.SaveChangesAsync(cancellationToken);
 
         if (wasInProgress)
-            await TravelerTripStatePublisher.PublishAsync(_conversationRepository, _eventBus, conversation.TravelerId, cancellationToken);
+            await ConversationLifecyclePublisher.TravelerTripStateAsync(_conversationRepository, _eventBus, conversation.TravelerId, cancellationToken);
+        if (heldBooking)
+            await ConversationLifecyclePublisher.TripBookingsAsync(_conversationRepository, _eventBus, conversation, cancellationToken);
 
         var dto = MapToDto(conversation);
 
@@ -62,6 +65,5 @@ public class CloseConversationCommandHandler : ICommandHandler<CloseConversation
         return Result.Success(dto);
     }
 
-    private static ConversationDto MapToDto(Conversation c) =>
-        new(c.Id, c.PackageRequestId, c.SenderId, c.TravelerId, null, null, c.Status.ToString(), c.CreatedAt, c.UpdatedAt, null);
+    private static ConversationDto MapToDto(Conversation c) => ConversationDtoMapper.ToDto(c);
 }

@@ -21,7 +21,9 @@ public record ConversationDto(
     double? PassengerDestLng = null,
     string? PassengerDestAddress = null,
     double? HelperLastLat = null,
-    double? HelperLastLng = null);
+    double? HelperLastLng = null,
+    Guid? TripId = null,
+    bool IsDelivery = false);
 
 public record MessageDto(
     Guid Id,
@@ -41,7 +43,9 @@ public record CreateConversationRequest(
     string? RecipientName = null,
     double? PassengerDestLat = null,
     double? PassengerDestLng = null,
-    string? PassengerDestAddress = null);
+    string? PassengerDestAddress = null,
+    Guid? TripId = null,
+    bool IsDelivery = false);
 
 public record SendMessageRequest(
     string Content);

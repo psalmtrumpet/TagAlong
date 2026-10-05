@@ -53,6 +53,5 @@ public class AcceptConversationCommandHandler : ICommandHandler<AcceptConversati
         return Result.Success(dto);
     }
 
-    private static ConversationDto MapToDto(Conversation c) =>
-        new(c.Id, c.PackageRequestId, c.SenderId, c.TravelerId, null, null, c.Status.ToString(), c.CreatedAt, c.UpdatedAt, null);
+    private static ConversationDto MapToDto(Conversation c) => ConversationDtoMapper.ToDto(c);
 }

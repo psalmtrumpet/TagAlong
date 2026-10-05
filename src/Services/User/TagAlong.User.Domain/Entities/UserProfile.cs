@@ -100,6 +100,14 @@ public class UserProfile : AggregateRoot
         SetUpdated();
     }
 
+    /// <summary>Copy the authoritative average/count computed by the Review service.</summary>
+    public void SetRatingSummary(double averageRating, int totalRatings)
+    {
+        AverageRating = Math.Round((decimal)averageRating, 2);
+        TotalRatings = Math.Max(0, totalRatings);
+        SetUpdated();
+    }
+
     public void IncrementCompletedDeliveries()
     {
         CompletedDeliveries++;

@@ -61,7 +61,8 @@ public class SendMessageCommandHandler : ICommandHandler<SendMessageCommand, Mes
             return Result.Failure<MessageDto>(Error.Unauthorized("Not authorized to send messages in this conversation"));
         }
 
-        if (conversation.Status != ConversationStatus.Active)
+        // Chat unlocks once a price is agreed and stays open through the trip
+        if (conversation.Status is not (ConversationStatus.Active or ConversationStatus.LockedIn or ConversationStatus.InProgress))
         {
             return Result.Failure<MessageDto>(new Error("Conversation.NotActive", "Chat is locked until a price is agreed."));
         }

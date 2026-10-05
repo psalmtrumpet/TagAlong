@@ -24,7 +24,9 @@ internal static class ConversationDtoMapper
         c.DeliveredAt,
         c.PassengerDestLat,
         c.PassengerDestLng,
-        c.PassengerDestAddress);
+        c.PassengerDestAddress,
+        TripId: c.TripId,
+        IsDelivery: c.IsDelivery);
 }
 
 internal static class MessageDtoMapper

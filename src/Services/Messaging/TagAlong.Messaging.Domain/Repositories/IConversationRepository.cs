@@ -6,10 +6,11 @@ public interface IConversationRepository
 {
     Task<Conversation?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<Conversation?> GetByIdWithMessagesAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<Conversation?> GetByParticipantsAsync(Guid senderId, Guid travelerId, CancellationToken cancellationToken = default);
+    Task<Conversation?> GetOpenByParticipantsAsync(Guid senderId, Guid travelerId, Guid? tripId, CancellationToken cancellationToken = default);
+    Task<int> CountActiveBookingsByTripIdAsync(Guid tripId, CancellationToken cancellationToken = default);
     Task<Conversation?> GetByPackageRequestIdAsync(Guid packageRequestId, CancellationToken cancellationToken = default);
     Task<IEnumerable<Conversation>> GetByUserIdAsync(Guid userId, int page, int pageSize, CancellationToken cancellationToken = default);
-    Task<IEnumerable<Conversation>> GetActiveByTravelerIdAsync(Guid travelerId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Conversation>> GetUnstartedByTripIdAsync(Guid tripId, CancellationToken cancellationToken = default);
     Task<int> CountInProgressByTravelerIdAsync(Guid travelerId, CancellationToken cancellationToken = default);
     Task AddAsync(Conversation conversation, CancellationToken cancellationToken = default);
     void Update(Conversation conversation);

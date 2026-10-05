@@ -10,6 +10,12 @@ public record TripStatusChangedIntegrationEvent(
     string NewStatus,
     DateTime ChangedAt) : IntegrationEvent;
 
+/// <summary>
+/// The go-offline lock (HasOngoingTrip) follows passengers/packages actually on board,
+/// via TravelerTripStateChangedIntegrationEvent — starting a Trip alone doesn't lock,
+/// so a trip with nobody on it can't strand the driver online.
+/// Completing a Trip takes the driver offline unless someone is still on board.
+/// </summary>
 public class TripStatusChangedIntegrationEventHandler : IIntegrationEventHandler<TripStatusChangedIntegrationEvent>
 {
     private readonly IUserProfileRepository _userProfileRepository;
@@ -25,22 +31,14 @@ public class TripStatusChangedIntegrationEventHandler : IIntegrationEventHandler
 
     public async Task HandleAsync(TripStatusChangedIntegrationEvent @event, CancellationToken cancellationToken = default)
     {
-        var profile = await _userProfileRepository.GetByAuthUserIdAsync(@event.TravelerId, cancellationToken);
-        if (profile == null) return;
+        if (@event.NewStatus != "Completed") return;
 
-        if (@event.NewStatus == "InProgress")
-        {
-            _logger.LogInformation("Trip {TripId} started for traveler {TravelerId} — locking availability on", @event.TripId, @event.TravelerId);
-            profile.SetTripStarted();
-            _userProfileRepository.Update(profile);
-            await _userProfileRepository.SaveChangesAsync(cancellationToken);
-        }
-        else if (@event.NewStatus is "Completed" or "Cancelled")
-        {
-            _logger.LogInformation("Trip {TripId} ended ({Status}) for traveler {TravelerId} — clearing availability", @event.TripId, @event.NewStatus, @event.TravelerId);
-            profile.SetTripEnded();
-            _userProfileRepository.Update(profile);
-            await _userProfileRepository.SaveChangesAsync(cancellationToken);
-        }
+        var profile = await _userProfileRepository.GetByAuthUserIdAsync(@event.TravelerId, cancellationToken);
+        if (profile == null || !profile.IsAvailable || profile.HasOngoingTrip) return;
+
+        _logger.LogInformation("Trip {TripId} completed — taking traveler {TravelerId} offline", @event.TripId, @event.TravelerId);
+        profile.SetUnavailable();
+        _userProfileRepository.Update(profile);
+        await _userProfileRepository.SaveChangesAsync(cancellationToken);
     }
 }

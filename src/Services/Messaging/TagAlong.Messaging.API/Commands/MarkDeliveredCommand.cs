@@ -47,7 +47,9 @@ public class MarkDeliveredCommandHandler : ICommandHandler<MarkDeliveredCommand,
         await _messageRepository.AddAsync(msg, cancellationToken);
         await _conversationRepository.SaveChangesAsync(cancellationToken);
 
-        await TravelerTripStatePublisher.PublishAsync(_conversationRepository, _eventBus, conversation.TravelerId, cancellationToken);
+        await ConversationLifecyclePublisher.TravelerTripStateAsync(_conversationRepository, _eventBus, conversation.TravelerId, cancellationToken);
+        await ConversationLifecyclePublisher.TripBookingsAsync(_conversationRepository, _eventBus, conversation, cancellationToken);
+        await ConversationLifecyclePublisher.CompletedAsync(_eventBus, conversation, cancellationToken);
 
         var dto = ConversationDtoMapper.ToDto(conversation);
         var msgDto = MessageDtoMapper.ToDto(msg);

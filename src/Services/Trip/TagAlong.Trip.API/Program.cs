@@ -8,6 +8,8 @@ using Microsoft.OpenApi.Models;
 using Serilog;
 using System.Text;
 using TagAlong.Common.Behaviors;
+using TagAlong.EventBus;
+using TagAlong.Trip.API.IntegrationEvents;
 using TagAlong.EventBus.RabbitMQ;
 using TagAlong.Trip.API;
 using TagAlong.Trip.API.Commands;
@@ -91,6 +93,8 @@ builder.Services.AddScoped<ITripRouteService, TripRouteService>();
 builder.Services.AddScoped<IDetourVerifier, DetourVerifier>();
 builder.Services.AddMemoryCache();
 builder.Services.AddHostedService<RouteEnrichmentService>();
+builder.Services.AddHostedService<TripExpiryService>();
+builder.Services.AddScoped<TripBookingsChangedIntegrationEventHandler>();
 
 builder.Services.AddScoped<ITripRepository, TripRepository>();
 
@@ -148,5 +152,9 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<TripDbContext>();
     db.Database.Migrate();
 }
+
+// Subscribe to events
+var eventBus = app.Services.GetRequiredService<IEventBus>();
+eventBus.Subscribe<TripBookingsChangedIntegrationEvent, TripBookingsChangedIntegrationEventHandler>();
 
 app.Run();

@@ -39,3 +39,18 @@ public record TravelerTripStateChangedIntegrationEvent(
     Guid TravelerId,
     int InProgressCount,
     DateTime ChangedAt) : IntegrationEvent;
+
+/// <summary>Number of LockedIn/InProgress bookings on a trip (seats or package slots taken).</summary>
+public record TripBookingsChangedIntegrationEvent(
+    Guid TripId,
+    int ActiveBookings,
+    DateTime ChangedAt) : IntegrationEvent;
+
+/// <summary>A ride or delivery was completed (marked delivered / dropped off).</summary>
+public record ConversationCompletedIntegrationEvent(
+    Guid ConversationId,
+    Guid? TripId,
+    Guid SenderId,
+    Guid TravelerId,
+    bool IsDelivery,
+    DateTime CompletedAt) : IntegrationEvent;

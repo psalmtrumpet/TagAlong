@@ -5,6 +5,8 @@ namespace TagAlong.Messaging.Domain.Entities;
 public class Conversation : AggregateRoot
 {
     public Guid? PackageRequestId { get; private set; }
+    public Guid? TripId { get; private set; }
+    public bool IsDelivery { get; private set; }
     public Guid SenderId { get; private set; }
     public Guid TravelerId { get; private set; }
     public Guid? RecipientUserId { get; private set; }
@@ -35,7 +37,9 @@ public class Conversation : AggregateRoot
         string? recipientName = null,
         double? passengerDestLat = null,
         double? passengerDestLng = null,
-        string? passengerDestAddress = null)
+        string? passengerDestAddress = null,
+        Guid? tripId = null,
+        bool isDelivery = false)
     {
         return new Conversation
         {
@@ -48,6 +52,8 @@ public class Conversation : AggregateRoot
             PassengerDestLat = passengerDestLat,
             PassengerDestLng = passengerDestLng,
             PassengerDestAddress = passengerDestAddress,
+            TripId = tripId,
+            IsDelivery = isDelivery || packageRequestId != null,
         };
     }
 

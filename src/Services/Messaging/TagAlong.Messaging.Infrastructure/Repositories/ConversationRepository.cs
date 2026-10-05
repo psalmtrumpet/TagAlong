@@ -26,13 +26,27 @@ public class ConversationRepository : IConversationRepository
             .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
     }
 
-    public async Task<Conversation?> GetByParticipantsAsync(Guid senderId, Guid travelerId, CancellationToken cancellationToken = default)
+    // An open (not Declined/Closed) conversation between the pair for the same trip.
+    // Requests without a trip (e.g. from Nearby) match other trip-less conversations.
+    public async Task<Conversation?> GetOpenByParticipantsAsync(Guid senderId, Guid travelerId, Guid? tripId, CancellationToken cancellationToken = default)
     {
         return await _context.Conversations
-            .FirstOrDefaultAsync(c =>
-                (c.SenderId == senderId && c.TravelerId == travelerId) ||
-                (c.SenderId == travelerId && c.TravelerId == senderId),
-                cancellationToken);
+            .Where(c =>
+                ((c.SenderId == senderId && c.TravelerId == travelerId) ||
+                 (c.SenderId == travelerId && c.TravelerId == senderId)) &&
+                c.TripId == tripId &&
+                c.Status != ConversationStatus.Declined &&
+                c.Status != ConversationStatus.Closed)
+            .OrderByDescending(c => c.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    // Bookings currently holding a seat / package slot on a trip.
+    public async Task<int> CountActiveBookingsByTripIdAsync(Guid tripId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Conversations
+            .CountAsync(c => c.TripId == tripId &&
+                (c.Status == ConversationStatus.LockedIn || c.Status == ConversationStatus.InProgress), cancellationToken);
     }
 
     public async Task<Conversation?> GetByPackageRequestIdAsync(Guid packageRequestId, CancellationToken cancellationToken = default)
@@ -53,11 +67,15 @@ public class ConversationRepository : IConversationRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IEnumerable<Conversation>> GetActiveByTravelerIdAsync(Guid travelerId, CancellationToken cancellationToken = default)
+    // Bookings on a trip that haven't started yet (an in-progress ride is never cut off).
+    public async Task<IEnumerable<Conversation>> GetUnstartedByTripIdAsync(Guid tripId, CancellationToken cancellationToken = default)
     {
         return await _context.Conversations
-            .Where(c => c.TravelerId == travelerId &&
-                        (c.Status == ConversationStatus.Active || c.Status == ConversationStatus.Negotiating))
+            .Where(c => c.TripId == tripId &&
+                        (c.Status == ConversationStatus.Pending ||
+                         c.Status == ConversationStatus.Negotiating ||
+                         c.Status == ConversationStatus.Active ||
+                         c.Status == ConversationStatus.LockedIn))
             .ToListAsync(cancellationToken);
     }
 

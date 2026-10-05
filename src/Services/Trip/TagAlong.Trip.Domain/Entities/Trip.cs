@@ -119,6 +119,24 @@ public class Trip : AggregateRoot
         }
     }
 
+    /// <summary>
+    /// Sync booked seats (passenger trips) or package slots (delivery trips) with the
+    /// number of LockedIn/InProgress conversations on this trip.
+    /// </summary>
+    public void SetActiveBookings(int count)
+    {
+        count = Math.Max(0, count);
+        if (TripType == TripType.Delivery)
+            CurrentPackageCount = count;
+        else
+            CurrentPassengerCount = count;
+        SetUpdated();
+    }
+
+    public bool IsFull => TripType == TripType.Delivery
+        ? CurrentPackageCount >= MaxPackages
+        : CurrentPassengerCount >= PassengerCapacity;
+
     public void AddStop(string location, double latitude, double longitude, int order, DateTime? estimatedTime = null)
     {
         var stop = TripStop.Create(Id, location, latitude, longitude, order, estimatedTime);

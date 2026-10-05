@@ -20,7 +20,9 @@ public record CreateConversationCommand(
     string? RecipientName = null,
     double? PassengerDestLat = null,
     double? PassengerDestLng = null,
-    string? PassengerDestAddress = null) : ICommand<ConversationDto>;
+    string? PassengerDestAddress = null,
+    Guid? TripId = null,
+    bool IsDelivery = false) : ICommand<ConversationDto>;
 
 public class CreateConversationCommandValidator : AbstractValidator<CreateConversationCommand>
 {
@@ -57,14 +59,12 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
 
     public async Task<Result<ConversationDto>> Handle(CreateConversationCommand request, CancellationToken cancellationToken)
     {
-        // Only reuse an existing conversation if it's still open (not Declined or Closed).
-        // A declined/closed conversation should allow the users to start a new one.
-        var existingConversation = await _conversationRepository.GetByParticipantsAsync(
-            request.SenderId, request.TravelerId, cancellationToken);
+        // Reuse an open (not Declined/Closed) conversation for the same pair and trip.
+        // A different trip, or a declined/closed conversation, starts a new one.
+        var existingConversation = await _conversationRepository.GetOpenByParticipantsAsync(
+            request.SenderId, request.TravelerId, request.TripId, cancellationToken);
 
-        if (existingConversation != null
-            && existingConversation.Status != ConversationStatus.Declined
-            && existingConversation.Status != ConversationStatus.Closed)
+        if (existingConversation != null)
         {
             _logger.LogInformation("Active conversation already exists between {SenderId} and {TravelerId}",
                 request.SenderId, request.TravelerId);
@@ -76,7 +76,9 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
             recipientUserId: request.RecipientUserId, recipientName: request.RecipientName,
             passengerDestLat: request.PassengerDestLat,
             passengerDestLng: request.PassengerDestLng,
-            passengerDestAddress: request.PassengerDestAddress);
+            passengerDestAddress: request.PassengerDestAddress,
+            tripId: request.TripId,
+            isDelivery: request.IsDelivery);
         await _conversationRepository.AddAsync(conversation, cancellationToken);
         await _conversationRepository.SaveChangesAsync(cancellationToken);
 
@@ -140,6 +142,8 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
             conversation.DeliveredAt,
             conversation.PassengerDestLat,
             conversation.PassengerDestLng,
-            conversation.PassengerDestAddress);
+            conversation.PassengerDestAddress,
+            TripId: conversation.TripId,
+            IsDelivery: conversation.IsDelivery);
     }
 }

@@ -35,10 +35,10 @@ public class TripStatusChangedIntegrationEventHandler
             return;
 
         _logger.LogInformation(
-            "Trip {TripId} ended with status {Status} — closing conversations for traveler {TravelerId}",
-            @event.TripId, @event.NewStatus, @event.TravelerId);
+            "Trip {TripId} ended with status {Status} — closing its unstarted bookings",
+            @event.TripId, @event.NewStatus);
 
-        var conversations = await _conversationRepository.GetActiveByTravelerIdAsync(@event.TravelerId, cancellationToken);
+        var conversations = await _conversationRepository.GetUnstartedByTripIdAsync(@event.TripId, cancellationToken);
 
         var reason = newStatus == "completed"
             ? "This trip has ended. You can view the chat history."

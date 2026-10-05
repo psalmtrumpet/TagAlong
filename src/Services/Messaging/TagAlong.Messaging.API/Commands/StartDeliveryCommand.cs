@@ -47,7 +47,7 @@ public class StartDeliveryCommandHandler : ICommandHandler<StartDeliveryCommand,
         await _messageRepository.AddAsync(msg, cancellationToken);
         await _conversationRepository.SaveChangesAsync(cancellationToken);
 
-        await TravelerTripStatePublisher.PublishAsync(_conversationRepository, _eventBus, conversation.TravelerId, cancellationToken);
+        await ConversationLifecyclePublisher.TravelerTripStateAsync(_conversationRepository, _eventBus, conversation.TravelerId, cancellationToken);
 
         var dto = ConversationDtoMapper.ToDto(conversation);
         var msgDto = MessageDtoMapper.ToDto(msg);

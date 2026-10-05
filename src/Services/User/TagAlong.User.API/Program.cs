@@ -98,6 +98,8 @@ builder.Services.AddRabbitMQEventBus(
 builder.Services.AddScoped<UserCreatedIntegrationEventHandler>();
 builder.Services.AddScoped<TripStatusChangedIntegrationEventHandler>();
 builder.Services.AddScoped<TravelerTripStateChangedIntegrationEventHandler>();
+builder.Services.AddScoped<ReviewRatingSyncHandler>();
+builder.Services.AddScoped<ConversationCompletedIntegrationEventHandler>();
 
 // SignalR with Redis backplane for scaling
 var redisConnection = builder.Configuration.GetConnectionString("Redis");
@@ -197,6 +199,10 @@ var eventBus = app.Services.GetRequiredService<IEventBus>();
 eventBus.Subscribe<UserCreatedIntegrationEvent, UserCreatedIntegrationEventHandler>();
 eventBus.Subscribe<TripStatusChangedIntegrationEvent, TripStatusChangedIntegrationEventHandler>();
 eventBus.Subscribe<TravelerTripStateChangedIntegrationEvent, TravelerTripStateChangedIntegrationEventHandler>();
+eventBus.Subscribe<ReviewCreatedIntegrationEvent, ReviewRatingSyncHandler>();
+eventBus.Subscribe<ReviewUpdatedIntegrationEvent, ReviewRatingSyncHandler>();
+eventBus.Subscribe<ReviewDeletedIntegrationEvent, ReviewRatingSyncHandler>();
+eventBus.Subscribe<ConversationCompletedIntegrationEvent, ConversationCompletedIntegrationEventHandler>();
 
 using (var scope = app.Services.CreateScope())
 {

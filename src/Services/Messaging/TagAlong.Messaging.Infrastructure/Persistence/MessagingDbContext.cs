@@ -24,6 +24,8 @@ public class MessagingDbContext : DbContext
 
             entity.Property(c => c.Id).HasColumnName("id");
             entity.Property(c => c.PackageRequestId).HasColumnName("package_request_id");
+            entity.Property(c => c.TripId).HasColumnName("trip_id");
+            entity.Property(c => c.IsDelivery).HasColumnName("is_delivery").HasDefaultValue(false);
             entity.Property(c => c.SenderId).HasColumnName("sender_id").IsRequired();
             entity.Property(c => c.TravelerId).HasColumnName("traveler_id").IsRequired();
             entity.Property(c => c.Status).HasColumnName("status").HasConversion<string>().IsRequired();

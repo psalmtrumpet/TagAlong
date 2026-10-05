@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.SignalR;
 using TagAlong.Common.CQRS;
 using TagAlong.Common.Results;
+using TagAlong.EventBus;
 using TagAlong.Messaging.API.DTOs;
 using TagAlong.Messaging.API.Hubs;
+using TagAlong.Messaging.API.IntegrationEvents;
 using TagAlong.Messaging.Domain.Entities;
 using TagAlong.Messaging.Domain.Repositories;
 
@@ -15,15 +17,18 @@ public class ConfirmLockInCommandHandler : ICommandHandler<ConfirmLockInCommand,
     private readonly IConversationRepository _conversationRepository;
     private readonly IMessageRepository _messageRepository;
     private readonly IHubContext<MessagingHub, IMessagingClient> _hubContext;
+    private readonly IEventBus _eventBus;
 
     public ConfirmLockInCommandHandler(
         IConversationRepository conversationRepository,
         IMessageRepository messageRepository,
-        IHubContext<MessagingHub, IMessagingClient> hubContext)
+        IHubContext<MessagingHub, IMessagingClient> hubContext,
+        IEventBus eventBus)
     {
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
         _hubContext = hubContext;
+        _eventBus = eventBus;
     }
 
     public async Task<Result<ConversationDto>> Handle(ConfirmLockInCommand request, CancellationToken cancellationToken)
@@ -42,6 +47,8 @@ public class ConfirmLockInCommandHandler : ICommandHandler<ConfirmLockInCommand,
         var msg = Message.CreateLockInConfirmed(request.ConversationId, request.UserId, price);
         await _messageRepository.AddAsync(msg, cancellationToken);
         await _conversationRepository.SaveChangesAsync(cancellationToken);
+
+        await ConversationLifecyclePublisher.TripBookingsAsync(_conversationRepository, _eventBus, conversation, cancellationToken);
 
         var dto = ConversationDtoMapper.ToDto(conversation);
         var msgDto = MessageDtoMapper.ToDto(msg);
