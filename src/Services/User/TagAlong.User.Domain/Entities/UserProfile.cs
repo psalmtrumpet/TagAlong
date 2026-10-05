@@ -284,6 +284,23 @@ public class UserProfile : AggregateRoot
         SetUpdated();
     }
 
+    /// <summary>
+    /// Sync with the traveler's number of in-progress trips (from Messaging).
+    /// Going to zero only takes the user offline if they were on a trip, so
+    /// closing an ordinary chat never knocks an available driver offline.
+    /// </summary>
+    public void UpdateOngoingTripCount(int inProgressCount)
+    {
+        if (inProgressCount > 0)
+        {
+            if (!HasOngoingTrip) SetTripStarted();
+        }
+        else if (HasOngoingTrip)
+        {
+            SetTripEnded();
+        }
+    }
+
     public bool IsAvailabilityExpired()
     {
         // Never expire while on an active trip

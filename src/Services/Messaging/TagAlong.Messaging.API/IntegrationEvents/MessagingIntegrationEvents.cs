@@ -30,3 +30,12 @@ public record DriverApproachingIntegrationEvent(
     Guid ConversationId,
     Guid PassengerId,
     string DriverName) : IntegrationEvent;
+
+/// <summary>
+/// Raised whenever a traveler's number of in-progress trips may have changed.
+/// The User service uses it to stop the traveler going offline mid-trip.
+/// </summary>
+public record TravelerTripStateChangedIntegrationEvent(
+    Guid TravelerId,
+    int InProgressCount,
+    DateTime ChangedAt) : IntegrationEvent;

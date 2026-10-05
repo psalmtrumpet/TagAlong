@@ -37,7 +37,8 @@ public record AvailabilityResponse(
     DateTime? AvailabilityExpiresAt,
     DateTime? LocationUpdatedAt,
     double MaxTravelRadiusKm,
-    bool AllowLocationSharing);
+    bool AllowLocationSharing,
+    bool HasOngoingTrip = false);
 
 public record LocationUpdateResponse(
     double Latitude,

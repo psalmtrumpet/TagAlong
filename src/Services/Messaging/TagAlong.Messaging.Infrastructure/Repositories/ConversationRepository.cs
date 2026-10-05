@@ -61,6 +61,12 @@ public class ConversationRepository : IConversationRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<int> CountInProgressByTravelerIdAsync(Guid travelerId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Conversations
+            .CountAsync(c => c.TravelerId == travelerId && c.Status == ConversationStatus.InProgress, cancellationToken);
+    }
+
     public async Task AddAsync(Conversation conversation, CancellationToken cancellationToken = default)
     {
         await _context.Conversations.AddAsync(conversation, cancellationToken);

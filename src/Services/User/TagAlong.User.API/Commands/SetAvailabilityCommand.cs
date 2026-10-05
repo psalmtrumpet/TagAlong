@@ -76,7 +76,8 @@ public class SetAvailabilityCommandHandler : ICommandHandler<SetAvailabilityComm
                 profile.AvailabilityExpiresAt,
                 profile.LocationUpdatedAt,
                 profile.MaxTravelRadiusKm,
-                profile.AllowLocationSharing));
+                profile.AllowLocationSharing,
+                profile.HasOngoingTrip));
         }
         catch (InvalidOperationException ex)
         {

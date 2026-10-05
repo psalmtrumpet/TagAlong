@@ -43,7 +43,8 @@ public class GetAvailabilityStatusQueryHandler : IQueryHandler<GetAvailabilitySt
             profile.AvailabilityExpiresAt,
             profile.LocationUpdatedAt,
             profile.MaxTravelRadiusKm,
-            profile.AllowLocationSharing));
+            profile.AllowLocationSharing,
+            profile.HasOngoingTrip));
     }
 }
 

@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.SignalR;
 using TagAlong.Common.CQRS;
 using TagAlong.Common.Results;
+using TagAlong.EventBus;
 using TagAlong.Messaging.API.DTOs;
 using TagAlong.Messaging.API.Hubs;
+using TagAlong.Messaging.API.IntegrationEvents;
 using TagAlong.Messaging.Domain.Entities;
 using TagAlong.Messaging.Domain.Repositories;
 
@@ -15,15 +17,18 @@ public class CloseConversationCommandHandler : ICommandHandler<CloseConversation
     private readonly IConversationRepository _conversationRepository;
     private readonly IMessageRepository _messageRepository;
     private readonly IHubContext<MessagingHub, IMessagingClient> _hubContext;
+    private readonly IEventBus _eventBus;
 
     public CloseConversationCommandHandler(
         IConversationRepository conversationRepository,
         IMessageRepository messageRepository,
-        IHubContext<MessagingHub, IMessagingClient> hubContext)
+        IHubContext<MessagingHub, IMessagingClient> hubContext,
+        IEventBus eventBus)
     {
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
         _hubContext = hubContext;
+        _eventBus = eventBus;
     }
 
     public async Task<Result<ConversationDto>> Handle(CloseConversationCommand request, CancellationToken cancellationToken)
@@ -35,6 +40,7 @@ public class CloseConversationCommandHandler : ICommandHandler<CloseConversation
         if (!conversation.IsParticipant(request.UserId))
             return Result.Failure<ConversationDto>(new Error("Conversation.Forbidden", "Not a participant in this conversation"));
 
+        var wasInProgress = conversation.Status == ConversationStatus.InProgress;
         conversation.Close();
         _conversationRepository.Update(conversation);
 
@@ -42,6 +48,9 @@ public class CloseConversationCommandHandler : ICommandHandler<CloseConversation
         await _messageRepository.AddAsync(systemMsg, cancellationToken);
 
         await _conversationRepository.SaveChangesAsync(cancellationToken);
+
+        if (wasInProgress)
+            await TravelerTripStatePublisher.PublishAsync(_conversationRepository, _eventBus, conversation.TravelerId, cancellationToken);
 
         var dto = MapToDto(conversation);
 

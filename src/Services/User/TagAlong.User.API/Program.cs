@@ -97,6 +97,7 @@ builder.Services.AddRabbitMQEventBus(
 
 builder.Services.AddScoped<UserCreatedIntegrationEventHandler>();
 builder.Services.AddScoped<TripStatusChangedIntegrationEventHandler>();
+builder.Services.AddScoped<TravelerTripStateChangedIntegrationEventHandler>();
 
 // SignalR with Redis backplane for scaling
 var redisConnection = builder.Configuration.GetConnectionString("Redis");
@@ -195,6 +196,7 @@ app.MapHub<LocationHub>("/locationHub");
 var eventBus = app.Services.GetRequiredService<IEventBus>();
 eventBus.Subscribe<UserCreatedIntegrationEvent, UserCreatedIntegrationEventHandler>();
 eventBus.Subscribe<TripStatusChangedIntegrationEvent, TripStatusChangedIntegrationEventHandler>();
+eventBus.Subscribe<TravelerTripStateChangedIntegrationEvent, TravelerTripStateChangedIntegrationEventHandler>();
 
 using (var scope = app.Services.CreateScope())
 {
