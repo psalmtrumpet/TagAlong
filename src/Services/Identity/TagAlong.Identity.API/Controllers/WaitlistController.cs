@@ -22,13 +22,14 @@ public class WaitlistController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> Join([FromBody] JoinWaitlistRequest request, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length < 2)
-            return BadRequest(new { error = "A valid name is required" });
         if (string.IsNullOrWhiteSpace(request.Email) || !request.Email.Contains('@'))
             return BadRequest(new { error = "A valid email is required" });
+        var digits = new string((request.Phone ?? string.Empty).Where(char.IsDigit).ToArray());
+        if (digits.Length < 10)
+            return BadRequest(new { error = "A valid phone number is required" });
 
         var result = await _mediator.Send(
-            new JoinWaitlistCommand(request.Name, request.Email, request.Phone ?? string.Empty), ct);
+            new JoinWaitlistCommand(request.Email, request.Phone!, request.Area, request.Name), ct);
 
         return Ok(new { message = result.AlreadyOnList ? "Already on the waitlist" : "Successfully joined the waitlist" });
     }
@@ -44,9 +45,11 @@ public class WaitlistController : ControllerBase
             e.Name,
             e.Email,
             e.Phone,
+            e.Area,
             e.JoinedAt,
         }));
     }
 }
 
-public record JoinWaitlistRequest(string Name, string Email, string? Phone = null);
+// Name is optional (the form now collects email, phone and Lagos area).
+public record JoinWaitlistRequest(string Email, string? Phone = null, string? Area = null, string? Name = null);

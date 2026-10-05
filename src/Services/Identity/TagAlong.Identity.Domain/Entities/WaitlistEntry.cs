@@ -6,17 +6,27 @@ public class WaitlistEntry
     public string Name { get; private set; } = string.Empty;
     public string Email { get; private set; } = string.Empty;
     public string Phone { get; private set; } = string.Empty;
+    /// <summary>Area of Lagos the person signed up for (picked from the list, or typed via "Other").</summary>
+    public string? Area { get; private set; }
     public DateTime JoinedAt { get; private set; }
 
     private WaitlistEntry() { }
 
-    public static WaitlistEntry Create(string name, string email, string phone)
+    public static WaitlistEntry Create(string email, string phone, string? area, string? name = null)
         => new()
         {
             Id = Guid.NewGuid(),
-            Name = name.Trim().Length > 100 ? name.Trim()[..100] : name.Trim(),
+            Name = Clip(name, 100) ?? string.Empty,
             Email = email.Trim().ToLowerInvariant(),
-            Phone = string.IsNullOrWhiteSpace(phone) ? string.Empty : phone.Trim(),
+            Phone = Clip(phone, 20) ?? string.Empty,
+            Area = Clip(area, 100),
             JoinedAt = DateTime.UtcNow,
         };
+
+    private static string? Clip(string? value, int max)
+    {
+        var v = value?.Trim();
+        if (string.IsNullOrEmpty(v)) return null;
+        return v.Length > max ? v[..max] : v;
+    }
 }

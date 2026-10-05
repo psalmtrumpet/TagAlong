@@ -100,6 +100,9 @@ public class IdentityDbContext : DbContext
                 .HasMaxLength(20)
                 .HasDefaultValue(string.Empty);
 
+            entity.Property(e => e.Area)
+                .HasMaxLength(100);
+
             entity.HasIndex(e => e.Email)
                 .IsUnique();
         });

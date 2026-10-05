@@ -5,7 +5,7 @@ using TagAlong.Identity.Infrastructure.Services;
 
 namespace TagAlong.Identity.API.Commands;
 
-public record JoinWaitlistCommand(string Name, string Email, string Phone) : IRequest<JoinWaitlistResult>;
+public record JoinWaitlistCommand(string Email, string Phone, string? Area, string? Name = null) : IRequest<JoinWaitlistResult>;
 public record JoinWaitlistResult(bool AlreadyOnList);
 
 public class JoinWaitlistCommandHandler : IRequestHandler<JoinWaitlistCommand, JoinWaitlistResult>
@@ -24,15 +24,16 @@ public class JoinWaitlistCommandHandler : IRequestHandler<JoinWaitlistCommand, J
         var already = await _repo.ExistsAsync(request.Email, ct);
         if (!already)
         {
-            var entry = WaitlistEntry.Create(request.Name, request.Email, request.Phone);
+            var entry = WaitlistEntry.Create(request.Email, request.Phone, request.Area, request.Name);
             await _repo.AddAsync(entry, ct);
             await _repo.SaveChangesAsync(ct);
 
+            var name = request.Name?.Trim() ?? string.Empty;
             _ = _email.SendAsync(
                 request.Email.Trim().ToLowerInvariant(),
-                request.Name.Trim(),
+                name,
                 "You're on the TagAlong waitlist!",
-                BuildAckEmail(request.Name.Trim()))
+                BuildAckEmail(name))
                 .ContinueWith(t =>
                 {
                     if (t.IsFaulted)
@@ -49,7 +50,7 @@ public class JoinWaitlistCommandHandler : IRequestHandler<JoinWaitlistCommand, J
             fullName.Contains(' ') ? fullName.Split(' ')[0] : fullName);
         var year = DateTime.UtcNow.Year.ToString();
 
-        const string t = @"<!DOCTYPE html>
+        var t = @"<!DOCTYPE html>
 <html lang=""en"">
 <head><meta charset=""UTF-8""><meta name=""viewport"" content=""width=device-width,initial-scale=1"">
 <title>You're on the list!</title>
@@ -88,6 +89,11 @@ You received this because you signed up at <a href=""https://tagalong.delivery""
 </div>
 </div>
 </body></html>";
+
+        // The form no longer asks for a name — greet generically when there isn't one
+        if (string.IsNullOrWhiteSpace(firstName))
+            t = t.Replace("You're on the list, __FNAME__!", "You're on the list!")
+                 .Replace("Hi __FNAME__,", "Hi there,");
 
         return t.Replace("__FNAME__", firstName).Replace("__YEAR__", year);
     }

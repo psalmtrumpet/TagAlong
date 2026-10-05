@@ -239,6 +239,7 @@ export interface WaitlistEntry {
   name: string
   email: string
   phone: string
+  area: string | null
   joinedAt: string
 }
 

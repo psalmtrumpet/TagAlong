@@ -26,7 +26,7 @@ export default function WaitlistPage() {
 
   const filtered = search
     ? entries.filter(e =>
-        `${e.name} ${e.email} ${e.phone}`.toLowerCase().includes(search.toLowerCase()))
+        `${e.name} ${e.email} ${e.phone} ${e.area ?? ''}`.toLowerCase().includes(search.toLowerCase()))
     : entries
 
   function exportExcel() {
@@ -35,6 +35,7 @@ export default function WaitlistPage() {
       Name: e.name,
       Email: e.email,
       Phone: e.phone || '—',
+      Area: e.area || '—',
       'Joined At': new Date(e.joinedAt).toLocaleString('en-NG'),
     }))
     const ws = XLSX.utils.json_to_sheet(rows)
@@ -66,7 +67,7 @@ export default function WaitlistPage() {
         <div className="p-4 border-b border-gray-100">
           <input
             className="input max-w-xs"
-            placeholder="Search name, email, phone…"
+            placeholder="Search email, phone, area…"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -80,26 +81,28 @@ export default function WaitlistPage() {
                 <th className="px-4 py-3 text-left">Name</th>
                 <th className="px-4 py-3 text-left">Email</th>
                 <th className="px-4 py-3 text-left">Phone</th>
+                <th className="px-4 py-3 text-left">Area</th>
                 <th className="px-4 py-3 text-left">Signed up</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {loading && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-gray-400">Loading…</td>
+                  <td colSpan={6} className="px-4 py-10 text-center text-gray-400">Loading…</td>
                 </tr>
               )}
               {!loading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-gray-400">No entries found</td>
+                  <td colSpan={6} className="px-4 py-10 text-center text-gray-400">No entries found</td>
                 </tr>
               )}
               {filtered.map((e, i) => (
                 <tr key={e.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 text-gray-400 tabular-nums">{i + 1}</td>
-                  <td className="px-4 py-3 font-medium text-gray-900">{e.name}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900">{e.name || '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{e.email}</td>
                   <td className="px-4 py-3 text-gray-500">{e.phone || '—'}</td>
+                  <td className="px-4 py-3 text-gray-700">{e.area || '—'}</td>
                   <td className="px-4 py-3 text-gray-500">{fmt(e.joinedAt)}</td>
                 </tr>
               ))}
