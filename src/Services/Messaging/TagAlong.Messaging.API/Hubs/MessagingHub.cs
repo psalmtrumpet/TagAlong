@@ -134,10 +134,15 @@ public class MessagingHub : Hub<IMessagingClient>
         var conversation = await _conversationRepository.GetByIdAsync(conversationId);
         if (conversation == null || !conversation.IsParticipant(userId.Value)) return;
 
-        // Persist last-known carrier location so the public tracking page can poll it
-        conversation.UpdateHelperLocation(latitude, longitude);
-        _conversationRepository.Update(conversation);
-        await _conversationRepository.SaveChangesAsync();
+        // Persist last-known carrier location so the public tracking page can poll it.
+        // Only the traveler's position is the carrier's — the sender also broadcasts
+        // (so the carrier can find them) and must not overwrite it.
+        if (conversation.TravelerId == userId.Value)
+        {
+            conversation.UpdateHelperLocation(latitude, longitude);
+            _conversationRepository.Update(conversation);
+            await _conversationRepository.SaveChangesAsync();
+        }
 
         var convIdStr = conversationId.ToString();
         // OthersInGroup prevents the sender from seeing their own location echoed back.
