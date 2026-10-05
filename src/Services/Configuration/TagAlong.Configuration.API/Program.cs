@@ -46,7 +46,8 @@ var rabbitMQHost = rabbitMQSettings["HostName"] ?? "localhost";
 var rabbitMQUser = rabbitMQSettings["UserName"] ?? "guest";
 var rabbitMQPass = rabbitMQSettings["Password"] ?? "guest";
 builder.Services.AddRabbitMQEventBus(
-    $"amqp://{rabbitMQUser}:{rabbitMQPass}@{rabbitMQHost}:5672",
+    // Escape credentials: a password containing "@" otherwise breaks URI parsing
+    $"amqp://{Uri.EscapeDataString(rabbitMQUser)}:{Uri.EscapeDataString(rabbitMQPass)}@{rabbitMQHost}:5672",
     "configuration_queue");
 
 // Add JWT Authentication
