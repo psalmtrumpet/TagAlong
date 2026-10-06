@@ -46,6 +46,12 @@ public class ProposeLockInCommandHandler : ICommandHandler<ProposeLockInCommand,
         if (!conversation.IsParticipant(request.UserId))
             return Result.Failure<ConversationDto>(Error.Unauthorized("Not a participant in this conversation"));
 
+        // Lock-in confirms the price already agreed; changing it needs a new
+        // price proposal (otherwise this silently overwrote the agreement).
+        if (conversation.AgreedPrice is { } agreed && agreed != request.AgreedPrice)
+            return Result.Failure<ConversationDto>(Error.Validation(
+                $"Lock in the agreed price of ₦{agreed:N0}, or agree a new price in the chat first."));
+
         conversation.ProposeLockIn(request.UserId, request.AgreedPrice);
         _conversationRepository.Update(conversation);
 
