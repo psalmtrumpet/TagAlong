@@ -59,7 +59,11 @@ export default function DriverDetailPage() {
   if (error && !d) return <div className="p-8 text-red-500">{error}</div>
   if (!d) return <div className="p-8 text-gray-400">Loading…</div>
 
-  const checks = d.documentCheck?.checks ?? []
+  // Older checks were saved as Field/Status/Detail — accept either casing
+  const checks = (d.documentCheck?.checks ?? []).map(c => {
+    const r = c as unknown as Record<string, string>
+    return { field: r.field ?? r.Field, status: (r.status ?? r.Status) as 'pass' | 'warn' | 'fail', detail: r.detail ?? r.Detail }
+  })
 
   return (
     <div className="p-8 max-w-5xl">

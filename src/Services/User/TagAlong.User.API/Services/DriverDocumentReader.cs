@@ -17,6 +17,8 @@ namespace TagAlong.User.API.Services;
 public class DriverDocumentReader
 {
     private const string Model = "claude-opus-5-5";
+    // camelCase like the rest of the API, so the admin portal can read it
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly IServiceScopeFactory _scopes;
     private readonly IConfiguration _config;
@@ -82,7 +84,7 @@ public class DriverDocumentReader
             extracted = extracted.Value,
             checks,
             comparedName = knownName?.Trim(),
-        }), checks.Count(c => c.Status == "fail"));
+        }, JsonOptions), checks.Count(c => c.Status == "fail"));
         await db.SaveChangesAsync(ct);
 
         _logger.LogInformation("Document reader: {UserId} checked — {Fails} failed, {Warns} to review",
