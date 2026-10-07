@@ -7,6 +7,9 @@ public class Conversation : AggregateRoot
     public Guid? PackageRequestId { get; private set; }
     public Guid? TripId { get; private set; }
     public bool IsDelivery { get; private set; }
+    public double? PickupLat { get; private set; }
+    public double? PickupLng { get; private set; }
+    public string? PickupAddress { get; private set; }
     public Guid SenderId { get; private set; }
     public Guid TravelerId { get; private set; }
     public Guid? RecipientUserId { get; private set; }
@@ -39,7 +42,10 @@ public class Conversation : AggregateRoot
         double? passengerDestLng = null,
         string? passengerDestAddress = null,
         Guid? tripId = null,
-        bool isDelivery = false)
+        bool isDelivery = false,
+        double? pickupLat = null,
+        double? pickupLng = null,
+        string? pickupAddress = null)
     {
         return new Conversation
         {
@@ -54,6 +60,9 @@ public class Conversation : AggregateRoot
             PassengerDestAddress = passengerDestAddress,
             TripId = tripId,
             IsDelivery = isDelivery || packageRequestId != null,
+            PickupLat = pickupLat,
+            PickupLng = pickupLng,
+            PickupAddress = pickupAddress,
         };
     }
 

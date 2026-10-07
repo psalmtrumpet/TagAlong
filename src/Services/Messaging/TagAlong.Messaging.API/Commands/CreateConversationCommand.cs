@@ -22,7 +22,10 @@ public record CreateConversationCommand(
     double? PassengerDestLng = null,
     string? PassengerDestAddress = null,
     Guid? TripId = null,
-    bool IsDelivery = false) : ICommand<ConversationDto>;
+    bool IsDelivery = false,
+    double? PickupLat = null,
+    double? PickupLng = null,
+    string? PickupAddress = null) : ICommand<ConversationDto>;
 
 public class CreateConversationCommandValidator : AbstractValidator<CreateConversationCommand>
 {
@@ -78,7 +81,10 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
             passengerDestLng: request.PassengerDestLng,
             passengerDestAddress: request.PassengerDestAddress,
             tripId: request.TripId,
-            isDelivery: request.IsDelivery);
+            isDelivery: request.IsDelivery,
+            pickupLat: request.PickupLat,
+            pickupLng: request.PickupLng,
+            pickupAddress: request.PickupAddress);
         await _conversationRepository.AddAsync(conversation, cancellationToken);
         await _conversationRepository.SaveChangesAsync(cancellationToken);
 
@@ -144,6 +150,9 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
             conversation.PassengerDestLng,
             conversation.PassengerDestAddress,
             TripId: conversation.TripId,
-            IsDelivery: conversation.IsDelivery);
+            IsDelivery: conversation.IsDelivery,
+            PickupLat: conversation.PickupLat,
+            PickupLng: conversation.PickupLng,
+            PickupAddress: conversation.PickupAddress);
     }
 }

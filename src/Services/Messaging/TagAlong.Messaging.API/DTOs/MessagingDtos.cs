@@ -23,7 +23,10 @@ public record ConversationDto(
     double? HelperLastLat = null,
     double? HelperLastLng = null,
     Guid? TripId = null,
-    bool IsDelivery = false);
+    bool IsDelivery = false,
+    double? PickupLat = null,
+    double? PickupLng = null,
+    string? PickupAddress = null);
 
 public record MessageDto(
     Guid Id,
@@ -45,7 +48,10 @@ public record CreateConversationRequest(
     double? PassengerDestLng = null,
     string? PassengerDestAddress = null,
     Guid? TripId = null,
-    bool IsDelivery = false);
+    bool IsDelivery = false,
+    double? PickupLat = null,
+    double? PickupLng = null,
+    string? PickupAddress = null);
 
 public record SendMessageRequest(
     string Content);

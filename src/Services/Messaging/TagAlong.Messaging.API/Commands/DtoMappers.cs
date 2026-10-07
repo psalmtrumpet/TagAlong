@@ -26,7 +26,10 @@ internal static class ConversationDtoMapper
         c.PassengerDestLng,
         c.PassengerDestAddress,
         TripId: c.TripId,
-        IsDelivery: c.IsDelivery);
+        IsDelivery: c.IsDelivery,
+        PickupLat: c.PickupLat,
+        PickupLng: c.PickupLng,
+        PickupAddress: c.PickupAddress);
 }
 
 internal static class MessageDtoMapper

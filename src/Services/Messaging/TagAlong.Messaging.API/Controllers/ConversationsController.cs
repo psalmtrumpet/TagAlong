@@ -99,7 +99,10 @@ public class ConversationsController : ControllerBase
             request.PassengerDestLng,
             request.PassengerDestAddress,
             request.TripId,
-            request.IsDelivery);
+            request.IsDelivery,
+            request.PickupLat,
+            request.PickupLng,
+            request.PickupAddress);
 
         var result = await _mediator.Send(command, cancellationToken);
         if (result.IsFailure)

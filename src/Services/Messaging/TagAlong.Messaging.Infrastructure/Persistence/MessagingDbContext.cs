@@ -26,6 +26,9 @@ public class MessagingDbContext : DbContext
             entity.Property(c => c.PackageRequestId).HasColumnName("package_request_id");
             entity.Property(c => c.TripId).HasColumnName("trip_id");
             entity.Property(c => c.IsDelivery).HasColumnName("is_delivery").HasDefaultValue(false);
+            entity.Property(c => c.PickupLat).HasColumnName("pickup_lat");
+            entity.Property(c => c.PickupLng).HasColumnName("pickup_lng");
+            entity.Property(c => c.PickupAddress).HasColumnName("pickup_address").HasMaxLength(500);
             entity.Property(c => c.SenderId).HasColumnName("sender_id").IsRequired();
             entity.Property(c => c.TravelerId).HasColumnName("traveler_id").IsRequired();
             entity.Property(c => c.Status).HasColumnName("status").HasConversion<string>().IsRequired();
