@@ -17,12 +17,14 @@ public class SmtpEmailService : IEmailService
     public async Task SendAsync(string to, string toName, string subject, string htmlBody,
         CancellationToken cancellationToken = default)
     {
-        var host = _config["Email__SmtpHost"];
-        var portStr = _config["Email__SmtpPort"];
-        var user = _config["Email__SmtpUser"];
-        var pass = _config["Email__SmtpPass"];
-        var from = _config["Email__FromAddress"];
-        var fromName = _config["Email__FromName"] ?? "TagAlong";
+        // Environment variables like Email__SmtpHost arrive as "Email:SmtpHost"
+        string? Get(string key) => _config[$"Email:{key}"] ?? _config[$"Email__{key}"];
+        var host = Get("SmtpHost");
+        var portStr = Get("SmtpPort");
+        var user = Get("SmtpUser");
+        var pass = Get("SmtpPass");
+        var from = Get("FromAddress");
+        var fromName = Get("FromName") ?? "TagAlong";
 
         if (string.IsNullOrEmpty(host) || string.IsNullOrEmpty(user) || string.IsNullOrEmpty(from))
         {

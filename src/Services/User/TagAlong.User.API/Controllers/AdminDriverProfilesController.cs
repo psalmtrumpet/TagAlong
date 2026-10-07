@@ -22,9 +22,11 @@ public class AdminDriverProfilesController : ControllerBase
     private readonly FileService _files;
     private readonly DriverDocumentReader _reader;
     private readonly KycPhotoService _photos;
+    private readonly DriverReviewNotifier _notifier;
 
-    public AdminDriverProfilesController(UserDbContext db, FileService files, DriverDocumentReader reader, KycPhotoService photos)
+    public AdminDriverProfilesController(UserDbContext db, FileService files, DriverDocumentReader reader, KycPhotoService photos, DriverReviewNotifier notifier)
     {
+        _notifier = notifier;
         _db = db;
         _files = files;
         _reader = reader;
@@ -115,6 +117,7 @@ public class AdminDriverProfilesController : ControllerBase
         if (d == null) return NotFound();
         d.Approve(AdminId());
         await _db.SaveChangesAsync(ct);
+        await _notifier.NotifyAsync(authUserId, approved: true, Array.Empty<string>(), ct);
         return Ok(new { status = d.Status.ToString() });
     }
 
@@ -126,6 +129,7 @@ public class AdminDriverProfilesController : ControllerBase
         if (d == null) return NotFound();
         d.Reject(AdminId(), req.Reason);
         await _db.SaveChangesAsync(ct);
+        await _notifier.NotifyAsync(authUserId, approved: false, new[] { req.Reason.Trim() }, ct);
         return Ok(new { status = d.Status.ToString() });
     }
 

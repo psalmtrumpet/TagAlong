@@ -12,7 +12,9 @@ namespace TagAlong.User.API.Services;
 /// Reads a driver's licence photo and vehicle photo with a Claude vision model,
 /// then compares what it read with what the driver typed and with their
 /// verified (NIN) name. The result is stored on the driver profile to help the
-/// admin review — it never approves or rejects anyone by itself.
+/// admin review. A fresh submission with a clear problem (a mismatch, or a photo
+/// that is wrong or unreadable) is rejected automatically and the driver is told
+/// what to fix; anything else waits for an admin. It never approves anyone.
 /// </summary>
 public class DriverDocumentReader
 {
@@ -22,12 +24,14 @@ public class DriverDocumentReader
 
     private readonly IServiceScopeFactory _scopes;
     private readonly IConfiguration _config;
+    private readonly DriverReviewNotifier _notifier;
     private readonly ILogger<DriverDocumentReader> _logger;
 
-    public DriverDocumentReader(IServiceScopeFactory scopes, IConfiguration config, ILogger<DriverDocumentReader> logger)
+    public DriverDocumentReader(IServiceScopeFactory scopes, IConfiguration config, DriverReviewNotifier notifier, ILogger<DriverDocumentReader> logger)
     {
         _scopes = scopes;
         _config = config;
+        _notifier = notifier;
         _logger = logger;
     }
 
@@ -43,12 +47,13 @@ public class DriverDocumentReader
         }
         _ = Task.Run(async () =>
         {
-            try { await ReadAsync(authUserId, CancellationToken.None); }
+            try { await ReadAsync(authUserId, CancellationToken.None, autoReject: true); }
             catch (Exception ex) { _logger.LogError(ex, "Document reader failed for {UserId}", authUserId); }
         });
     }
 
-    public async Task ReadAsync(Guid authUserId, CancellationToken ct)
+    /// <param name="autoReject">Reject a pending submission that clearly fails (new uploads only).</param>
+    public async Task ReadAsync(Guid authUserId, CancellationToken ct, bool autoReject = false)
     {
         using var scope = _scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<UserDbContext>();
@@ -78,17 +83,28 @@ public class DriverDocumentReader
             : profile != null ? $"{profile.FirstName} {profile.LastName}" : null;
 
         var checks = Compare(driver, extracted.Value, knownName);
+        var fails = checks.Count(c => c.Status == "fail");
         driver.RecordDocumentCheck(JsonSerializer.Serialize(new
         {
             model = Model,
             extracted = extracted.Value,
             checks,
             comparedName = knownName?.Trim(),
-        }, JsonOptions), checks.Count(c => c.Status == "fail"));
+        }, JsonOptions), fails);
+
+        // Clear problems → reject now and tell the driver what to fix
+        var problems = autoReject && driver.Status == DriverProfileStatus.Pending
+            ? DriverProblems(extracted.Value, checks)
+            : new List<string>();
+        if (problems.Count > 0)
+            driver.RejectAutomatically(string.Join(" ", problems));
         await db.SaveChangesAsync(ct);
 
-        _logger.LogInformation("Document reader: {UserId} checked — {Fails} failed, {Warns} to review",
-            authUserId, checks.Count(c => c.Status == "fail"), checks.Count(c => c.Status == "warn"));
+        _logger.LogInformation("Document reader: {UserId} checked — {Fails} failed, {Warns} to review{Rejected}",
+            authUserId, fails, checks.Count(c => c.Status == "warn"), problems.Count > 0 ? " — rejected automatically" : "");
+
+        if (problems.Count > 0)
+            await _notifier.NotifyAsync(authUserId, approved: false, problems, ct);
     }
 
     /// <summary>Single vision call returning schema-validated JSON.</summary>
@@ -122,6 +138,14 @@ public class DriverDocumentReader
                 Use null for anything you cannot read clearly — never guess. List anything a
                 reviewer should look at (blurry, cropped, edited-looking, photo of a screen,
                 plate not visible, etc.) in concerns.
+                In photosUsable, say for each photo whether it is acceptable: true only if it is a
+                real, sharp photo of the right thing (the licence, or the front / back of a vehicle
+                with its plate readable) — false if it is blurry, has glare over key details, is a
+                screenshot or photo of a screen, or shows something else. Use null for a photo that
+                wasn't provided.
+                In driverFixes, write one short, polite sentence addressed to the driver for each
+                thing they must fix (e.g. "Your licence photo is blurry — retake it in good light so
+                the licence number can be read."). Leave it empty if nothing needs fixing.
                 """,
         });
 
@@ -171,7 +195,7 @@ public class DriverDocumentReader
         {
             ["type"] = JsonSerializer.SerializeToElement("object"),
             ["additionalProperties"] = JsonSerializer.SerializeToElement(false),
-            ["required"] = JsonSerializer.SerializeToElement(new[] { "license", "vehicle", "concerns" }),
+            ["required"] = JsonSerializer.SerializeToElement(new[] { "license", "vehicle", "concerns", "photosUsable", "driverFixes" }),
             ["properties"] = JsonSerializer.SerializeToElement(new Dictionary<string, object>
             {
                 ["license"] = new Dictionary<string, object>
@@ -202,6 +226,19 @@ public class DriverDocumentReader
                     },
                 },
                 ["concerns"] = new { type = "array", items = new { type = "string" } },
+                ["photosUsable"] = new Dictionary<string, object>
+                {
+                    ["type"] = "object",
+                    ["additionalProperties"] = false,
+                    ["required"] = new[] { "licence", "vehicleFront", "vehicleBack" },
+                    ["properties"] = new Dictionary<string, object>
+                    {
+                        ["licence"] = new { type = new[] { "boolean", "null" } },
+                        ["vehicleFront"] = new { type = new[] { "boolean", "null" } },
+                        ["vehicleBack"] = new { type = new[] { "boolean", "null" } },
+                    },
+                },
+                ["driverFixes"] = new { type = "array", items = new { type = "string" } },
             }),
         };
     }
@@ -280,6 +317,32 @@ public class DriverDocumentReader
             if (c.GetString() is { Length: > 0 } s) checks.Add(new("Photo", "warn", s));
 
         return checks;
+    }
+
+    /// <summary>
+    /// What the driver must fix, when the submission clearly fails: any mismatch,
+    /// or a photo that isn't usable. Empty means it goes to an admin as normal.
+    /// </summary>
+    private static List<string> DriverProblems(JsonElement x, List<Check> checks)
+    {
+        var unusable = new List<string>();
+        if (x.TryGetProperty("photosUsable", out var u))
+        {
+            if (u.TryGetProperty("licence", out var l) && l.ValueKind == JsonValueKind.False)
+                unusable.Add("Your licence photo isn't a clear photo of your driver's licence.");
+            if (u.TryGetProperty("vehicleFront", out var f) && f.ValueKind == JsonValueKind.False)
+                unusable.Add("Your front vehicle photo doesn't clearly show the front of your vehicle and its plate number.");
+            if (u.TryGetProperty("vehicleBack", out var b) && b.ValueKind == JsonValueKind.False)
+                unusable.Add("Your back vehicle photo doesn't clearly show the back of your vehicle and its plate number.");
+        }
+        var mismatches = checks.Where(c => c.Status == "fail").Select(c => $"{c.Field}: {c.Detail}").ToList();
+        if (unusable.Count == 0 && mismatches.Count == 0) return new List<string>();
+
+        // Prefer the reader's own wording for the driver; fall back to our generic lines
+        var fixes = x.TryGetProperty("driverFixes", out var df) && df.ValueKind == JsonValueKind.Array
+            ? df.EnumerateArray().Select(e => e.GetString()).Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s!.Trim()).ToList()
+            : new List<string>();
+        return fixes.Count > 0 ? fixes : unusable.Concat(mismatches).ToList();
     }
 
     private static string? Str(JsonElement e, string name) =>

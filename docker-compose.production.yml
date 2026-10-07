@@ -207,9 +207,17 @@ services:
       - SmileId__PartnerId=${SMILEID_PARTNER_ID}
       # Reads driver licence / vehicle photos (optional — skipped when empty)
       - Anthropic__ApiKey=${ANTHROPIC_API_KEY:-}
+      # Driver review emails
+      - Email__SmtpHost=${Email__SmtpHost:-}
+      - Email__SmtpPort=${Email__SmtpPort:-587}
+      - Email__SmtpUser=${Email__SmtpUser:-}
+      - Email__SmtpPass=${Email__SmtpPass:-}
+      - Email__FromAddress=${Email__FromAddress:-}
+      - Email__FromName=${Email__FromName:-TagAlong}
+      - FileStorage__UploadsPath=/var/uploads/tagalong
     volumes:
       # KYC selfies and driver documents must survive redeploys
-      - user_uploads:/app/uploads
+      - user_uploads:/var/uploads/tagalong
     depends_on:
       sqlserver:
         condition: service_healthy

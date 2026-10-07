@@ -88,9 +88,24 @@ public class DriverProfile
     public void Reject(Guid adminId, string reason)
     {
         Status = DriverProfileStatus.Rejected;
-        RejectionReason = reason.Trim();
+        RejectionReason = Limit(reason);
         ReviewedAt = DateTime.UtcNow;
         ReviewedBy = adminId;
+    }
+
+    /// <summary>Rejected by the automatic document check (no admin involved).</summary>
+    public void RejectAutomatically(string reason)
+    {
+        Status = DriverProfileStatus.Rejected;
+        RejectionReason = Limit(reason);
+        ReviewedAt = DateTime.UtcNow;
+        ReviewedBy = null;
+    }
+
+    private static string Limit(string reason)
+    {
+        var r = reason.Trim();
+        return r.Length > 500 ? r[..497] + "..." : r;
     }
 
     public void RecordDocumentCheck(string json, int failures)
