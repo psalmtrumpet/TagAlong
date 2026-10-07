@@ -66,13 +66,25 @@ public class DriverDocumentReader
         if (driver == null) return;
 
         var licenseFile = files.ResolvePath(driver.LicenseImagePath);
-        if (licenseFile == null)
-        {
-            _logger.LogWarning("Document reader: licence image missing on disk for {UserId}", authUserId);
-            return;
-        }
         var frontFile = files.ResolvePath(driver.VehicleImagePath);
         var backFile = files.ResolvePath(driver.VehicleBackImagePath);
+
+        // A photo we no longer have can't be checked — ask the driver for it again
+        var missing = new List<string>();
+        if (licenseFile == null) missing.Add("We couldn't find your licence photo — please upload it again.");
+        if (frontFile == null) missing.Add("We couldn't find the photo of the front of your vehicle — please upload it again.");
+        if (backFile == null) missing.Add("We couldn't find the photo of the back of your vehicle — please upload it again.");
+        if (missing.Count > 0)
+        {
+            _logger.LogWarning("Document reader: {Count} photo(s) missing on disk for {UserId}", missing.Count, authUserId);
+            if (autoDecide && driver.Status == DriverProfileStatus.Pending)
+            {
+                driver.RejectAutomatically(string.Join(" ", missing));
+                await db.SaveChangesAsync(ct);
+                await _notifier.NotifyAsync(authUserId, approved: false, missing, ct);
+            }
+            return;
+        }
 
         var extracted = await ExtractAsync(licenseFile, frontFile, backFile, ct);
         if (extracted == null) return;

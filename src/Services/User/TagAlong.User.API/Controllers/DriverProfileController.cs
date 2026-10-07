@@ -67,8 +67,10 @@ public class DriverProfileController : ControllerBase
             p.VehicleModel,
             p.VehicleColor,
             p.VehiclePlate,
-            hasVehicleImage = p.VehicleImagePath != null,
-            hasVehicleBackImage = p.VehicleBackImagePath != null,
+            // Only photos we still have count as "on file"
+            hasLicenseImage = _files.ResolvePath(p.LicenseImagePath) != null,
+            hasVehicleImage = _files.ResolvePath(p.VehicleImagePath) != null,
+            hasVehicleBackImage = _files.ResolvePath(p.VehicleBackImagePath) != null,
             p.SubmittedAt,
             p.ReviewedAt,
         });
@@ -102,11 +104,11 @@ public class DriverProfileController : ControllerBase
             return BadRequest(new { error = "Your details are being reviewed and can't be changed until the review is done." });
         if (profile?.Status == DriverProfileStatus.Approved)
             return BadRequest(new { error = "Your driver details are approved and can't be changed." });
-        if (isNew && string.IsNullOrWhiteSpace(req.LicenseImageBase64))
+        if (_files.ResolvePath(profile?.LicenseImagePath) == null && string.IsNullOrWhiteSpace(req.LicenseImageBase64))
             return BadRequest(new { error = "Add a photo of your driver's licence." });
-        if (profile?.VehicleImagePath == null && string.IsNullOrWhiteSpace(req.VehicleImageBase64))
+        if (_files.ResolvePath(profile?.VehicleImagePath) == null && string.IsNullOrWhiteSpace(req.VehicleImageBase64))
             return BadRequest(new { error = "Add a photo of the front of your vehicle with the plate number showing." });
-        if (profile?.VehicleBackImagePath == null && string.IsNullOrWhiteSpace(req.VehicleBackImageBase64))
+        if (_files.ResolvePath(profile?.VehicleBackImagePath) == null && string.IsNullOrWhiteSpace(req.VehicleBackImageBase64))
             return BadRequest(new { error = "Add a photo of the back of your vehicle with the plate number showing." });
 
         string? licensePath = null, vehiclePath = null, vehicleBackPath = null;
