@@ -57,7 +57,7 @@ export default function WaitlistPage() {
         <button
           onClick={exportExcel}
           disabled={loading || entries.length === 0}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-40 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-black rounded-lg text-sm font-medium hover:bg-brand-500/80 disabled:opacity-40 transition-colors"
         >
           <span>↓</span> Export Excel
         </button>

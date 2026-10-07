@@ -51,7 +51,7 @@ export default function ConversationsPage() {
           <div className="flex flex-wrap gap-1">
             {STATUSES.map(s => (
               <button key={s} onClick={() => { setStatus(s); setPage(1) }}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors ${status === s ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors ${status === s ? 'bg-brand-600 text-black' : 'text-gray-600 hover:bg-gray-100'}`}>
                 {s}
               </button>
             ))}
@@ -97,7 +97,7 @@ export default function ConversationsPage() {
                   <td className="px-4 py-3 text-gray-400">{c.deliveredAt ? fmt(c.deliveredAt) : '—'}</td>
                   <td className="px-4 py-3 text-gray-400">{fmt(c.createdAt)}</td>
                   <td className="px-4 py-3">
-                    <Link to={`/conversations/${c.id}`} className="text-brand-600 hover:underline text-xs font-medium">View →</Link>
+                    <Link to={`/conversations/${c.id}`} className="text-leaf-600 hover:underline text-xs font-medium">View →</Link>
                   </td>
                 </tr>
               ))}

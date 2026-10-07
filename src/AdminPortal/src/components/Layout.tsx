@@ -23,17 +23,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-cream">
       {/* Sidebar */}
-      <aside className={`flex flex-col bg-brand-600 text-white transition-all duration-200 ${collapsed ? 'w-16' : 'w-56'} flex-shrink-0`}>
-        <div className="flex items-center justify-between h-16 px-4 border-b border-brand-700">
-          {!collapsed && (
+      <aside className={`flex flex-col bg-white border-r border-gray-200 transition-all duration-200 ${collapsed ? 'w-16' : 'w-56'} flex-shrink-0`}>
+        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-100">
+          {collapsed ? (
+            <img src="/admin/favicon.png" alt="TagAlong" className="h-7 w-7" />
+          ) : (
             <div>
-              <div className="font-bold text-sm tracking-wide">TagAlong</div>
-              <div className="text-xs text-green-200 opacity-75">Admin Portal</div>
+              <img src="/admin/logo-wordmark.png" alt="TagAlong" className="h-6 w-auto" />
+              <div className="text-[11px] font-medium uppercase tracking-wider text-gray-400 mt-1">Admin Portal</div>
             </div>
           )}
-          <button onClick={() => setCollapsed(c => !c)} className="text-white/70 hover:text-white ml-auto">
+          <button onClick={() => setCollapsed(c => !c)} className="text-gray-400 hover:text-gray-900 ml-auto">
             {collapsed ? '›' : '‹'}
           </button>
         </div>
@@ -46,7 +48,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 key={item.path}
                 to={item.path}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  active ? 'bg-brand-700 text-white' : 'text-green-100 hover:bg-brand-700/60 hover:text-white'
+                  active ? 'bg-brand-50 text-black font-semibold shadow-[inset_3px_0_0_#F1B01C]' : 'text-gray-600 hover:bg-cream hover:text-black'
                 }`}
               >
                 <span className="text-base w-5 text-center">{item.icon}</span>
@@ -56,13 +58,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="px-2 pb-4 border-t border-brand-700 pt-4">
+        <div className="px-2 pb-4 border-t border-gray-100 pt-4">
           {!collapsed && (
-            <div className="px-3 pb-3 text-xs text-green-200 opacity-75 truncate">{adminName}</div>
+            <div className="px-3 pb-3 text-xs text-gray-400 truncate">{adminName}</div>
           )}
           <button
             onClick={logout}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-green-100 hover:bg-brand-700/60 hover:text-white w-full"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-cream hover:text-black w-full"
           >
             <span className="text-base w-5 text-center">⬡</span>
             {!collapsed && <span>Sign out</span>}

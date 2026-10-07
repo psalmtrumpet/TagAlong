@@ -30,11 +30,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-brand-600">
+    <div className="min-h-screen flex items-center justify-center bg-cream">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
         <div className="mb-8">
-          <div className="text-2xl font-bold text-gray-900">TagAlong</div>
-          <div className="text-sm text-gray-500 mt-1">Admin Portal — sign in to continue</div>
+          <img src="/admin/logo-wordmark.png" alt="TagAlong" className="h-10 w-auto" />
+          <div className="text-sm text-gray-500 mt-3">Admin Portal — sign in to continue</div>
         </div>
 
         <form onSubmit={submit} className="space-y-4">

@@ -15,7 +15,7 @@ function MessageBubble({ msg, senderId, travelerName, senderName }: {
   const align = isFromSender ? 'items-start' : 'items-end'
   const bubbleCls = isFromSender
     ? 'bg-gray-100 text-gray-900'
-    : 'bg-brand-600 text-white'
+    : 'bg-brand-600 text-black'
 
   const isPriceMsg = msg.messageType === 'PriceProposal' || msg.messageType === 'PriceAccepted'
 

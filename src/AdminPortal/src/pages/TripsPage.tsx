@@ -54,7 +54,7 @@ export default function TripsPage() {
           <div className="flex gap-1">
             {TYPES.map(t => (
               <button key={t} onClick={() => { setType(t); setPage(1) }}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors ${type === t ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors ${type === t ? 'bg-brand-600 text-black' : 'text-gray-600 hover:bg-gray-100'}`}>
                 {t}
               </button>
             ))}
@@ -102,7 +102,7 @@ export default function TripsPage() {
                   </td>
                   <td className="px-4 py-3">{statusBadge(t.status)}</td>
                   <td className="px-4 py-3">
-                    <Link to={`/trips/${t.id}`} className="text-brand-600 hover:underline text-xs font-medium">View →</Link>
+                    <Link to={`/trips/${t.id}`} className="text-leaf-600 hover:underline text-xs font-medium">View →</Link>
                   </td>
                 </tr>
               ))}

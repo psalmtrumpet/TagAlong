@@ -34,7 +34,7 @@ export default function DashboardPage() {
       <section className="mb-8">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Users</h2>
-          <Link to="/users" className="text-sm text-brand-600 hover:underline">View all →</Link>
+          <Link to="/users" className="text-sm text-leaf-600 hover:underline">View all →</Link>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <StatCard label="Total Users"    value={users?.totalUsers    ?? '—'} color="text-gray-900" />
@@ -49,7 +49,7 @@ export default function DashboardPage() {
       <section className="mb-8">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Trips</h2>
-          <Link to="/trips" className="text-sm text-brand-600 hover:underline">View all →</Link>
+          <Link to="/trips" className="text-sm text-leaf-600 hover:underline">View all →</Link>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           <StatCard label="Total"       value={trips?.total       ?? '—'} color="text-gray-900" />
@@ -65,7 +65,7 @@ export default function DashboardPage() {
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Conversations</h2>
-          <Link to="/conversations" className="text-sm text-brand-600 hover:underline">View all →</Link>
+          <Link to="/conversations" className="text-sm text-leaf-600 hover:underline">View all →</Link>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           <StatCard label="Total"       value={convos?.total       ?? '—'} color="text-gray-900" />

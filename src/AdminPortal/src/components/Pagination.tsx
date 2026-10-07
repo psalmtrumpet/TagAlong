@@ -21,7 +21,7 @@ export default function Pagination({ page, pageSize, total, onChange }: Props) {
         </button>
         {Array.from({ length: Math.min(pages, 7) }, (_, i) => i + 1).map(p => (
           <button key={p} onClick={() => onChange(p)}
-            className={`px-3 py-1.5 text-sm rounded border ${p === page ? 'bg-brand-600 text-white border-brand-600' : 'border-gray-200 hover:bg-gray-50'}`}>
+            className={`px-3 py-1.5 text-sm rounded border ${p === page ? 'bg-brand-600 text-black border-brand-600' : 'border-gray-200 hover:bg-gray-50'}`}>
             {p}
           </button>
         ))}

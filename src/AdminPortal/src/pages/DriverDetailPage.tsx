@@ -110,7 +110,7 @@ export default function DriverDetailPage() {
         <div className="card p-5">
           <div className="flex items-center justify-between mb-3">
             <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Automatic document check</div>
-            <button disabled={busy} onClick={() => act(() => recheckDriver(d.authUserId))} className="text-xs text-brand-600 hover:underline disabled:opacity-40">
+            <button disabled={busy} onClick={() => act(() => recheckDriver(d.authUserId))} className="text-xs text-leaf-600 hover:underline disabled:opacity-40">
               Read again
             </button>
           </div>

@@ -83,6 +83,7 @@ public class AdminListUsersQueryHandler : IQueryHandler<AdminListUsersQuery, Adm
         };
 
         var total = await query.CountAsync(cancellationToken);
+        var now = DateTime.UtcNow;
 
         var users = await query
             .OrderByDescending(u => u.CreatedAt)
@@ -91,7 +92,8 @@ public class AdminListUsersQueryHandler : IQueryHandler<AdminListUsersQuery, Adm
             .Select(u => new AdminUserListItemDto(
                 u.Id, u.AuthUserId, u.Email, u.FirstName, u.LastName, u.PhoneNumber,
                 u.IsVerified, u.VerificationStatus.ToString(), u.IsSuspended,
-                u.IsAvailable, u.AverageRating, u.CompletedDeliveries, u.CompletedTrips, u.CreatedAt))
+                u.IsAvailable && (u.HasOngoingTrip || u.AvailabilityExpiresAt == null || u.AvailabilityExpiresAt > now),
+                u.AverageRating, u.CompletedDeliveries, u.CompletedTrips, u.CreatedAt))
             .ToListAsync(cancellationToken);
 
         return Result.Success(new AdminUserListResult(users, total, request.Page, request.PageSize));
@@ -125,7 +127,8 @@ public class AdminGetUserDetailQueryHandler : IQueryHandler<AdminGetUserDetailQu
             profile.PhoneNumber, profile.Bio, profile.ProfileImageUrl,
             profile.IsVerified, profile.VerificationStatus.ToString(), profile.VerifiedAt,
             profile.IdentityDocumentUrl, profile.IsSuspended, profile.SuspendedAt, profile.SuspensionReason,
-            profile.IsAvailable, profile.AverageRating, profile.TotalRatings,
+            profile.IsAvailable && (profile.HasOngoingTrip || profile.AvailabilityExpiresAt == null || profile.AvailabilityExpiresAt > DateTime.UtcNow),
+            profile.AverageRating, profile.TotalRatings,
             profile.CompletedDeliveries, profile.CompletedTrips, profile.CreatedAt,
             kyc?.NIN, kyc?.FirstName, kyc?.LastName, kyc?.MiddleName,
             kyc?.DateOfBirth, kyc?.Gender, kyc?.Nationality, kyc?.ResidenceState,
@@ -153,7 +156,9 @@ public class AdminGetStatsQueryHandler : IQueryHandler<AdminGetStatsQuery, Admin
         var total     = await _db.UserProfiles.IgnoreQueryFilters().CountAsync(cancellationToken);
         var verified  = await _db.UserProfiles.IgnoreQueryFilters().CountAsync(u => u.IsVerified && !u.IsSuspended, cancellationToken);
         var suspended = await _db.UserProfiles.IgnoreQueryFilters().CountAsync(u => u.IsSuspended, cancellationToken);
-        var active    = await _db.UserProfiles.IgnoreQueryFilters().CountAsync(u => u.IsAvailable, cancellationToken);
+        var now       = DateTime.UtcNow;
+        var active    = await _db.UserProfiles.IgnoreQueryFilters().CountAsync(u => u.IsAvailable && !u.IsDeleted
+            && (u.HasOngoingTrip || u.AvailabilityExpiresAt == null || u.AvailabilityExpiresAt > now), cancellationToken);
 
         return Result.Success(new AdminStatsDto(total, verified, total - verified - suspended, suspended, active));
     }

@@ -58,7 +58,7 @@ export default function UsersPage() {
                 key={f}
                 onClick={() => { setFilter(f); setPage(1) }}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors ${
-                  filter === f ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                  filter === f ? 'bg-brand-600 text-black' : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 {f}
@@ -114,7 +114,7 @@ export default function UsersPage() {
                   <td className="px-4 py-3 text-gray-600">{u.completedTrips + u.completedDeliveries}</td>
                   <td className="px-4 py-3 text-gray-400">{fmt(u.createdAt)}</td>
                   <td className="px-4 py-3">
-                    <Link to={`/users/${u.authUserId}`} className="text-brand-600 hover:underline text-xs font-medium">
+                    <Link to={`/users/${u.authUserId}`} className="text-leaf-600 hover:underline text-xs font-medium">
                       View →
                     </Link>
                   </td>

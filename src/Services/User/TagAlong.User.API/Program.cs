@@ -78,6 +78,7 @@ builder.Services.AddDbContext<UserDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("UserDb")));
 
 builder.Services.AddScoped<IUserProfileRepository, UserProfileRepository>();
+builder.Services.AddHostedService<AvailabilityExpiryService>();
 builder.Services.AddScoped<IKycVerificationRepository, KycVerificationRepository>();
 builder.Services.AddScoped<INinCacheRepository, NinCacheRepository>();
 builder.Services.AddScoped<ISmileWebhookLogRepository, SmileWebhookLogRepository>();

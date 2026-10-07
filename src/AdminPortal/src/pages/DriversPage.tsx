@@ -62,7 +62,7 @@ export default function DriversPage() {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium ${tab === t ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium ${tab === t ? 'bg-brand-600 text-black' : 'text-gray-600 hover:bg-gray-100'}`}
           >
             {t === 'Pending' ? 'Waiting for review' : t}
           </button>
