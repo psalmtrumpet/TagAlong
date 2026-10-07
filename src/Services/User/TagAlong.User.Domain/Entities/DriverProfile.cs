@@ -93,6 +93,15 @@ public class DriverProfile
         ReviewedBy = adminId;
     }
 
+    /// <summary>Approved by the automatic document check (no admin involved).</summary>
+    public void ApproveAutomatically()
+    {
+        Status = DriverProfileStatus.Approved;
+        RejectionReason = null;
+        ReviewedAt = DateTime.UtcNow;
+        ReviewedBy = null;
+    }
+
     /// <summary>Rejected by the automatic document check (no admin involved).</summary>
     public void RejectAutomatically(string reason)
     {

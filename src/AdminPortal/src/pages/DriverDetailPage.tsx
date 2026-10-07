@@ -113,7 +113,19 @@ export default function DriverDetailPage() {
 
         <div className="card p-5">
           <div className="flex items-center justify-between mb-3">
-            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Automatic document check</div>
+            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              Automatic document check
+              {typeof d.documentCheck?.score === 'number' && (
+                <span className={`ml-2 normal-case tracking-normal text-sm font-bold ${
+                  d.documentCheck.score >= 90 ? 'text-leaf-600' : d.documentCheck.score >= 60 ? 'text-brand-700' : 'text-red-600'
+                }`}>
+                  {d.documentCheck.score}/100
+                  {d.documentCheck.decision === 'approved' && ' · approved automatically'}
+                  {d.documentCheck.decision === 'rejected' && ' · rejected automatically'}
+                  {d.documentCheck.decision === 'review' && ' · needs your review'}
+                </span>
+              )}
+            </div>
             <button disabled={busy} onClick={() => act(() => recheckDriver(d.authUserId))} className="text-xs text-leaf-600 hover:underline disabled:opacity-40">
               Read again
             </button>
@@ -132,7 +144,10 @@ export default function DriverDetailPage() {
               ))}
             </ul>
           )}
-          <p className="text-xs text-gray-400 mt-3">Read by AI to help your review — always check the photos yourself.</p>
+          <p className="text-xs text-gray-400 mt-3">
+            Read by AI. 90+ with every key check passing is approved automatically, under 60 is rejected
+            automatically, and anything between waits for you. You can still approve, reject or revoke.
+          </p>
         </div>
       </div>
 

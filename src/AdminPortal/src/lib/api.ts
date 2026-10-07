@@ -288,7 +288,7 @@ export interface DriverDetail {
   hasVehicleBackImage: boolean
   submittedAt: string
   reviewedAt: string | null
-  documentCheck: { checks: DocumentCheck[]; comparedName?: string | null } | null
+  documentCheck: { checks: DocumentCheck[]; comparedName?: string | null; score?: number; decision?: 'approved' | 'review' | 'rejected' } | null
   documentCheckedAt: string | null
 }
 

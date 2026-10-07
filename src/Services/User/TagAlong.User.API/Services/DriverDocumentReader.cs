@@ -12,13 +12,16 @@ namespace TagAlong.User.API.Services;
 /// Reads a driver's licence photo and vehicle photo with a Claude vision model,
 /// then compares what it read with what the driver typed and with their
 /// verified (NIN) name. The result is stored on the driver profile to help the
-/// admin review. A fresh submission with a clear problem (a mismatch, or a photo
-/// that is wrong or unreadable) is rejected automatically and the driver is told
-/// what to fix; anything else waits for an admin. It never approves anyone.
+/// admin review. A fresh submission is scored 0–100 from those checks:
+/// 90+ with every key check passing is approved automatically, below 60 is
+/// rejected automatically (the driver is told what to fix), and anything in
+/// between waits for an admin.
 /// </summary>
 public class DriverDocumentReader
 {
     private const string Model = "claude-opus-5-5";
+    private const int ApproveAt = 90;
+    private const int RejectBelow = 60;
     // camelCase like the rest of the API, so the admin portal can read it
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -47,13 +50,13 @@ public class DriverDocumentReader
         }
         _ = Task.Run(async () =>
         {
-            try { await ReadAsync(authUserId, CancellationToken.None, autoReject: true); }
+            try { await ReadAsync(authUserId, CancellationToken.None, autoDecide: true); }
             catch (Exception ex) { _logger.LogError(ex, "Document reader failed for {UserId}", authUserId); }
         });
     }
 
-    /// <param name="autoReject">Reject a pending submission that clearly fails (new uploads only).</param>
-    public async Task ReadAsync(Guid authUserId, CancellationToken ct, bool autoReject = false)
+    /// <param name="autoDecide">Approve or reject a pending submission from its score (new uploads only).</param>
+    public async Task ReadAsync(Guid authUserId, CancellationToken ct, bool autoDecide = false)
     {
         using var scope = _scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<UserDbContext>();
@@ -84,26 +87,43 @@ public class DriverDocumentReader
 
         var checks = Compare(driver, extracted.Value, knownName);
         var fails = checks.Count(c => c.Status == "fail");
+        var score = Score(extracted.Value, checks);
+
+        // 90+ and every key check passing → approve; under 60 → reject; else an admin decides
+        var decision = "review";
+        var problems = new List<string>();
+        if (autoDecide && driver.Status == DriverProfileStatus.Pending)
+        {
+            if (score >= ApproveAt && AllKeyChecksPass(extracted.Value, checks))
+            {
+                decision = "approved";
+                driver.ApproveAutomatically();
+            }
+            else if (score < RejectBelow)
+            {
+                decision = "rejected";
+                problems = DriverProblems(extracted.Value, checks);
+                driver.RejectAutomatically(string.Join(" ", problems));
+            }
+        }
+
         driver.RecordDocumentCheck(JsonSerializer.Serialize(new
         {
             model = Model,
+            score,
+            decision,
             extracted = extracted.Value,
             checks,
             comparedName = knownName?.Trim(),
         }, JsonOptions), fails);
-
-        // Clear problems → reject now and tell the driver what to fix
-        var problems = autoReject && driver.Status == DriverProfileStatus.Pending
-            ? DriverProblems(extracted.Value, checks)
-            : new List<string>();
-        if (problems.Count > 0)
-            driver.RejectAutomatically(string.Join(" ", problems));
         await db.SaveChangesAsync(ct);
 
-        _logger.LogInformation("Document reader: {UserId} checked — {Fails} failed, {Warns} to review{Rejected}",
-            authUserId, fails, checks.Count(c => c.Status == "warn"), problems.Count > 0 ? " — rejected automatically" : "");
+        _logger.LogInformation("Document reader: {UserId} scored {Score} ({Decision}) — {Fails} failed, {Warns} to review",
+            authUserId, score, decision, fails, checks.Count(c => c.Status == "warn"));
 
-        if (problems.Count > 0)
+        if (decision == "approved")
+            await _notifier.NotifyAsync(authUserId, approved: true, Array.Empty<string>(), ct);
+        else if (decision == "rejected")
             await _notifier.NotifyAsync(authUserId, approved: false, problems, ct);
     }
 
@@ -320,9 +340,56 @@ public class DriverDocumentReader
     }
 
     /// <summary>
-    /// What the driver must fix, when the submission clearly fails: any mismatch,
-    /// or a photo that isn't usable. Empty means it goes to an admin as normal.
+    /// 0–100 from the checks: mismatches and unusable photos cost the most,
+    /// unreadable details less, and reviewer notes a little each.
     /// </summary>
+    private static int Score(JsonElement x, List<Check> checks)
+    {
+        var score = 100;
+        var notes = 0;
+        foreach (var c in checks)
+        {
+            score -= (c.Field, c.Status) switch
+            {
+                ("Licence", "fail") => 60,
+                ("Expiry", "fail") => 60,
+                ("Vehicle", "fail") => 50,
+                ("Licence number", "fail") => 40,
+                ("Name", "fail") => 40,
+                ("Front plate", "fail") or ("Back plate", "fail") or ("Plates", "fail") => 35,
+                ("Front plate", "warn") or ("Back plate", "warn") => 15,
+                (_, "warn") when c.Field != "Photo" && c.Field != "Colour" => 10,
+                ("Colour", "warn") => 5,
+                _ => 0,
+            };
+            if (c.Field == "Photo") notes++;
+        }
+        score -= Math.Min(notes * 3, 15);
+
+        if (x.TryGetProperty("photosUsable", out var u))
+        {
+            if (Is(u, "licence", JsonValueKind.False)) score -= 20;
+            if (Is(u, "vehicleFront", JsonValueKind.False)) score -= 20;
+            if (Is(u, "vehicleBack", JsonValueKind.False)) score -= 20;
+        }
+        return Math.Clamp(score, 0, 100);
+    }
+
+    /// <summary>Approve only when every photo is usable and every key detail was read and matches.</summary>
+    private static bool AllKeyChecksPass(JsonElement x, List<Check> checks)
+    {
+        if (checks.Any(c => c.Status == "fail")) return false;
+        if (!x.TryGetProperty("photosUsable", out var u)
+            || !Is(u, "licence", JsonValueKind.True) || !Is(u, "vehicleFront", JsonValueKind.True) || !Is(u, "vehicleBack", JsonValueKind.True))
+            return false;
+        string[] mustPass = { "Licence number", "Name", "Expiry", "Front plate", "Back plate" };
+        return mustPass.All(f => checks.Any(c => c.Field == f && c.Status == "pass"));
+    }
+
+    private static bool Is(JsonElement e, string name, JsonValueKind kind) =>
+        e.TryGetProperty(name, out var v) && v.ValueKind == kind;
+
+    /// <summary>What the driver must fix, for the rejection email and the app.</summary>
     private static List<string> DriverProblems(JsonElement x, List<Check> checks)
     {
         var unusable = new List<string>();
@@ -336,13 +403,16 @@ public class DriverDocumentReader
                 unusable.Add("Your back vehicle photo doesn't clearly show the back of your vehicle and its plate number.");
         }
         var mismatches = checks.Where(c => c.Status == "fail").Select(c => $"{c.Field}: {c.Detail}").ToList();
-        if (unusable.Count == 0 && mismatches.Count == 0) return new List<string>();
 
-        // Prefer the reader's own wording for the driver; fall back to our generic lines
+        // Prefer the reader's own wording for the driver; fall back to our own lines
         var fixes = x.TryGetProperty("driverFixes", out var df) && df.ValueKind == JsonValueKind.Array
             ? df.EnumerateArray().Select(e => e.GetString()).Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s!.Trim()).ToList()
             : new List<string>();
-        return fixes.Count > 0 ? fixes : unusable.Concat(mismatches).ToList();
+        if (fixes.Count > 0) return fixes;
+        var ours = unusable.Concat(mismatches).ToList();
+        return ours.Count > 0
+            ? ours
+            : checks.Where(c => c.Status == "warn" && c.Field != "Photo").Select(c => c.Detail).ToList();
     }
 
     private static string? Str(JsonElement e, string name) =>
