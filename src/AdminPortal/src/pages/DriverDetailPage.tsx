@@ -12,6 +12,17 @@ function Field({ label, value }: { label: string; value?: string | null }) {
   )
 }
 
+function VehiclePhoto({ label, has, path }: { label: string; has: boolean; path: string }) {
+  return (
+    <div className="card p-5">
+      <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">{label}</div>
+      {has
+        ? <AuthImage path={path} alt={label} className="w-full h-56 object-contain rounded-lg border border-gray-200 bg-gray-50" />
+        : <div className="w-full h-56 flex items-center justify-center rounded-lg border border-dashed border-gray-200 text-sm text-gray-400">No photo</div>}
+    </div>
+  )
+}
+
 const CHECK_STYLE = {
   pass: 'text-green-700 bg-green-50',
   warn: 'text-amber-700 bg-amber-50',
@@ -73,7 +84,7 @@ export default function DriverDetailPage() {
       )}
       {error && <div className="mb-4 text-sm text-red-600">{error}</div>}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
         <div className="card p-5">
           <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Verification selfie</div>
           <AuthImage path={`/api/users/${d.authUserId}/photo`} alt="Verification selfie" className="w-full h-56 object-cover rounded-lg border border-gray-200" />
@@ -82,12 +93,8 @@ export default function DriverDetailPage() {
           <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Driver's licence</div>
           <AuthImage path={`/api/admin/users/driver-profiles/${d.authUserId}/license-image`} alt="Licence" className="w-full h-56 object-contain rounded-lg border border-gray-200 bg-gray-50" />
         </div>
-        <div className="card p-5">
-          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Vehicle</div>
-          {d.hasVehicleImage
-            ? <AuthImage path={`/api/admin/users/driver-profiles/${d.authUserId}/vehicle-image`} alt="Vehicle" className="w-full h-56 object-contain rounded-lg border border-gray-200 bg-gray-50" />
-            : <div className="w-full h-56 flex items-center justify-center rounded-lg border border-dashed border-gray-200 text-sm text-gray-400">No vehicle photo</div>}
-        </div>
+        <VehiclePhoto label="Vehicle — front" has={d.hasVehicleImage} path={`/api/admin/users/driver-profiles/${d.authUserId}/vehicle-image`} />
+        <VehiclePhoto label="Vehicle — back" has={d.hasVehicleBackImage} path={`/api/admin/users/driver-profiles/${d.authUserId}/vehicle-back-image`} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">

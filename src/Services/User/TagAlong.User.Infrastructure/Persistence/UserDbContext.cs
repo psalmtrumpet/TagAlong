@@ -174,6 +174,7 @@ public class UserDbContext : DbContext
             entity.Property(e => e.VehicleColor).HasMaxLength(30).IsRequired();
             entity.Property(e => e.VehiclePlate).HasMaxLength(20).IsRequired();
             entity.Property(e => e.VehicleImagePath).HasMaxLength(512);
+            entity.Property(e => e.VehicleBackImagePath).HasMaxLength(512);
             entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
             entity.Property(e => e.RejectionReason).HasMaxLength(500);
             entity.Property(e => e.DocumentCheckJson).HasColumnType("nvarchar(max)");

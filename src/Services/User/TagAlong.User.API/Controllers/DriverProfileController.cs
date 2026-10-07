@@ -18,7 +18,8 @@ public record SubmitDriverProfileRequest(
     string VehicleModel,
     string VehicleColor,
     string VehiclePlate,
-    string? VehicleImageBase64);
+    string? VehicleImageBase64,
+    string? VehicleBackImageBase64 = null);
 
 /// <summary>
 /// Driver's licence and vehicle details. Required (and admin-approved) before a
@@ -67,6 +68,7 @@ public class DriverProfileController : ControllerBase
             p.VehicleColor,
             p.VehiclePlate,
             hasVehicleImage = p.VehicleImagePath != null,
+            hasVehicleBackImage = p.VehicleBackImagePath != null,
             p.SubmittedAt,
             p.ReviewedAt,
         });
@@ -74,7 +76,7 @@ public class DriverProfileController : ControllerBase
 
     /// <summary>Submit or update licence + vehicle details. Always goes back to review.</summary>
     [HttpPost]
-    [RequestSizeLimit(10 * 1024 * 1024)]
+    [RequestSizeLimit(20 * 1024 * 1024)]
     public async Task<IActionResult> Submit([FromBody] SubmitDriverProfileRequest req, CancellationToken ct)
     {
         var userId = GetCurrentUserId();
@@ -97,8 +99,12 @@ public class DriverProfileController : ControllerBase
         var isNew = profile == null;
         if (isNew && string.IsNullOrWhiteSpace(req.LicenseImageBase64))
             return BadRequest(new { error = "Add a photo of your driver's licence." });
+        if (profile?.VehicleImagePath == null && string.IsNullOrWhiteSpace(req.VehicleImageBase64))
+            return BadRequest(new { error = "Add a photo of the front of your vehicle with the plate number showing." });
+        if (profile?.VehicleBackImagePath == null && string.IsNullOrWhiteSpace(req.VehicleBackImageBase64))
+            return BadRequest(new { error = "Add a photo of the back of your vehicle with the plate number showing." });
 
-        string? licensePath = null, vehiclePath = null;
+        string? licensePath = null, vehiclePath = null, vehicleBackPath = null;
         var stamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
         if (!string.IsNullOrWhiteSpace(req.LicenseImageBase64))
         {
@@ -110,6 +116,13 @@ public class DriverProfileController : ControllerBase
         {
             if (!IsReasonableImage(req.VehicleImageBase64)) return BadRequest(new { error = "The vehicle photo is too large or not an image." });
             vehiclePath = await _files.SaveBase64ImageAsync(req.VehicleImageBase64, $"driver-docs/{userId}", $"vehicle-{stamp}");
+            if (vehiclePath == null) return BadRequest(new { error = "Couldn't read the front vehicle photo. Please try another." });
+        }
+        if (!string.IsNullOrWhiteSpace(req.VehicleBackImageBase64))
+        {
+            if (!IsReasonableImage(req.VehicleBackImageBase64)) return BadRequest(new { error = "The back vehicle photo is too large or not an image." });
+            vehicleBackPath = await _files.SaveBase64ImageAsync(req.VehicleBackImageBase64, $"driver-docs/{userId}", $"vehicle-back-{stamp}");
+            if (vehicleBackPath == null) return BadRequest(new { error = "Couldn't read the back vehicle photo. Please try another." });
         }
 
         if (isNew)
@@ -118,7 +131,7 @@ public class DriverProfileController : ControllerBase
             _db.DriverProfiles.Add(profile);
         }
         profile!.Submit(req.LicenseNumber, req.LicenseExpiry, licensePath, req.VehicleType,
-            req.VehicleMake, req.VehicleModel, req.VehicleColor, req.VehiclePlate, vehiclePath);
+            req.VehicleMake, req.VehicleModel, req.VehicleColor, req.VehiclePlate, vehiclePath, vehicleBackPath);
         await _db.SaveChangesAsync(ct);
 
         _logger.LogInformation("Driver profile submitted for {UserId} ({Plate})", userId, profile.VehiclePlate);

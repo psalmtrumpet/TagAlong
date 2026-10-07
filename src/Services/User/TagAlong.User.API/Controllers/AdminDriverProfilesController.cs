@@ -82,6 +82,7 @@ public class AdminDriverProfilesController : ControllerBase
             d.VehicleColor,
             d.VehiclePlate,
             hasVehicleImage = d.VehicleImagePath != null,
+            hasVehicleBackImage = d.VehicleBackImagePath != null,
             d.SubmittedAt,
             d.ReviewedAt,
             documentCheck = d.DocumentCheckJson == null ? (JsonElement?)null : JsonDocument.Parse(d.DocumentCheckJson).RootElement.Clone(),
@@ -90,15 +91,18 @@ public class AdminDriverProfilesController : ControllerBase
     }
 
     [HttpGet("{authUserId:guid}/license-image")]
-    public Task<IActionResult> LicenseImage(Guid authUserId, CancellationToken ct) => Image(authUserId, license: true, ct);
+    public Task<IActionResult> LicenseImage(Guid authUserId, CancellationToken ct) => Image(authUserId, d => d.LicenseImagePath, ct);
 
     [HttpGet("{authUserId:guid}/vehicle-image")]
-    public Task<IActionResult> VehicleImage(Guid authUserId, CancellationToken ct) => Image(authUserId, license: false, ct);
+    public Task<IActionResult> VehicleImage(Guid authUserId, CancellationToken ct) => Image(authUserId, d => d.VehicleImagePath, ct);
 
-    private async Task<IActionResult> Image(Guid authUserId, bool license, CancellationToken ct)
+    [HttpGet("{authUserId:guid}/vehicle-back-image")]
+    public Task<IActionResult> VehicleBackImage(Guid authUserId, CancellationToken ct) => Image(authUserId, d => d.VehicleBackImagePath, ct);
+
+    private async Task<IActionResult> Image(Guid authUserId, Func<DriverProfile, string?> pick, CancellationToken ct)
     {
         var d = await _db.DriverProfiles.AsNoTracking().FirstOrDefaultAsync(x => x.AuthUserId == authUserId, ct);
-        var file = _files.ResolvePath(license ? d?.LicenseImagePath : d?.VehicleImagePath);
+        var file = _files.ResolvePath(d == null ? null : pick(d));
         if (file == null) return NotFound();
         Response.Headers.CacheControl = "no-store";
         return PhysicalFile(file, "image/jpeg");

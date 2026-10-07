@@ -61,9 +61,10 @@ public class DriverDocumentReader
             _logger.LogWarning("Document reader: licence image missing on disk for {UserId}", authUserId);
             return;
         }
-        var vehicleFile = files.ResolvePath(driver.VehicleImagePath);
+        var frontFile = files.ResolvePath(driver.VehicleImagePath);
+        var backFile = files.ResolvePath(driver.VehicleBackImagePath);
 
-        var extracted = await ExtractAsync(licenseFile, vehicleFile, ct);
+        var extracted = await ExtractAsync(licenseFile, frontFile, backFile, ct);
         if (extracted == null) return;
 
         // Names to compare against: verified NIN name first, then profile name
@@ -89,17 +90,22 @@ public class DriverDocumentReader
     }
 
     /// <summary>Single vision call returning schema-validated JSON.</summary>
-    private async Task<JsonElement?> ExtractAsync(string licenseFile, string? vehicleFile, CancellationToken ct)
+    private async Task<JsonElement?> ExtractAsync(string licenseFile, string? frontFile, string? backFile, CancellationToken ct)
     {
         var content = new List<BetaContentBlockParam>
         {
             new BetaTextBlockParam { Text = "Image 1: the driver's licence (front)." },
             Image(licenseFile),
         };
-        if (vehicleFile != null)
+        if (frontFile != null)
         {
-            content.Add(new BetaTextBlockParam { Text = "Image 2: the driver's vehicle." });
-            content.Add(Image(vehicleFile));
+            content.Add(new BetaTextBlockParam { Text = "Vehicle photo: the FRONT of the driver's vehicle." });
+            content.Add(Image(frontFile));
+        }
+        if (backFile != null)
+        {
+            content.Add(new BetaTextBlockParam { Text = "Vehicle photo: the BACK of the driver's vehicle." });
+            content.Add(Image(backFile));
         }
         content.Add(new BetaTextBlockParam
         {
@@ -107,8 +113,10 @@ public class DriverDocumentReader
                 Read these Nigerian ride-sharing driver documents for a human reviewer.
                 From the licence: say whether it is actually a driver's licence, and copy the
                 licence number, the holder's full name, and the expiry date (YYYY-MM-DD) exactly
-                as printed. From the vehicle photo: copy the number plate exactly as printed and
-                give the vehicle's colour and make if you can tell.
+                as printed. From the vehicle photos: copy the number plate on the front and the
+                number plate on the back exactly as printed, give the vehicle's colour and make
+                if you can tell, and say whether the front and back photos show the same vehicle
+                (null if you can't tell or a photo is missing).
                 Use null for anything you cannot read clearly — never guess. List anything a
                 reviewer should look at (blurry, cropped, edited-looking, photo of a screen,
                 plate not visible, etc.) in concerns.
@@ -181,12 +189,14 @@ public class DriverDocumentReader
                 {
                     ["type"] = "object",
                     ["additionalProperties"] = false,
-                    ["required"] = new[] { "plateNumber", "colour", "make" },
+                    ["required"] = new[] { "frontPlate", "backPlate", "colour", "make", "sameVehicle" },
                     ["properties"] = new Dictionary<string, object>
                     {
-                        ["plateNumber"] = nullableString,
+                        ["frontPlate"] = nullableString,
+                        ["backPlate"] = nullableString,
                         ["colour"] = nullableString,
                         ["make"] = nullableString,
+                        ["sameVehicle"] = new { type = new[] { "boolean", "null" } },
                     },
                 },
                 ["concerns"] = new { type = "array", items = new { type = "string" } },
@@ -234,22 +244,34 @@ public class DriverDocumentReader
                 ? new("Expiry", "fail", $"Licence expired on {exp:dd MMM yyyy}.")
                 : new("Expiry", "pass", $"Valid until {exp:dd MMM yyyy}."));
 
-        if (d.VehicleImagePath != null)
-        {
-            var plate = Str(veh, "plateNumber");
-            checks.Add(plate == null
-                ? new("Plate", "warn", "Couldn't read the plate in the vehicle photo.")
-                : Alnum(plate) == Alnum(d.VehiclePlate)
-                    ? new("Plate", "pass", $"Matches what the driver entered ({plate}).")
-                    : new("Plate", "fail", $"Photo shows {plate}, driver entered {d.VehiclePlate}."));
+        PlateCheck("Front plate", d.VehicleImagePath != null, Str(veh, "frontPlate"));
+        PlateCheck("Back plate", d.VehicleBackImagePath != null, Str(veh, "backPlate"));
 
+        var front = Str(veh, "frontPlate");
+        var back = Str(veh, "backPlate");
+        if (front != null && back != null && Alnum(front) != Alnum(back))
+            checks.Add(new("Plates", "fail", $"Front plate {front} and back plate {back} are different."));
+
+        if (veh.TryGetProperty("sameVehicle", out var same) && same.ValueKind == JsonValueKind.False)
+            checks.Add(new("Vehicle", "fail", "The front and back photos look like different vehicles."));
+
+        if (d.VehicleImagePath != null || d.VehicleBackImagePath != null)
+        {
             var colour = Str(veh, "colour");
             if (colour != null && !Words(colour).Intersect(Words(d.VehicleColor)).Any())
                 checks.Add(new("Colour", "warn", $"Photo looks {colour}, driver entered {d.VehicleColor}."));
         }
-        else
+
+        void PlateCheck(string field, bool uploaded, string? read)
         {
-            checks.Add(new("Plate", "warn", "No vehicle photo was uploaded."));
+            if (!uploaded)
+                checks.Add(new(field, "warn", $"No {field.ToLowerInvariant().Replace(" plate", "")} vehicle photo was uploaded."));
+            else if (read == null)
+                checks.Add(new(field, "warn", $"Couldn't read the plate in the {field.ToLowerInvariant().Replace(" plate", "")} photo."));
+            else if (Alnum(read) == Alnum(d.VehiclePlate))
+                checks.Add(new(field, "pass", $"Matches what the driver entered ({read})."));
+            else
+                checks.Add(new(field, "fail", $"Photo shows {read}, driver entered {d.VehiclePlate}."));
         }
 
         foreach (var c in x.GetProperty("concerns").EnumerateArray())

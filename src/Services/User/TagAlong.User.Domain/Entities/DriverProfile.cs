@@ -26,7 +26,10 @@ public class DriverProfile
     public string VehicleModel { get; private set; } = string.Empty;
     public string VehicleColor { get; private set; } = string.Empty;
     public string VehiclePlate { get; private set; } = string.Empty;
+    /// <summary>Front of the vehicle, plate visible.</summary>
     public string? VehicleImagePath { get; private set; }
+    /// <summary>Back of the vehicle, plate visible.</summary>
+    public string? VehicleBackImagePath { get; private set; }
 
     public DriverProfileStatus Status { get; private set; } = DriverProfileStatus.Pending;
     public string? RejectionReason { get; private set; }
@@ -51,7 +54,7 @@ public class DriverProfile
     public void Submit(
         string licenseNumber, DateTime? licenseExpiry, string? licenseImagePath,
         string vehicleType, string vehicleMake, string vehicleModel, string vehicleColor,
-        string vehiclePlate, string? vehicleImagePath)
+        string vehiclePlate, string? vehicleImagePath, string? vehicleBackImagePath)
     {
         LicenseNumber = licenseNumber.Trim().ToUpperInvariant();
         LicenseExpiry = licenseExpiry;
@@ -62,6 +65,7 @@ public class DriverProfile
         VehicleColor = vehicleColor.Trim();
         VehiclePlate = NormalisePlate(vehiclePlate);
         if (!string.IsNullOrEmpty(vehicleImagePath)) VehicleImagePath = vehicleImagePath;
+        if (!string.IsNullOrEmpty(vehicleBackImagePath)) VehicleBackImagePath = vehicleBackImagePath;
 
         Status = DriverProfileStatus.Pending;
         RejectionReason = null;

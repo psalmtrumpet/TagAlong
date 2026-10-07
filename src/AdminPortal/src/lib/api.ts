@@ -285,6 +285,7 @@ export interface DriverDetail {
   vehicleColor: string
   vehiclePlate: string
   hasVehicleImage: boolean
+  hasVehicleBackImage: boolean
   submittedAt: string
   reviewedAt: string | null
   documentCheck: { checks: DocumentCheck[]; comparedName?: string | null } | null
