@@ -56,10 +56,6 @@
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
-      },
-      "FileCacheOptions": {
-        "TtlSeconds": 30,
-        "Region": "trips"
       }
     },
     {
