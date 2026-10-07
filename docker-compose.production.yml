@@ -205,6 +205,11 @@ services:
       - QoreId__WebhookSecret=${QOREID_WEBHOOK_SECRET}
       - SmileId__ApiKey=${SMILEID_API_KEY}
       - SmileId__PartnerId=${SMILEID_PARTNER_ID}
+      # Reads driver licence / vehicle photos (optional — skipped when empty)
+      - Anthropic__ApiKey=${ANTHROPIC_API_KEY:-}
+    volumes:
+      # KYC selfies and driver documents must survive redeploys
+      - user_uploads:/app/uploads
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -553,3 +558,4 @@ volumes:
   rabbitmq_data:
   waitlist_data:
   redis_data:
+  user_uploads:

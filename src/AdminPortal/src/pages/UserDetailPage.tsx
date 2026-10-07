@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getUserDetail, suspendUser, unsuspendUser, AdminUserDetail } from '../lib/api'
+import AuthImage from '../components/AuthImage'
 
 function Field({ label, value }: { label: string; value?: string | number | null }) {
   return (
@@ -164,15 +165,14 @@ export default function UserDetailPage() {
           <p className="text-sm text-gray-400">No KYC data available for this user.</p>
         )}
 
-        {/* NIN photo */}
-        {user.kycPhotoPath && (
+        {/* Verification selfie (protected — fetched with the admin's login) */}
+        {user.isVerified && (
           <div className="mt-4">
-            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">NIN Photo</div>
-            <img
-              src={`https://www.tlimc.net/${user.kycPhotoPath.replace(/^\/?/, '')}`}
-              alt="NIN photo"
+            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Verification selfie</div>
+            <AuthImage
+              path={`/api/users/${user.authUserId}/photo`}
+              alt="Verification selfie"
               className="w-32 h-32 object-cover rounded-lg border border-gray-200"
-              onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
             />
           </div>
         )}

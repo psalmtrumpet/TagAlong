@@ -55,6 +55,15 @@ public class KycVerification
         JobStartedAt = DateTime.UtcNow;
     }
 
+    /// <summary>The NIN the user entered for this verification.</summary>
+    public void RecordIdNumber(string? nin)
+    {
+        if (!string.IsNullOrWhiteSpace(nin)) NIN = nin.Trim();
+    }
+
+    /// <summary>Stores the selfie captured during verification.</summary>
+    public void AttachPhoto(string photoPath) => PhotoPath = photoPath;
+
     public void Complete(
         string nin,
         string? firstName,

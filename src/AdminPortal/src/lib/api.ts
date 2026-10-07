@@ -246,3 +246,82 @@ export interface WaitlistEntry {
 export async function getWaitlist(): Promise<WaitlistEntry[]> {
   return request('/api/admin/waitlist')
 }
+
+// ── Driver documents ─────────────────────────────────────────────────────────
+
+export interface DriverListItem {
+  authUserId: string
+  name: string
+  email: string
+  phoneNumber: string
+  isVerified: boolean
+  status: 'Pending' | 'Approved' | 'Rejected'
+  vehicle: string
+  vehiclePlate: string
+  submittedAt: string
+  documentCheckFailures: number | null
+  documentsChecked: boolean
+}
+
+export interface DocumentCheck {
+  field: string
+  status: 'pass' | 'warn' | 'fail'
+  detail: string
+}
+
+export interface DriverDetail {
+  authUserId: string
+  name: string | null
+  email: string | null
+  phoneNumber: string | null
+  isVerified: boolean
+  status: 'Pending' | 'Approved' | 'Rejected'
+  rejectionReason: string | null
+  licenseNumber: string
+  licenseExpiry: string | null
+  vehicleType: string
+  vehicleMake: string
+  vehicleModel: string
+  vehicleColor: string
+  vehiclePlate: string
+  hasVehicleImage: boolean
+  submittedAt: string
+  reviewedAt: string | null
+  documentCheck: { checks: DocumentCheck[]; comparedName?: string | null } | null
+  documentCheckedAt: string | null
+}
+
+export async function getDrivers(status = 'Pending'): Promise<DriverListItem[]> {
+  return request(`/api/admin/users/driver-profiles?status=${encodeURIComponent(status)}`)
+}
+
+export async function getDriver(authUserId: string): Promise<DriverDetail> {
+  return request(`/api/admin/users/driver-profiles/${authUserId}`)
+}
+
+export async function approveDriver(authUserId: string): Promise<void> {
+  await request(`/api/admin/users/driver-profiles/${authUserId}/approve`, { method: 'POST' })
+}
+
+export async function rejectDriver(authUserId: string, reason: string): Promise<void> {
+  await request(`/api/admin/users/driver-profiles/${authUserId}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
+}
+
+export async function recheckDriver(authUserId: string): Promise<DriverDetail> {
+  return request(`/api/admin/users/driver-profiles/${authUserId}/recheck`, { method: 'POST' })
+}
+
+export async function backfillKycPhotos(): Promise<{ verifiedUsers: number; withPhoto: number; noPhotoAvailable: number }> {
+  return request('/api/admin/users/kyc-photos/backfill', { method: 'POST' })
+}
+
+/** Fetches a protected image with the admin's token; returns an object URL (or null). */
+export async function fetchImage(path: string): Promise<string | null> {
+  const token = getToken()
+  const res = await fetch(`${BASE}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+  if (!res.ok) return null
+  return URL.createObjectURL(await res.blob())
+}

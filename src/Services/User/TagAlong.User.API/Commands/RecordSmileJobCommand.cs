@@ -73,6 +73,9 @@ public class RecordSmileJobCommandHandler : ICommandHandler<RecordSmileJobComman
             await _kycRepo.AddAsync(kyc, cancellationToken);
         }
 
+        // Keep the NIN the user entered — SmileID's result doesn't always echo it back
+        kyc.RecordIdNumber(request.IdNumber);
+
         var cached = await _ninCache.GetByNinAsync(request.IdNumber, cancellationToken);
 
         if (cached != null && (cached.FirstName != null || cached.LastName != null))

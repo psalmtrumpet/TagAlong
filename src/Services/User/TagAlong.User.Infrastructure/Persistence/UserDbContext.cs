@@ -13,6 +13,7 @@ public class UserDbContext : DbContext
     public DbSet<KycVerification> KycVerifications => Set<KycVerification>();
     public DbSet<NinCache> NinCaches => Set<NinCache>();
     public DbSet<SmileWebhookLog> SmileWebhookLogs => Set<SmileWebhookLog>();
+    public DbSet<DriverProfile> DriverProfiles => Set<DriverProfile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -158,6 +159,25 @@ public class UserDbContext : DbContext
             entity.Property(e => e.JobStartedAt);
             entity.Property(e => e.Status).HasConversion<string>();
             entity.HasIndex(e => e.AuthUserId);
+        });
+
+        modelBuilder.Entity<DriverProfile>(entity =>
+        {
+            entity.ToTable("driver_profiles");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.AuthUserId).IsUnique();
+            entity.Property(e => e.LicenseNumber).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.LicenseImagePath).HasMaxLength(512).IsRequired();
+            entity.Property(e => e.VehicleType).HasMaxLength(20).IsRequired();
+            entity.Property(e => e.VehicleMake).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.VehicleModel).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.VehicleColor).HasMaxLength(30).IsRequired();
+            entity.Property(e => e.VehiclePlate).HasMaxLength(20).IsRequired();
+            entity.Property(e => e.VehicleImagePath).HasMaxLength(512);
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.RejectionReason).HasMaxLength(500);
+            entity.Property(e => e.DocumentCheckJson).HasColumnType("nvarchar(max)");
+            entity.Ignore(e => e.IsApproved);
         });
     }
 }

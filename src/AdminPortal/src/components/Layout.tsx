@@ -7,6 +7,7 @@ const nav = [
   { label: 'Users',          path: '/users',         icon: '◉' },
   { label: 'Trips',          path: '/trips',         icon: '◎' },
   { label: 'Conversations',  path: '/conversations', icon: '◐' },
+  { label: 'Drivers',        path: '/drivers',       icon: '◑' },
   { label: 'Waitlist',       path: '/waitlist',      icon: '◫' },
 ]
 

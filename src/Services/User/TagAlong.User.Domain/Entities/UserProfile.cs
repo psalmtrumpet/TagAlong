@@ -137,6 +137,13 @@ public class UserProfile : AggregateRoot
         SetUpdated();
     }
 
+    /// <summary>Links the verification selfie to the profile.</summary>
+    public void AttachVerificationPhoto(string photoPath)
+    {
+        IdentityDocumentUrl = photoPath;
+        SetUpdated();
+    }
+
     public void RejectVerification()
     {
         VerificationStatus = UserVerificationStatus.Rejected;

@@ -79,6 +79,57 @@ public class SmileIdPollService
         }
     }
 
+    /// <summary>
+    /// Asks SmileID for a completed job's image links and returns the URL of the
+    /// selfie the user took during verification, or null if unavailable.
+    /// </summary>
+    public async Task<string?> GetSelfieImageUrlAsync(
+        string jobId, string userId, string apiKey, string partnerId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+            var body = new
+            {
+                partner_id = partnerId,
+                timestamp,
+                signature = ComputeSignature(timestamp, partnerId, apiKey),
+                user_id = userId,
+                job_id = jobId,
+                image_links = true,
+                history = false
+            };
+            using var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+            using var response = await _http.PostAsync(
+                "https://api.smileidentity.com/v1/job_status", content, cancellationToken);
+            var raw = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("SmileID image links failed for job={JobId}: HTTP {Status}", jobId, (int)response.StatusCode);
+                return null;
+            }
+
+            using var doc = JsonDocument.Parse(raw);
+            // job_status returns "image_links" (lower-case) with selfie_image + id_photo_image
+            if (doc.RootElement.TryGetProperty("image_links", out var links) &&
+                links.ValueKind == JsonValueKind.Object &&
+                links.TryGetProperty("selfie_image", out var selfie) &&
+                selfie.ValueKind == JsonValueKind.String &&
+                Uri.TryCreate(selfie.GetString(), UriKind.Absolute, out _))
+            {
+                return selfie.GetString();
+            }
+            _logger.LogInformation("SmileID job={JobId}: no selfie_image link in response", jobId);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SmileID image links request failed for job={JobId}", jobId);
+            return null;
+        }
+    }
+
     private static string ComputeSignature(string timestamp, string partnerId, string apiKey)
     {
         var message = $"{timestamp}{partnerId}sid_request";

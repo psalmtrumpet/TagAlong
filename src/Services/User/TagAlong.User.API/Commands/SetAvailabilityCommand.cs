@@ -2,6 +2,9 @@ using TagAlong.Common.CQRS;
 using TagAlong.Common.Results;
 using TagAlong.User.API.DTOs;
 using TagAlong.User.Domain.Repositories;
+using Microsoft.EntityFrameworkCore;
+using TagAlong.User.Domain.Entities;
+using TagAlong.User.Infrastructure.Persistence;
 
 namespace TagAlong.User.API.Commands;
 
@@ -19,9 +22,11 @@ public record SetAvailabilityCommand(
 public class SetAvailabilityCommandHandler : ICommandHandler<SetAvailabilityCommand, AvailabilityResponse>
 {
     private readonly IUserProfileRepository _userProfileRepository;
+    private readonly UserDbContext _db;
 
-    public SetAvailabilityCommandHandler(IUserProfileRepository userProfileRepository)
+    public SetAvailabilityCommandHandler(IUserProfileRepository userProfileRepository, UserDbContext db)
     {
+        _db = db;
         _userProfileRepository = userProfileRepository;
     }
 
@@ -42,6 +47,13 @@ public class SetAvailabilityCommandHandler : ICommandHandler<SetAvailabilityComm
                 {
                     return Result.Failure<AvailabilityResponse>(Error.Validation("Latitude and Longitude are required when setting availability"));
                 }
+
+                // Taking passengers or packages needs an approved licence + vehicle
+                var driverApproved = await _db.DriverProfiles.AsNoTracking().AnyAsync(
+                    d => d.AuthUserId == request.AuthUserId && d.Status == DriverProfileStatus.Approved, cancellationToken);
+                if (!driverApproved)
+                    return Result.Failure<AvailabilityResponse>(Error.Validation(
+                        "Your driver's licence and vehicle need to be approved before you can go available."));
 
                 var duration = request.DurationMinutes.HasValue
                     ? TimeSpan.FromMinutes(request.DurationMinutes.Value)

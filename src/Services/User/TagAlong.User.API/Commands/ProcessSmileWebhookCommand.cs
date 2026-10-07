@@ -36,6 +36,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
     private readonly IHubContext<LocationHub, ILocationClient> _hub;
     private readonly ISmileWebhookLogRepository _webhookLog;
     private readonly IEventBus _eventBus;
+    private readonly TagAlong.User.API.Services.KycPhotoService _photos;
     private readonly ILogger<ProcessSmileWebhookCommandHandler> _logger;
 
     public ProcessSmileWebhookCommandHandler(
@@ -46,6 +47,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         IHubContext<LocationHub, ILocationClient> hub,
         ISmileWebhookLogRepository webhookLog,
         IEventBus eventBus,
+        TagAlong.User.API.Services.KycPhotoService photos,
         ILogger<ProcessSmileWebhookCommandHandler> logger)
     {
         _kycRepo = kycRepo;
@@ -55,6 +57,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         _hub = hub;
         _webhookLog = webhookLog;
         _eventBus = eventBus;
+        _photos = photos;
         _logger = logger;
     }
 
@@ -74,6 +77,10 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
 
         if (payload == null)
             return Result.Success(new WebhookResult(false, "Empty payload"));
+
+        // Personal info (name, DOB, gender, ID number) isn't always at the top
+        // level of the callback — pick it up wherever it is.
+        FillPersonalInfo(payload, request.RawBody);
 
         // SmileID puts sig+ts in Response-Signature/Response-Timestamp headers; fall back to JSON body fields
         var sigToVerify = !string.IsNullOrEmpty(request.HeaderSignature) ? request.HeaderSignature : payload.Signature;
@@ -224,7 +231,9 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
             return Result.Success(new WebhookResult(true, "Processed: failed"));
         }
 
-        var nin = kyc.NIN ?? payload.IdNumber ?? string.Empty;
+        // NIN is stored when the job is recorded; an empty string must not win over the payload
+        var nin = !string.IsNullOrWhiteSpace(kyc.NIN) ? kyc.NIN!
+            : !string.IsNullOrWhiteSpace(payload.IdNumber) ? payload.IdNumber!.Trim() : string.Empty;
 
         var (resolvedFirst, resolvedLast) = payload.ResolvedName();
 
@@ -267,6 +276,8 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         await PushKycStatusAsync(kyc.AuthUserId, "Verified", null, cancellationToken);
         await LogAsync(jobId, resultCode, kyc.AuthUserId, request.IsJobStatusResult, "verified", request.RawBody, cancellationToken);
         _logger.LogInformation("Smile ID webhook: user {UserId} verified via job {JobId}", kyc.AuthUserId, jobId);
+        // Keep the verification selfie on the profile
+        _photos.CaptureInBackground(kyc.AuthUserId);
 
         return Result.Success(new WebhookResult(true, "Processed: verified"));
     }
@@ -331,6 +342,47 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         {
             return false;
         }
+    }
+
+    private void FillPersonalInfo(SmileWebhookPayload payload, string rawBody)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(rawBody);
+            var found = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            void Walk(JsonElement e, int depth)
+            {
+                if (depth > 4) return;
+                if (e.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var p in e.EnumerateObject())
+                    {
+                        if (p.Value.ValueKind == JsonValueKind.String &&
+                            p.Name is "FullName" or "FirstName" or "LastName" or "MiddleName" or "DOB" or "Gender" or "IDNumber"
+                            && !string.IsNullOrWhiteSpace(p.Value.GetString())
+                            && !found.ContainsKey(p.Name))
+                            found[p.Name] = p.Value.GetString()!.Trim();
+                        else Walk(p.Value, depth + 1);
+                    }
+                }
+            }
+            Walk(doc.RootElement, 0);
+
+            payload.FullName ??= found.GetValueOrDefault("FullName");
+            payload.FirstName ??= found.GetValueOrDefault("FirstName");
+            payload.LastName ??= found.GetValueOrDefault("LastName");
+            payload.MiddleName ??= found.GetValueOrDefault("MiddleName");
+            payload.Dob ??= found.GetValueOrDefault("DOB");
+            payload.Gender ??= found.GetValueOrDefault("Gender");
+            payload.IdNumber ??= found.GetValueOrDefault("IDNumber");
+
+            // Field names only — never log personal values
+            _logger.LogInformation("Smile ID callback fields: top-level [{Keys}], personal info found [{Found}]",
+                doc.RootElement.ValueKind == JsonValueKind.Object
+                    ? string.Join(",", doc.RootElement.EnumerateObject().Select(p => p.Name)) : "",
+                string.Join(",", found.Keys));
+        }
+        catch (JsonException) { }
     }
 
     // ── Webhook payload models ──

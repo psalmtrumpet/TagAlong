@@ -84,6 +84,9 @@ builder.Services.AddScoped<ISmileWebhookLogRepository, SmileWebhookLogRepository
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<TagAlong.User.API.Services.SmileIdPollService>();
 builder.Services.AddSingleton<FileService>();
+// Reads driver licence / vehicle photos with a vision model (needs Anthropic:ApiKey)
+builder.Services.AddSingleton<TagAlong.User.API.Services.DriverDocumentReader>();
+builder.Services.AddSingleton<TagAlong.User.API.Services.KycPhotoService>();
 builder.Services.AddHttpClient();
 
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<GetUserProfileQuery>());

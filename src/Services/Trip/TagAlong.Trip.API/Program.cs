@@ -94,6 +94,8 @@ builder.Services.AddScoped<IDetourVerifier, DetourVerifier>();
 builder.Services.AddMemoryCache();
 builder.Services.AddHostedService<RouteEnrichmentService>();
 builder.Services.AddHostedService<TripExpiryService>();
+// user-api: checks a driver's licence/vehicle approval before they can post trips
+builder.Services.AddHttpClient("user-api", c => c.BaseAddress = new Uri(builder.Configuration["ServiceUrls:UserApi"] ?? "http://user-api/"));
 builder.Services.AddScoped<TripBookingsChangedIntegrationEventHandler>();
 
 builder.Services.AddScoped<ITripRepository, TripRepository>();

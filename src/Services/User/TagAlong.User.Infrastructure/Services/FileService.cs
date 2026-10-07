@@ -38,6 +38,21 @@ public class FileService
     }
 
     /// <summary>
+    /// Maps a stored relative path ("uploads/folder/file.jpg") to its file on
+    /// disk, or null if it's missing or escapes the uploads folder.
+    /// </summary>
+    public string? ResolvePath(string? relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath)) return null;
+        var rel = relativePath.Replace('\\', '/').TrimStart('/');
+        if (rel.StartsWith("uploads/")) rel = rel["uploads/".Length..];
+        var full = Path.GetFullPath(Path.Combine(_uploadsRoot, rel));
+        var root = Path.GetFullPath(_uploadsRoot) + Path.DirectorySeparatorChar;
+        if (!full.StartsWith(root, StringComparison.Ordinal)) return null;
+        return File.Exists(full) ? full : null;
+    }
+
+    /// <summary>
     /// Downloads an image from a URL and saves to disk. Returns the relative path.
     /// </summary>
     public async Task<string?> SaveFromUrlAsync(HttpClient http, string imageUrl, string folder, string filename)

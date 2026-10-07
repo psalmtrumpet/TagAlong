@@ -13,9 +13,11 @@ namespace TagAlong.Trip.API.Controllers;
 public class TripsController : ControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly IHttpClientFactory _http;
 
-    public TripsController(IMediator mediator)
+    public TripsController(IMediator mediator, IHttpClientFactory http)
     {
+        _http = http;
         _mediator = mediator;
     }
 
@@ -99,6 +101,10 @@ public class TripsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
+
+        // Offering rides or deliveries needs an admin-approved licence + vehicle
+        if (!await IsApprovedDriverAsync(userId.Value, cancellationToken))
+            return BadRequest(new { error = "Your driver's licence and vehicle need to be approved before you can offer rides or deliveries." });
 
         var command = new CreateTripCommand(
             userId.Value,
@@ -239,6 +245,26 @@ public class TripsController : ControllerBase
             vehicleType = trip.VehicleType,
             departureTime = trip.DepartureTime
         });
+    }
+
+    /// <summary>Asks user-api (as the caller) whether their driver profile is approved.</summary>
+    private async Task<bool> IsApprovedDriverAsync(Guid userId, CancellationToken ct)
+    {
+        try
+        {
+            var client = _http.CreateClient("user-api");
+            using var req = new HttpRequestMessage(HttpMethod.Get, $"api/users/driver-profile/{userId}/vehicle");
+            if (Request.Headers.Authorization.ToString() is { Length: > 0 } auth)
+                req.Headers.TryAddWithoutValidation("Authorization", auth);
+            using var res = await client.SendAsync(req, ct);
+            if (!res.IsSuccessStatusCode) return false;
+            using var doc = System.Text.Json.JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct));
+            return doc.RootElement.TryGetProperty("approved", out var a) && a.GetBoolean();
+        }
+        catch
+        {
+            return false; // can't confirm → don't let an unapproved driver through
+        }
     }
 
     private Guid? GetCurrentUserId()
