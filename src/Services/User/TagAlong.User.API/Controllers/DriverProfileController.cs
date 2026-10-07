@@ -97,6 +97,11 @@ public class DriverProfileController : ControllerBase
 
         var profile = await _db.DriverProfiles.FirstOrDefaultAsync(x => x.AuthUserId == userId, ct);
         var isNew = profile == null;
+        // Only a new or rejected submission can be changed
+        if (profile?.Status == DriverProfileStatus.Pending)
+            return BadRequest(new { error = "Your details are being reviewed and can't be changed until the review is done." });
+        if (profile?.Status == DriverProfileStatus.Approved)
+            return BadRequest(new { error = "Your driver details are approved and can't be changed." });
         if (isNew && string.IsNullOrWhiteSpace(req.LicenseImageBase64))
             return BadRequest(new { error = "Add a photo of your driver's licence." });
         if (profile?.VehicleImagePath == null && string.IsNullOrWhiteSpace(req.VehicleImageBase64))
