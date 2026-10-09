@@ -171,7 +171,9 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
             MeetName: conversation.MeetName,
             DropLat: conversation.DropLat,
             DropLng: conversation.DropLng,
-            DropName: conversation.DropName);
+            DropName: conversation.DropName,
+            PlatformFee: conversation.PlatformFee,
+            DriverEarning: conversation.DriverEarning);
     }
 
     private static string? Trim(string? s) =>

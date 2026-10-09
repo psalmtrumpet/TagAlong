@@ -21,6 +21,58 @@ public class ConversationsController : ControllerBase
         _mediator = mediator;
     }
 
+    /// <summary>The signed-in driver's earnings from completed rides, with a per-ride breakdown.</summary>
+    [HttpGet("earnings")]
+    [ProducesResponseType(typeof(EarningsDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyEarnings(
+        [FromServices] TagAlong.Messaging.Infrastructure.Persistence.MessagingDbContext db,
+        [FromServices] IConfiguration config,
+        [FromServices] TagAlong.Messaging.API.Services.IUserLookupService users,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var raw = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+            db.Conversations
+                .Where(c => c.TravelerId == userId.Value && c.DeliveredAt != null && c.AgreedPrice != null)
+                .OrderByDescending(c => c.DeliveredAt)
+                .Select(c => new
+                {
+                    c.Id,
+                    c.SenderId,
+                    CompletedAt = c.DeliveredAt!.Value,
+                    From = c.MeetName ?? c.PickupAddress,
+                    To = c.DropName ?? c.PassengerDestAddress,
+                    Fare = c.AgreedPrice!.Value,
+                    Fee = c.PlatformFee ?? 0,
+                    Earning = c.DriverEarning ?? c.AgreedPrice!.Value,
+                    c.IsDelivery,
+                }),
+            cancellationToken);
+
+        // Passenger names for the most recent rides
+        var names = new Dictionary<Guid, string?>();
+        foreach (var id in raw.Take(100).Select(r => r.SenderId).Distinct())
+            names[id] = await users.GetDisplayNameAsync(id, cancellationToken);
+        var rides = raw.Select(r => new RideEarningDto(
+            r.Id, r.CompletedAt, names.GetValueOrDefault(r.SenderId), r.From, r.To, r.Fare, r.Fee, r.Earning, r.IsDelivery)).ToList();
+
+        // Week starts Monday (Lagos time ≈ UTC+1)
+        var now = DateTime.UtcNow.AddHours(1);
+        var weekStart = now.Date.AddDays(-(((int)now.DayOfWeek + 6) % 7)).AddHours(-1);
+        var monthStart = new DateTime(now.Year, now.Month, 1).AddHours(-1);
+        static EarningsTotalsDto Sum(IEnumerable<RideEarningDto> r) =>
+            new(r.Count(), r.Sum(x => x.Fare), r.Sum(x => x.PlatformFee), r.Sum(x => x.Earning));
+
+        return Ok(new EarningsDto(
+            Sum(rides),
+            Sum(rides.Where(r => r.CompletedAt >= weekStart)),
+            Sum(rides.Where(r => r.CompletedAt >= monthStart)),
+            MarkDeliveredCommandHandler.RideFlatFee(config),
+            rides.Take(100).ToList()));
+    }
+
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<ConversationDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMyConversations(

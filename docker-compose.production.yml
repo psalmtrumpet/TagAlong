@@ -391,6 +391,8 @@ services:
       dockerfile: src/Services/Messaging/TagAlong.Messaging.API/Dockerfile
     container_name: tagalong-messaging-api
     environment:
+      # TagAlong's flat fee per completed ride, in naira
+      - Earnings__RideFlatFee=${RIDE_PLATFORM_FEE:-200}
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__DefaultConnection=${MESSAGING_DB_CONNECTION}

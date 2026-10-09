@@ -41,6 +41,8 @@ public class MessagingDbContext : DbContext
             entity.Property(c => c.RecipientUserId).HasColumnName("recipient_user_id");
             entity.Property(c => c.RecipientName).HasColumnName("recipient_name").HasMaxLength(200);
             entity.Property(c => c.AgreedPrice).HasColumnName("agreed_price").HasColumnType("decimal(18,2)");
+            entity.Property(c => c.PlatformFee).HasColumnName("platform_fee").HasColumnType("decimal(18,2)");
+            entity.Property(c => c.DriverEarning).HasColumnName("driver_earning").HasColumnType("decimal(18,2)");
             entity.Property(c => c.LockInProposedBy).HasColumnName("lock_in_proposed_by");
             entity.Property(c => c.StartedAt).HasColumnName("started_at");
             entity.Property(c => c.DeliveredAt).HasColumnName("delivered_at");

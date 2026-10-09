@@ -35,7 +35,9 @@ internal static class ConversationDtoMapper
         MeetName: c.MeetName,
         DropLat: c.DropLat,
         DropLng: c.DropLng,
-        DropName: c.DropName);
+        DropName: c.DropName,
+        PlatformFee: c.PlatformFee,
+        DriverEarning: c.DriverEarning);
 }
 
 internal static class MessageDtoMapper

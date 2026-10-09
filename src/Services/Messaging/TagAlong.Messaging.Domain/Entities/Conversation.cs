@@ -18,6 +18,11 @@ public class Conversation : AggregateRoot
     public double? DropLat { get; private set; }
     public double? DropLng { get; private set; }
     public string? DropName { get; private set; }
+    // Set when the ride is completed: the fare (AgreedPrice) splits into
+    // TagAlong's fee and what the driver earns. Fixed at completion so a later
+    // fee change doesn't rewrite past rides.
+    public decimal? PlatformFee { get; private set; }
+    public decimal? DriverEarning { get; private set; }
     public Guid SenderId { get; private set; }
     public Guid TravelerId { get; private set; }
     public Guid? RecipientUserId { get; private set; }
@@ -144,13 +149,19 @@ public class Conversation : AggregateRoot
         SetUpdated();
     }
 
-    public void MarkDelivered()
+    /// <param name="platformFee">TagAlong's flat fee for this ride (never more than the fare).</param>
+    public void MarkDelivered(decimal platformFee = 0)
     {
         if (Status != ConversationStatus.InProgress)
             throw new InvalidOperationException("Can only mark an in-progress trip as delivered");
 
         Status = ConversationStatus.Closed;
         DeliveredAt = DateTime.UtcNow;
+        if (AgreedPrice is { } fare)
+        {
+            PlatformFee = Math.Clamp(platformFee, 0, fare);
+            DriverEarning = fare - PlatformFee;
+        }
         SetUpdated();
     }
 

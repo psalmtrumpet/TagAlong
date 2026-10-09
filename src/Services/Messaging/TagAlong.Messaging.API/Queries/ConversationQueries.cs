@@ -93,7 +93,9 @@ public class GetConversationByIdQueryHandler : IQueryHandler<GetConversationById
             conversation.MeetName,
             conversation.DropLat,
             conversation.DropLng,
-            conversation.DropName);
+            conversation.DropName,
+            conversation.PlatformFee,
+            conversation.DriverEarning);
     }
 }
 
@@ -191,7 +193,9 @@ public class GetUserConversationsQueryHandler : IQueryHandler<GetUserConversatio
             conversation.MeetName,
             conversation.DropLat,
             conversation.DropLng,
-            conversation.DropName);
+            conversation.DropName,
+            conversation.PlatformFee,
+            conversation.DriverEarning);
     }
 }
 

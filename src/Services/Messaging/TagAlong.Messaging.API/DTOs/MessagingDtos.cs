@@ -32,7 +32,9 @@ public record ConversationDto(
     string? MeetName = null,
     double? DropLat = null,
     double? DropLng = null,
-    string? DropName = null);
+    string? DropName = null,
+    decimal? PlatformFee = null,
+    decimal? DriverEarning = null);
 
 public record MessageDto(
     Guid Id,
@@ -73,6 +75,28 @@ public record SetMeetPointsRequest(
     double? DropLat = null,
     double? DropLng = null,
     string? DropName = null);
+
+/// <summary>One completed ride in a driver's earnings.</summary>
+public record RideEarningDto(
+    Guid ConversationId,
+    DateTime CompletedAt,
+    string? PassengerName,
+    string? From,
+    string? To,
+    decimal Fare,
+    decimal PlatformFee,
+    decimal Earning,
+    bool IsDelivery);
+
+public record EarningsTotalsDto(int Rides, decimal Fares, decimal PlatformFees, decimal Earnings);
+
+/// <summary>A driver's earnings: totals for all time, this week and this month, plus recent rides.</summary>
+public record EarningsDto(
+    EarningsTotalsDto AllTime,
+    EarningsTotalsDto ThisWeek,
+    EarningsTotalsDto ThisMonth,
+    decimal CurrentPlatformFee,
+    List<RideEarningDto> Rides);
 
 public record SendMessageRequest(
     string Content);

@@ -23,13 +23,22 @@ public class MarkDeliveredCommandHandler : ICommandHandler<MarkDeliveredCommand,
         IConversationRepository conversationRepository,
         IMessageRepository messageRepository,
         IHubContext<MessagingHub, IMessagingClient> hubContext,
-        IEventBus eventBus)
+        IEventBus eventBus,
+        IConfiguration config)
     {
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
         _hubContext = hubContext;
         _eventBus = eventBus;
+        _config = config;
     }
+
+    private readonly IConfiguration _config;
+
+    /// <summary>TagAlong's flat fee per ride (Earnings:RideFlatFee, default ₦200).</summary>
+    public static decimal RideFlatFee(IConfiguration config) =>
+        decimal.TryParse(config["Earnings:RideFlatFee"], System.Globalization.NumberStyles.Number,
+            System.Globalization.CultureInfo.InvariantCulture, out var fee) && fee >= 0 ? fee : 200m;
 
     public async Task<Result<ConversationDto>> Handle(MarkDeliveredCommand request, CancellationToken cancellationToken)
     {
@@ -40,7 +49,7 @@ public class MarkDeliveredCommandHandler : ICommandHandler<MarkDeliveredCommand,
         if (conversation.TravelerId != request.UserId)
             return Result.Failure<ConversationDto>(Error.Unauthorized("Only the traveler can mark as delivered"));
 
-        conversation.MarkDelivered();
+        conversation.MarkDelivered(RideFlatFee(_config));
         _conversationRepository.Update(conversation);
 
         var msg = Message.CreateDelivered(request.ConversationId, request.UserId);
