@@ -26,6 +26,12 @@ public record PriceAcceptedIntegrationEvent(
     decimal AcceptedPrice,
     DateTime AcceptedAt) : IntegrationEvent;
 
+/// <summary>The car is close to a riding passenger's drop-off — "your stop is next".</summary>
+public record PassengerStopNextIntegrationEvent(
+    Guid ConversationId,
+    Guid PassengerId,
+    string StopName) : IntegrationEvent;
+
 public record DriverApproachingIntegrationEvent(
     Guid ConversationId,
     Guid PassengerId,

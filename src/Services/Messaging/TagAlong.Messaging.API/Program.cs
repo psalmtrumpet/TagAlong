@@ -125,6 +125,7 @@ builder.Services.AddRabbitMQEventBus(
     "messaging-service-queue");
 
 // Integration event handlers
+builder.Services.AddMemoryCache();
 builder.Services.AddScoped<TripStatusChangedIntegrationEventHandler>();
 
 // JWT Authentication
