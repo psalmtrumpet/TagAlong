@@ -14,26 +14,30 @@ public record MeetPointDto(double Latitude, double Longitude, string Name, strin
 
 /// <summary>
 /// Finds meet points for a passenger that keep the driver on their own route —
-/// no detours. Candidates are bus stops right beside the route (OpenStreetMap)
+/// no detours. Candidates are bus stops right beside the route (Google Places,
+/// OpenStreetMap as a backup)
 /// and junctions the route passes through (OSRM turn-by-turn), plus the closest
 /// point on the route itself as a fallback. Closest to the passenger first.
 /// </summary>
 public class MeetPointService
 {
-    private const double OnRouteMeters = 40;     // a bus stop counts as "on the route" within this
+    private const double OnRouteMeters = 50;     // a bus stop counts as "on the route" within this
     private const double SearchRadiusMeters = 1500;
     private const int MaxResults = 6;
 
     private readonly IHttpClientFactory _http;
     private readonly IMemoryCache _cache;
     private readonly IDbContextFactory<TripDbContext> _dbFactory;
+    private readonly IConfiguration _config;
     private readonly ILogger<MeetPointService> _logger;
 
-    public MeetPointService(IHttpClientFactory http, IMemoryCache cache, IDbContextFactory<TripDbContext> dbFactory, ILogger<MeetPointService> logger)
+    public MeetPointService(IHttpClientFactory http, IMemoryCache cache, IDbContextFactory<TripDbContext> dbFactory,
+        IConfiguration config, ILogger<MeetPointService> logger)
     {
         _http = http;
         _cache = cache;
         _dbFactory = dbFactory;
+        _config = config;
         _logger = logger;
     }
 
@@ -152,24 +156,72 @@ public class MeetPointService
         }
     }
 
-    // ── Bus stops (OpenStreetMap) ──────────────────────────────────────────
+    // ── Bus stops (Google Places, OpenStreetMap as a backup) ───────────────
 
     private async Task<List<(double Lat, double Lng, string Name)>> BusStopsAsync(double lat, double lng, CancellationToken ct)
     {
         var key = $"stops:{Math.Round(lat, 3)}:{Math.Round(lng, 3)}";
         if (_cache.TryGetValue(key, out List<(double, double, string)>? cached)) return cached!;
 
+        var stops = await GoogleBusStopsAsync(lat, lng, ct) ?? await OsmBusStopsAsync(lat, lng, ct);
+        // Cache a real answer for half a day; a failed lookup only briefly
+        _cache.Set(key, stops ?? new List<(double, double, string)>(), stops == null ? TimeSpan.FromMinutes(5) : TimeSpan.FromHours(12));
+        return stops ?? new List<(double, double, string)>();
+    }
+
+    /// <summary>Null when Google isn't configured or the lookup failed.</summary>
+    private async Task<List<(double Lat, double Lng, string Name)>?> GoogleBusStopsAsync(double lat, double lng, CancellationToken ct)
+    {
+        var apiKey = _config["GoogleMaps:ApiKey"];
+        if (string.IsNullOrWhiteSpace(apiKey)) return null;
+        try
+        {
+            var c = CultureInfo.InvariantCulture;
+            var url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json" +
+                      $"?location={lat.ToString(c)},{lng.ToString(c)}&radius={SearchRadiusMeters.ToString(c)}&type=bus_station&key={apiKey}";
+            using var res = await _http.CreateClient("osrm").GetAsync(url, ct);
+            if (!res.IsSuccessStatusCode) return null;
+            using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct));
+            var status = doc.RootElement.GetProperty("status").GetString();
+            if (status is not ("OK" or "ZERO_RESULTS"))
+            {
+                _logger.LogWarning("Meet points: Google Places said {Status}", status);
+                return null;
+            }
+            var stops = new List<(double Lat, double Lng, string Name)>();
+            foreach (var r in doc.RootElement.GetProperty("results").EnumerateArray())
+            {
+                var loc = r.GetProperty("geometry").GetProperty("location");
+                var name = r.TryGetProperty("name", out var n) ? n.GetString()?.Trim() : null;
+                if (string.IsNullOrWhiteSpace(name)) name = "Bus stop";
+                else if (!name.Contains("stop", StringComparison.OrdinalIgnoreCase) && !name.Contains("park", StringComparison.OrdinalIgnoreCase))
+                    name += " bus stop";
+                stops.Add((loc.GetProperty("lat").GetDouble(), loc.GetProperty("lng").GetDouble(), name));
+            }
+            return stops;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Meet points: Google bus stop lookup failed");
+            return null;
+        }
+    }
+
+    private async Task<List<(double Lat, double Lng, string Name)>?> OsmBusStopsAsync(double lat, double lng, CancellationToken ct)
+    {
         var stops = new List<(double Lat, double Lng, string Name)>();
         try
         {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(TimeSpan.FromSeconds(5));
             var c = CultureInfo.InvariantCulture;
             var around = $"around:{SearchRadiusMeters.ToString(c)},{lat.ToString(c)},{lng.ToString(c)}";
             var query = $"[out:json][timeout:15];(node[\"highway\"=\"bus_stop\"]({around});node[\"public_transport\"=\"platform\"]({around}););out body;";
             using var res = await _http.CreateClient("overpass").PostAsync("https://overpass-api.de/api/interpreter",
-                new FormUrlEncodedContent(new Dictionary<string, string> { ["data"] = query }), ct);
-            if (res.IsSuccessStatusCode)
+                new FormUrlEncodedContent(new Dictionary<string, string> { ["data"] = query }), timeout.Token);
+            if (!res.IsSuccessStatusCode) return null;
             {
-                using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct));
+                using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(timeout.Token));
                 foreach (var e in doc.RootElement.GetProperty("elements").EnumerateArray())
                 {
                     var name = e.TryGetProperty("tags", out var tags) && tags.TryGetProperty("name", out var n) ? n.GetString() : null;
@@ -180,9 +232,9 @@ public class MeetPointService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Meet points: bus stop lookup failed");
+            _logger.LogWarning(ex, "Meet points: OpenStreetMap bus stop lookup failed");
+            return null;
         }
-        _cache.Set(key, stops, TimeSpan.FromHours(12));
         return stops;
     }
 
