@@ -20,7 +20,7 @@ public class CreateTripCommandValidator : AbstractValidator<CreateTripCommand>
         RuleFor(x => x.AvailableCapacity)
             .GreaterThanOrEqualTo(0).LessThanOrEqualTo(10000);
         RuleFor(x => x.MaxPackages).GreaterThanOrEqualTo(0).LessThanOrEqualTo(100);
-        RuleFor(x => x.VehiclePlateNumber).MaximumLength(20).When(x => x.VehiclePlateNumber != null);
+        RuleFor(x => x.VehiclePlateNumber).MaximumLength(100).When(x => x.VehiclePlateNumber != null);
         RuleFor(x => x.Notes).MaximumLength(500).When(x => x.Notes != null);
         RuleFor(x => x.TripType).Must(t => t == "Passenger" || t == "Delivery")
             .WithMessage("TripType must be 'Passenger' or 'Delivery'");
