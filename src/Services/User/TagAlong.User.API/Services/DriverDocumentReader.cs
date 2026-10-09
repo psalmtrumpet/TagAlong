@@ -12,15 +12,15 @@ namespace TagAlong.User.API.Services;
 /// Reads a driver's licence photo and vehicle photo with a Claude vision model,
 /// then compares what it read with what the driver typed and with their
 /// verified (NIN) name. The result is stored on the driver profile to help the
-/// admin review. A fresh submission is scored 0–100 from those checks:
-/// 90+ with every key check passing is approved automatically, below 60 is
-/// rejected automatically (the driver is told what to fix), and anything in
-/// between waits for an admin.
+/// admin review. A fresh submission is approved automatically when the licence
+/// is a Nigerian driver's licence with the driver's name, an address and a
+/// valid expiry date, and the vehicle's make, colour and plate match what was
+/// entered. Otherwise it's scored 0–100: below 60 is rejected automatically
+/// (the driver is told what to fix) and anything else waits for an admin.
 /// </summary>
 public class DriverDocumentReader
 {
     private const string Model = "claude-opus-5-5";
-    private const int ApproveAt = 90;
     private const int RejectBelow = 60;
     // camelCase like the rest of the API, so the admin portal can read it
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -86,7 +86,7 @@ public class DriverDocumentReader
             return;
         }
 
-        var extracted = await ExtractAsync(licenseFile, frontFile, backFile, ct);
+        var extracted = await ExtractAsync(licenseFile!, frontFile, backFile, ct);
         if (extracted == null) return;
 
         // Names to compare against: verified NIN name first, then profile name
@@ -101,17 +101,19 @@ public class DriverDocumentReader
         var fails = checks.Count(c => c.Status == "fail");
         var score = Score(extracted.Value, checks);
 
-        // 90+ and every key check passing → approve; under 60 → reject; else an admin decides
+        // Approval rules met → approve; under 60 → reject; otherwise an admin decides.
+        // A re-read can also overturn an automatic rejection (never an admin's).
         var decision = "review";
         var problems = new List<string>();
-        if (autoDecide && driver.Status == DriverProfileStatus.Pending)
+        var autoRejected = driver.Status == DriverProfileStatus.Rejected && driver.ReviewedBy == null;
+        if (autoDecide && (driver.Status == DriverProfileStatus.Pending || autoRejected))
         {
-            if (score >= ApproveAt && AllKeyChecksPass(extracted.Value, checks))
+            if (MeetsApprovalRules(checks))
             {
                 decision = "approved";
                 driver.ApproveAutomatically();
             }
-            else if (score < RejectBelow)
+            else if (driver.Status == DriverProfileStatus.Pending && score < RejectBelow)
             {
                 decision = "rejected";
                 problems = DriverProblems(extracted.Value, checks);
@@ -162,8 +164,9 @@ public class DriverDocumentReader
             Text = """
                 Read these Nigerian ride-sharing driver documents for a human reviewer.
                 From the licence: say whether it is actually a driver's licence, and copy the
-                licence number, the holder's full name, and the expiry date (YYYY-MM-DD) exactly
-                as printed. From the vehicle photos: copy the number plate on the front and the
+                licence number, the holder's full name, the holder's address and the expiry date
+                (YYYY-MM-DD) exactly as printed. Say whether the card's title shows both
+                "Federal Republic of Nigeria" and "Driver's Licence" (nigerianTitle). From the vehicle photos: copy the number plate on the front and the
                 number plate on the back exactly as printed, give the vehicle's colour and make
                 if you can tell, and say whether the front and back photos show the same vehicle
                 (null if you can't tell or a photo is missing).
@@ -234,12 +237,14 @@ public class DriverDocumentReader
                 {
                     ["type"] = "object",
                     ["additionalProperties"] = false,
-                    ["required"] = new[] { "isDriversLicence", "licenceNumber", "holderName", "expiryDate" },
+                    ["required"] = new[] { "isDriversLicence", "nigerianTitle", "licenceNumber", "holderName", "address", "expiryDate" },
                     ["properties"] = new Dictionary<string, object>
                     {
                         ["isDriversLicence"] = new { type = "boolean" },
+                        ["nigerianTitle"] = new { type = "boolean" },
                         ["licenceNumber"] = nullableString,
                         ["holderName"] = nullableString,
+                        ["address"] = nullableString,
                         ["expiryDate"] = nullableString,
                     },
                 },
@@ -315,6 +320,15 @@ public class DriverDocumentReader
                 ? new("Expiry", "fail", $"Licence expired on {exp:dd MMM yyyy}.")
                 : new("Expiry", "pass", $"Valid until {exp:dd MMM yyyy}."));
 
+        checks.Add(lic.TryGetProperty("nigerianTitle", out var title) && title.ValueKind == JsonValueKind.True
+            ? new("Licence title", "pass", "Shows Federal Republic of Nigeria and Driver's Licence.")
+            : new("Licence title", "warn", "Couldn't see Federal Republic of Nigeria / Driver's Licence on the card."));
+
+        var address = Str(lic, "address");
+        checks.Add(address != null
+            ? new("Address", "pass", $"Address shown: {address}.")
+            : new("Address", "warn", "Couldn't read an address on the licence."));
+
         PlateCheck("Front plate", d.VehicleImagePath != null, Str(veh, "frontPlate"));
         PlateCheck("Back plate", d.VehicleBackImagePath != null, Str(veh, "backPlate"));
 
@@ -329,8 +343,18 @@ public class DriverDocumentReader
         if (d.VehicleImagePath != null || d.VehicleBackImagePath != null)
         {
             var colour = Str(veh, "colour");
-            if (colour != null && !Words(colour).Intersect(Words(d.VehicleColor)).Any())
-                checks.Add(new("Colour", "warn", $"Photo looks {colour}, driver entered {d.VehicleColor}."));
+            checks.Add(colour == null
+                ? new("Colour", "warn", "Couldn't tell the vehicle's colour.")
+                : Words(colour).Intersect(Words(d.VehicleColor)).Any()
+                    ? new("Colour", "pass", $"Matches what the driver entered ({d.VehicleColor}).")
+                    : new("Colour", "warn", $"Photo looks {colour}, driver entered {d.VehicleColor}."));
+
+            var make = Str(veh, "make");
+            checks.Add(make == null
+                ? new("Make", "warn", "Couldn't tell the vehicle's make.")
+                : Words(make).Intersect(Words(d.VehicleMake)).Any()
+                    ? new("Make", "pass", $"Matches what the driver entered ({d.VehicleMake}).")
+                    : new("Make", "fail", $"Photo looks like a {make}, driver entered {d.VehicleMake}."));
         }
 
         void PlateCheck(string field, bool uploaded, string? read)
@@ -368,6 +392,7 @@ public class DriverDocumentReader
                 ("Vehicle", "fail") => 50,
                 ("Licence number", "fail") => 40,
                 ("Name", "fail") => 40,
+                ("Make", "fail") => 30,
                 ("Front plate", "fail") or ("Back plate", "fail") or ("Plates", "fail") => 35,
                 ("Front plate", "warn") or ("Back plate", "warn") => 15,
                 (_, "warn") when c.Field != "Photo" && c.Field != "Colour" => 10,
@@ -387,14 +412,16 @@ public class DriverDocumentReader
         return Math.Clamp(score, 0, 100);
     }
 
-    /// <summary>Approve only when every photo is usable and every key detail was read and matches.</summary>
-    private static bool AllKeyChecksPass(JsonElement x, List<Check> checks)
+    /// <summary>
+    /// Approve when the licence is a Nigerian driver's licence with the driver's
+    /// name, an address and a valid expiry, and the vehicle's make, colour and
+    /// plate (front and back) match — with nothing contradicting it (e.g. a
+    /// licence number that was read but doesn't match). Blur alone doesn't block it.
+    /// </summary>
+    private static bool MeetsApprovalRules(List<Check> checks)
     {
         if (checks.Any(c => c.Status == "fail")) return false;
-        if (!x.TryGetProperty("photosUsable", out var u)
-            || !Is(u, "licence", JsonValueKind.True) || !Is(u, "vehicleFront", JsonValueKind.True) || !Is(u, "vehicleBack", JsonValueKind.True))
-            return false;
-        string[] mustPass = { "Licence number", "Name", "Expiry", "Front plate", "Back plate" };
+        string[] mustPass = { "Name", "Expiry", "Licence title", "Address", "Make", "Colour", "Front plate", "Back plate" };
         return mustPass.All(f => checks.Any(c => c.Field == f && c.Status == "pass"));
     }
 

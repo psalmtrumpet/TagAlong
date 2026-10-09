@@ -137,9 +137,11 @@ public class AdminDriverProfilesController : ControllerBase
     [HttpPost("{authUserId:guid}/recheck")]
     public async Task<IActionResult> Recheck(Guid authUserId, CancellationToken ct)
     {
-        // Still waiting for review → let the score decide, as for a new upload
-        var pending = await _db.DriverProfiles.AnyAsync(x => x.AuthUserId == authUserId && x.Status == DriverProfileStatus.Pending, ct);
-        await _reader.ReadAsync(authUserId, ct, autoDecide: pending);
+        // Waiting for review, or rejected automatically → decide again as for a new upload
+        // (an admin's own decision is never overturned)
+        var redecide = await _db.DriverProfiles.AnyAsync(x => x.AuthUserId == authUserId
+            && (x.Status == DriverProfileStatus.Pending || (x.Status == DriverProfileStatus.Rejected && x.ReviewedBy == null)), ct);
+        await _reader.ReadAsync(authUserId, ct, autoDecide: redecide);
         return await Get(authUserId, ct);
     }
 

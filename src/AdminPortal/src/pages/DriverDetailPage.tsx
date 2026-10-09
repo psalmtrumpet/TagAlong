@@ -145,8 +145,9 @@ export default function DriverDetailPage() {
             </ul>
           )}
           <p className="text-xs text-gray-400 mt-3">
-            Read by AI. 90+ with every key check passing is approved automatically, under 60 is rejected
-            automatically, and anything between waits for you. You can still approve, reject or revoke.
+            Read by AI. Approved automatically when the licence is Nigerian with the driver's name, an address and a
+            valid expiry, and the make, colour and plates match. Under 60 is rejected automatically; anything else waits
+            for you. "Read again" can overturn an automatic rejection. You can always approve, reject or revoke.
           </p>
         </div>
       </div>
