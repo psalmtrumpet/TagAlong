@@ -110,6 +110,7 @@ builder.Services.AddHttpClient("overpass", c =>
     c.DefaultRequestHeaders.UserAgent.ParseAdd("TagAlong/1.0 (+https://tlimc.net)");
 });
 builder.Services.AddScoped<MeetPointService>();
+builder.Services.AddScoped<RouteOptionsService>();
 
 builder.Services.AddScoped<ITripRouteService, TripRouteService>();
 builder.Services.AddScoped<IDetourVerifier, DetourVerifier>();

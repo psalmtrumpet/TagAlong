@@ -25,7 +25,9 @@ public record CreateTripCommand(
     int MaxPackages,
     List<TripStopRequest>? Stops,
     int? PassengerCapacity = null,
-    string TripType = "Passenger") : ICommand<TripResponse>;
+    string TripType = "Passenger",
+    string? RoutePolyline = null,
+    int? RouteDurationSeconds = null) : ICommand<TripResponse>;
 
 public class CreateTripCommandHandler : ICommandHandler<CreateTripCommand, TripResponse>
 {
@@ -86,12 +88,28 @@ public class CreateTripCommandHandler : ICommandHandler<CreateTripCommand, TripR
             }
         }
 
+        // The route the driver picked — the roads they'll actually drive
+        var hasChosenRoute = false;
+        if (!string.IsNullOrWhiteSpace(request.RoutePolyline))
+        {
+            try
+            {
+                trip.SetRoute(PolylineDecoder.Simplify(PolylineDecoder.Decode(request.RoutePolyline), 400),
+                    request.RouteDurationSeconds ?? 0);
+                hasChosenRoute = true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Ignoring an invalid route polyline for a new trip");
+            }
+        }
+
         await _tripRepository.AddAsync(trip, cancellationToken);
         await _tripRepository.SaveChangesAsync(cancellationToken);
 
-        // Fire-and-forget: fetch the real route from Google Directions API and store it.
-        // Uses a separate DbContext (via factory) so it doesn't interfere with request lifecycle.
-        _ = Task.Run(() => _routeService.FetchAndStoreRouteAsync(trip.Id));
+        // No route chosen: fetch the fastest one in the background
+        if (!hasChosenRoute)
+            _ = Task.Run(() => _routeService.FetchAndStoreRouteAsync(trip.Id));
 
         try
         {

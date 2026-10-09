@@ -16,7 +16,10 @@ public record CreateTripRequest(
     int MaxPackages,
     int? PassengerCapacity,
     List<TripStopRequest>? Stops,
-    string TripType = "Passenger");
+    string TripType = "Passenger",
+    // The route the driver chose (Google-encoded); fetched automatically when absent
+    string? RoutePolyline = null,
+    int? RouteDurationSeconds = null);
 
 public record TripStopRequest(
     string Location,

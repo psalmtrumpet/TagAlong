@@ -47,6 +47,22 @@ public class TripsController : ControllerBase
     }
 
     /// <summary>
+    /// Route choices between two places (with live traffic when available), so
+    /// the driver can pick the road they'll take. Quickest first.
+    /// </summary>
+    [HttpGet("route-options")]
+    [Authorize]
+    public async Task<IActionResult> GetRouteOptions(
+        [FromQuery] double originLat, [FromQuery] double originLng,
+        [FromQuery] double destLat, [FromQuery] double destLng,
+        [FromQuery] double? viaLat, [FromQuery] double? viaLng, [FromQuery] DateTime? departure,
+        [FromServices] RouteOptionsService routes, CancellationToken cancellationToken)
+    {
+        var options = await routes.GetAsync(originLat, originLng, destLat, destLng, viaLat, viaLng, departure, cancellationToken);
+        return Ok(options);
+    }
+
+    /// <summary>
     /// Where a passenger can be picked up (or, with after=pickup, set down) on
     /// this trip's route without the driver leaving it. Best first.
     /// </summary>
@@ -138,7 +154,9 @@ public class TripsController : ControllerBase
             request.MaxPackages,
             request.Stops,
             request.PassengerCapacity,
-            request.TripType);
+            request.TripType,
+            RoutePolyline: request.RoutePolyline,
+            RouteDurationSeconds: request.RouteDurationSeconds);
 
         var result = await _mediator.Send(command, cancellationToken);
 
