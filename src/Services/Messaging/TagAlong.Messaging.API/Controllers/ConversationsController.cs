@@ -102,7 +102,13 @@ public class ConversationsController : ControllerBase
             request.IsDelivery,
             request.PickupLat,
             request.PickupLng,
-            request.PickupAddress);
+            request.PickupAddress,
+            request.MeetLat,
+            request.MeetLng,
+            request.MeetName,
+            request.DropLat,
+            request.DropLng,
+            request.DropName);
 
         var result = await _mediator.Send(command, cancellationToken);
         if (result.IsFailure)
@@ -243,6 +249,18 @@ public class ConversationsController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
         var result = await _mediator.Send(new RejectLockInCommand(id, userId.Value), cancellationToken);
+        if (result.IsFailure) return BadRequest(new { error = result.Error.Message });
+        return Ok(result.Value);
+    }
+
+    /// <summary>The driver moves the pickup and/or drop-off point (to another spot on their route).</summary>
+    [HttpPut("{id:guid}/meet-points")]
+    [ProducesResponseType(typeof(ConversationDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> SetMeetPoints(Guid id, [FromBody] SetMeetPointsRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+        var result = await _mediator.Send(new SetMeetPointsCommand(id, userId.Value, request), cancellationToken);
         if (result.IsFailure) return BadRequest(new { error = result.Error.Message });
         return Ok(result.Value);
     }

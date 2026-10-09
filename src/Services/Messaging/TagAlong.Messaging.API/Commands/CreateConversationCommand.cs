@@ -25,7 +25,13 @@ public record CreateConversationCommand(
     bool IsDelivery = false,
     double? PickupLat = null,
     double? PickupLng = null,
-    string? PickupAddress = null) : ICommand<ConversationDto>;
+    string? PickupAddress = null,
+    double? MeetLat = null,
+    double? MeetLng = null,
+    string? MeetName = null,
+    double? DropLat = null,
+    double? DropLng = null,
+    string? DropName = null) : ICommand<ConversationDto>;
 
 public class CreateConversationCommandValidator : AbstractValidator<CreateConversationCommand>
 {
@@ -84,7 +90,13 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
             isDelivery: request.IsDelivery,
             pickupLat: request.PickupLat,
             pickupLng: request.PickupLng,
-            pickupAddress: request.PickupAddress);
+            pickupAddress: request.PickupAddress,
+            meetLat: request.MeetLat,
+            meetLng: request.MeetLng,
+            meetName: Trim(request.MeetName),
+            dropLat: request.DropLat,
+            dropLng: request.DropLng,
+            dropName: Trim(request.DropName));
         await _conversationRepository.AddAsync(conversation, cancellationToken);
         await _conversationRepository.SaveChangesAsync(cancellationToken);
 
@@ -153,6 +165,15 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
             IsDelivery: conversation.IsDelivery,
             PickupLat: conversation.PickupLat,
             PickupLng: conversation.PickupLng,
-            PickupAddress: conversation.PickupAddress);
+            PickupAddress: conversation.PickupAddress,
+            MeetLat: conversation.MeetLat,
+            MeetLng: conversation.MeetLng,
+            MeetName: conversation.MeetName,
+            DropLat: conversation.DropLat,
+            DropLng: conversation.DropLng,
+            DropName: conversation.DropName);
     }
+
+    private static string? Trim(string? s) =>
+        string.IsNullOrWhiteSpace(s) ? null : (s.Trim().Length > 200 ? s.Trim()[..200] : s.Trim());
 }

@@ -87,7 +87,29 @@ builder.Services.AddHttpClient<GoogleDirectionsClient>(client =>
     client.Timeout = TimeSpan.FromSeconds(
         builder.Configuration.GetValue<int>("GoogleMaps:DirectionsTimeoutSeconds", 5));
 });
-builder.Services.AddScoped<IGoogleDirectionsClient>(sp => sp.GetRequiredService<GoogleDirectionsClient>());
+// Google first, free OSRM routing when Google fails (e.g. an expired key)
+builder.Services.AddHttpClient<OsrmDirectionsClient>(c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(10);
+    c.DefaultRequestHeaders.UserAgent.ParseAdd("TagAlong/1.0 (+https://tlimc.net)");
+});
+builder.Services.AddScoped<IGoogleDirectionsClient>(sp => new FallbackDirectionsClient(
+    sp.GetRequiredService<OsrmDirectionsClient>(),
+    sp.GetRequiredService<ILogger<FallbackDirectionsClient>>(),
+    string.IsNullOrWhiteSpace(builder.Configuration["GoogleMaps:ApiKey"]) ? null : sp.GetRequiredService<GoogleDirectionsClient>()));
+
+// Meet points on a driver's route (OSRM + OpenStreetMap bus stops)
+builder.Services.AddHttpClient("osrm", c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(10);
+    c.DefaultRequestHeaders.UserAgent.ParseAdd("TagAlong/1.0 (+https://tlimc.net)");
+});
+builder.Services.AddHttpClient("overpass", c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(20);
+    c.DefaultRequestHeaders.UserAgent.ParseAdd("TagAlong/1.0 (+https://tlimc.net)");
+});
+builder.Services.AddScoped<MeetPointService>();
 
 builder.Services.AddScoped<ITripRouteService, TripRouteService>();
 builder.Services.AddScoped<IDetourVerifier, DetourVerifier>();

@@ -26,7 +26,13 @@ public record ConversationDto(
     bool IsDelivery = false,
     double? PickupLat = null,
     double? PickupLng = null,
-    string? PickupAddress = null);
+    string? PickupAddress = null,
+    double? MeetLat = null,
+    double? MeetLng = null,
+    string? MeetName = null,
+    double? DropLat = null,
+    double? DropLng = null,
+    string? DropName = null);
 
 public record MessageDto(
     Guid Id,
@@ -51,7 +57,22 @@ public record CreateConversationRequest(
     bool IsDelivery = false,
     double? PickupLat = null,
     double? PickupLng = null,
-    string? PickupAddress = null);
+    string? PickupAddress = null,
+    double? MeetLat = null,
+    double? MeetLng = null,
+    string? MeetName = null,
+    double? DropLat = null,
+    double? DropLng = null,
+    string? DropName = null);
+
+/// <summary>Driver moves the pickup (meet) and/or drop-off point. Omit a pair to leave it.</summary>
+public record SetMeetPointsRequest(
+    double? MeetLat = null,
+    double? MeetLng = null,
+    string? MeetName = null,
+    double? DropLat = null,
+    double? DropLng = null,
+    string? DropName = null);
 
 public record SendMessageRequest(
     string Content);

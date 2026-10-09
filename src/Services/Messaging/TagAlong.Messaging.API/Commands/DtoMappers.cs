@@ -29,7 +29,13 @@ internal static class ConversationDtoMapper
         IsDelivery: c.IsDelivery,
         PickupLat: c.PickupLat,
         PickupLng: c.PickupLng,
-        PickupAddress: c.PickupAddress);
+        PickupAddress: c.PickupAddress,
+        MeetLat: c.MeetLat,
+        MeetLng: c.MeetLng,
+        MeetName: c.MeetName,
+        DropLat: c.DropLat,
+        DropLng: c.DropLng,
+        DropName: c.DropName);
 }
 
 internal static class MessageDtoMapper

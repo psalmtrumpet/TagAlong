@@ -10,6 +10,14 @@ public class Conversation : AggregateRoot
     public double? PickupLat { get; private set; }
     public double? PickupLng { get; private set; }
     public string? PickupAddress { get; private set; }
+    // Where the driver picks the passenger up and sets them down — always on
+    // the driver's own route (bus stop / junction), so there's no detour
+    public double? MeetLat { get; private set; }
+    public double? MeetLng { get; private set; }
+    public string? MeetName { get; private set; }
+    public double? DropLat { get; private set; }
+    public double? DropLng { get; private set; }
+    public string? DropName { get; private set; }
     public Guid SenderId { get; private set; }
     public Guid TravelerId { get; private set; }
     public Guid? RecipientUserId { get; private set; }
@@ -45,7 +53,13 @@ public class Conversation : AggregateRoot
         bool isDelivery = false,
         double? pickupLat = null,
         double? pickupLng = null,
-        string? pickupAddress = null)
+        string? pickupAddress = null,
+        double? meetLat = null,
+        double? meetLng = null,
+        string? meetName = null,
+        double? dropLat = null,
+        double? dropLng = null,
+        string? dropName = null)
     {
         return new Conversation
         {
@@ -63,6 +77,12 @@ public class Conversation : AggregateRoot
             PickupLat = pickupLat,
             PickupLng = pickupLng,
             PickupAddress = pickupAddress,
+            MeetLat = meetLat,
+            MeetLng = meetLng,
+            MeetName = meetName,
+            DropLat = dropLat,
+            DropLng = dropLng,
+            DropName = dropName,
         };
     }
 
@@ -158,6 +178,24 @@ public class Conversation : AggregateRoot
             throw new InvalidOperationException("Only closed conversations can be reopened");
 
         Status = ConversationStatus.Active;
+        SetUpdated();
+    }
+
+    /// <summary>The driver moves the pickup and/or drop-off point (before the ride starts for pickup).</summary>
+    public void SetMeetPoints(double? meetLat, double? meetLng, string? meetName, double? dropLat, double? dropLng, string? dropName)
+    {
+        if (meetLat is not null && meetLng is not null)
+        {
+            MeetLat = meetLat;
+            MeetLng = meetLng;
+            MeetName = meetName;
+        }
+        if (dropLat is not null && dropLng is not null)
+        {
+            DropLat = dropLat;
+            DropLng = dropLng;
+            DropName = dropName;
+        }
         SetUpdated();
     }
 

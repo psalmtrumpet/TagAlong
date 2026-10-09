@@ -87,7 +87,13 @@ public class GetConversationByIdQueryHandler : IQueryHandler<GetConversationById
             conversation.IsDelivery,
             conversation.PickupLat,
             conversation.PickupLng,
-            conversation.PickupAddress);
+            conversation.PickupAddress,
+            conversation.MeetLat,
+            conversation.MeetLng,
+            conversation.MeetName,
+            conversation.DropLat,
+            conversation.DropLng,
+            conversation.DropName);
     }
 }
 
@@ -179,7 +185,13 @@ public class GetUserConversationsQueryHandler : IQueryHandler<GetUserConversatio
             conversation.IsDelivery,
             conversation.PickupLat,
             conversation.PickupLng,
-            conversation.PickupAddress);
+            conversation.PickupAddress,
+            conversation.MeetLat,
+            conversation.MeetLng,
+            conversation.MeetName,
+            conversation.DropLat,
+            conversation.DropLng,
+            conversation.DropName);
     }
 }
 

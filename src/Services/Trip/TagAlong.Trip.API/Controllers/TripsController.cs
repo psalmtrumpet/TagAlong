@@ -46,6 +46,21 @@ public class TripsController : ControllerBase
         return Ok(result.Value);
     }
 
+    /// <summary>
+    /// Where a passenger can be picked up (or, with after=pickup, set down) on
+    /// this trip's route without the driver leaving it. Best first.
+    /// </summary>
+    [HttpGet("{id:guid}/meet-points")]
+    [Authorize]
+    public async Task<IActionResult> GetMeetPoints(Guid id, [FromQuery] double lat, [FromQuery] double lng,
+        [FromQuery] double? afterLat, [FromQuery] double? afterLng,
+        [FromServices] MeetPointService meetPoints, CancellationToken cancellationToken)
+    {
+        var points = await meetPoints.FindAsync(id, lat, lng, afterLat, afterLng, cancellationToken);
+        if (points == null) return NotFound(new { error = "Couldn't work out this trip's route." });
+        return Ok(points);
+    }
+
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(TripResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

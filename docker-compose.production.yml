@@ -255,6 +255,8 @@ services:
       - Jwt__Key=${JWT_SECRET_KEY}
       - Jwt__Issuer=${JWT_ISSUER}
       - Jwt__Audience=${JWT_AUDIENCE}
+      # Routes for trips and meet points (falls back to OSRM if this fails)
+      - GoogleMaps__ApiKey=${GOOGLE_MAPS_API_KEY:-}
     depends_on:
       sqlserver:
         condition: service_healthy
