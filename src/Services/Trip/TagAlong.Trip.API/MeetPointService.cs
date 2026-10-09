@@ -69,7 +69,7 @@ public class MeetPointService
         }
 
         // The closest point on the route — always available
-        var roadName = route.RoadAt(along);
+        var roadName = await RoadNameAsync(onRoute.Lat, onRoute.Lng, ct) ?? route.RoadAt(along);
         candidates.Add(Make(onRoute.Lat, onRoute.Lng,
             string.IsNullOrWhiteSpace(roadName) ? "On the driver's route" : $"On {roadName}", "road", lat, lng, along));
 
@@ -107,18 +107,69 @@ public class MeetPointService
         var trip = await db.Trips.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tripId, ct);
         if (trip == null) return null;
 
-        var route = await FetchRouteAsync(trip.OriginLatitude, trip.OriginLongitude, trip.DestinationLatitude, trip.DestinationLongitude, ct);
+        // The driver's planned route (stored from Google) is the truth; OSRM fills
+        // in turn-by-turn junction names along the same roads.
+        var stored = trip.RouteLine is { NumPoints: >= 2 } line
+            ? line.Coordinates.Select(co => (Lat: co.Y, Lng: co.X)).ToList()
+            : null;
+        var waypoints = stored != null
+            ? Sample(stored, 10)
+            : new List<(double Lat, double Lng)> { (trip.OriginLatitude, trip.OriginLongitude), (trip.DestinationLatitude, trip.DestinationLongitude) };
+
+        var osrm = await FetchRouteAsync(waypoints, ct);
+        RouteData? route;
+        if (stored != null)
+        {
+            // Keep only junctions that sit on the stored route
+            var plain = new RouteData(stored, new List<(double, double, string)>(), osrm?.Roads ?? new List<(double, string)>());
+            var junctions = (osrm?.Junctions ?? new List<(double Lat, double Lng, string Name)>())
+                .Where(j => plain.Project(j.Lat, j.Lng).Distance <= OnRouteMeters).ToList();
+            route = new RouteData(stored, junctions, osrm?.Roads ?? new List<(double, string)>());
+        }
+        else
+        {
+            route = osrm;
+        }
         if (route != null) _cache.Set($"meet-route:{tripId}", route, TimeSpan.FromHours(6));
         return route;
     }
 
-    private async Task<RouteData?> FetchRouteAsync(double oLat, double oLng, double dLat, double dLng, CancellationToken ct)
+    /// <summary>Evenly spaced points along a line (always including both ends).</summary>
+    private static List<(double Lat, double Lng)> Sample(List<(double Lat, double Lng)> line, int count)
+    {
+        if (line.Count <= count) return line;
+        var result = new List<(double, double)>();
+        for (var i = 0; i < count; i++)
+            result.Add(line[(int)Math.Round(i * (line.Count - 1) / (double)(count - 1))]);
+        return result;
+    }
+
+    private async Task<string?> RoadNameAsync(double lat, double lng, CancellationToken ct)
     {
         try
         {
             var c = CultureInfo.InvariantCulture;
-            var url = $"https://router.project-osrm.org/route/v1/driving/{oLng.ToString(c)},{oLat.ToString(c)};{dLng.ToString(c)},{dLat.ToString(c)}" +
-                      "?overview=full&geometries=geojson&steps=true";
+            using var res = await _http.CreateClient("osrm").GetAsync(
+                $"https://router.project-osrm.org/nearest/v1/driving/{lng.ToString(c)},{lat.ToString(c)}?number=1", ct);
+            if (!res.IsSuccessStatusCode) return null;
+            using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct));
+            var name = doc.RootElement.GetProperty("waypoints")[0].GetProperty("name").GetString();
+            return string.IsNullOrWhiteSpace(name) ? null : name;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private async Task<RouteData?> FetchRouteAsync(List<(double Lat, double Lng)> waypoints, CancellationToken ct)
+    {
+        try
+        {
+            var c = CultureInfo.InvariantCulture;
+            var coords = string.Join(";", waypoints.Select(w => $"{w.Lng.ToString(c)},{w.Lat.ToString(c)}"));
+            var url = $"https://router.project-osrm.org/route/v1/driving/{coords}" +
+                      "?overview=full&geometries=geojson&steps=true&continue_straight=true";
             using var res = await _http.CreateClient("osrm").GetAsync(url, ct);
             if (!res.IsSuccessStatusCode) return null;
             using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct));
@@ -256,6 +307,7 @@ public class MeetPointService
         private readonly double[] _cum;
         private readonly List<(double From, string Name)> _roads;
         public List<(double Lat, double Lng, string Name)> Junctions { get; }
+        public List<(double From, string Name)> Roads => _roads;
 
         public RouteData(List<(double Lat, double Lng)> points, List<(double, double, string)> junctions, List<(double From, string Name)> roads)
         {
