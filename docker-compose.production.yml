@@ -473,6 +473,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__DefaultConnection=${REPORT_DB_CONNECTION}
+      # Report API reads RabbitMQ:ConnectionString (missing → it crashed on start)
+      - RabbitMQ__ConnectionString=${RABBITMQ_CONNECTION}
       - RabbitMQ__HostName=${RABBITMQ_HOST}
       - RabbitMQ__UserName=${RABBITMQ_USER}
       - RabbitMQ__Password=${RABBITMQ_PASSWORD}
