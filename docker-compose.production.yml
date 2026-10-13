@@ -10,7 +10,9 @@ services:
       SA_PASSWORD: "${SA_PASSWORD}"
       MSSQL_PID: "Express"
     ports:
-      - "1433:1433"
+      # Local only — the apps use the internal Docker network; reach it from
+      # outside through an SSH tunnel. (A firewall rule also blocks 1433 on eth0.)
+      - "127.0.0.1:1433:1433"
     volumes:
       - sqlserver_data:/var/opt/mssql
     networks:
