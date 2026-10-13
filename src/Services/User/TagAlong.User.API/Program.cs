@@ -80,6 +80,7 @@ builder.Services.AddDbContext<UserDbContext>(options =>
 builder.Services.AddScoped<IUserProfileRepository, UserProfileRepository>();
 builder.Services.AddHostedService<AvailabilityExpiryService>();
 builder.Services.AddSingleton<DriverReviewNotifier>();
+builder.Services.AddScoped<ReferralService>();
 builder.Services.AddScoped<IKycVerificationRepository, KycVerificationRepository>();
 builder.Services.AddScoped<INinCacheRepository, NinCacheRepository>();
 builder.Services.AddScoped<ISmileWebhookLogRepository, SmileWebhookLogRepository>();

@@ -1,4 +1,5 @@
 using TagAlong.EventBus;
+using TagAlong.User.API.Services;
 using TagAlong.User.Domain.Repositories;
 
 namespace TagAlong.User.API.IntegrationEvents;
@@ -18,13 +19,16 @@ public record ConversationCompletedIntegrationEvent(
 public class ConversationCompletedIntegrationEventHandler : IIntegrationEventHandler<ConversationCompletedIntegrationEvent>
 {
     private readonly IUserProfileRepository _userProfileRepository;
+    private readonly ReferralService _referrals;
     private readonly ILogger<ConversationCompletedIntegrationEventHandler> _logger;
 
     public ConversationCompletedIntegrationEventHandler(
         IUserProfileRepository userProfileRepository,
+        ReferralService referrals,
         ILogger<ConversationCompletedIntegrationEventHandler> logger)
     {
         _userProfileRepository = userProfileRepository;
+        _referrals = referrals;
         _logger = logger;
     }
 
@@ -40,6 +44,13 @@ public class ConversationCompletedIntegrationEventHandler : IIntegrationEventHan
             _userProfileRepository.Update(profile);
         }
         await _userProfileRepository.SaveChangesAsync(cancellationToken);
+
+        // A referred person's first completed ride makes their referral count
+        foreach (var userId in new[] { @event.TravelerId, @event.SenderId })
+        {
+            try { await _referrals.QualifyAsync(userId, cancellationToken); }
+            catch (Exception ex) { _logger.LogError(ex, "Referral check failed for {UserId}", userId); }
+        }
 
         _logger.LogInformation("Counted completed {Kind} for conversation {ConversationId}",
             @event.IsDelivery ? "delivery" : "trip", @event.ConversationId);

@@ -110,7 +110,8 @@ public class SearchTripsQueryHandler : IQueryHandler<SearchTripsQuery, List<Trip
                 s.EstimatedTime,
                 s.ActualArrivalTime)).ToList(),
             p.Trip.CreatedAt,
-            p.DetourSeconds)).ToList());
+            p.DetourSeconds,
+            IsPrivate: p.Trip.IsPrivate)).ToList());
     }
 }
 
@@ -167,7 +168,8 @@ public class GetTripByIdQueryHandler : IQueryHandler<GetTripByIdQuery, TripRespo
                 s.Order,
                 s.EstimatedTime,
                 s.ActualArrivalTime)).ToList(),
-            trip.CreatedAt));
+            trip.CreatedAt,
+            IsPrivate: trip.IsPrivate));
     }
 }
 
@@ -219,6 +221,7 @@ public class GetMyTripsQueryHandler : IQueryHandler<GetMyTripsQuery, List<TripRe
                 s.Order,
                 s.EstimatedTime,
                 s.ActualArrivalTime)).ToList(),
-            trip.CreatedAt)).ToList());
+            trip.CreatedAt,
+            IsPrivate: trip.IsPrivate)).ToList());
     }
 }

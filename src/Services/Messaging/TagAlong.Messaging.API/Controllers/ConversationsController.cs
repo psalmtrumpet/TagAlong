@@ -48,6 +48,7 @@ public class ConversationsController : ControllerBase
                     Fee = c.PlatformFee ?? 0,
                     Earning = c.DriverEarning ?? c.AgreedPrice!.Value,
                     c.IsDelivery,
+                    c.FeeWaived,
                 }),
             cancellationToken);
 
@@ -56,7 +57,7 @@ public class ConversationsController : ControllerBase
         foreach (var id in raw.Take(100).Select(r => r.SenderId).Distinct())
             names[id] = await users.GetDisplayNameAsync(id, cancellationToken);
         var rides = raw.Select(r => new RideEarningDto(
-            r.Id, r.CompletedAt, names.GetValueOrDefault(r.SenderId), r.From, r.To, r.Fare, r.Fee, r.Earning, r.IsDelivery)).ToList();
+            r.Id, r.CompletedAt, names.GetValueOrDefault(r.SenderId), r.From, r.To, r.Fare, r.Fee, r.Earning, r.IsDelivery, r.FeeWaived)).ToList();
 
         // Week starts Monday (Lagos time ≈ UTC+1)
         var now = DateTime.UtcNow.AddHours(1);

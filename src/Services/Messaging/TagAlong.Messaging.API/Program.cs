@@ -82,6 +82,13 @@ builder.Services.AddScoped<IMessageRepository, MessageRepository>();
 
 // User lookup (calls user-api internally)
 var userApiBaseUrl = builder.Configuration["ServiceUrls:UserApi"] ?? "http://user-api/";
+// Service-to-service calls at ride completion (fees, referral free rides)
+builder.Services.AddHttpClient("user-api", c => { c.BaseAddress = new Uri(userApiBaseUrl); c.Timeout = TimeSpan.FromSeconds(5); });
+builder.Services.AddHttpClient("trip-api", c =>
+{
+    c.BaseAddress = new Uri(builder.Configuration["ServiceUrls:TripApi"] ?? "http://trip-api/");
+    c.Timeout = TimeSpan.FromSeconds(5);
+});
 builder.Services.AddHttpClient<IUserLookupService, UserLookupService>(client =>
 {
     client.BaseAddress = new Uri(userApiBaseUrl);

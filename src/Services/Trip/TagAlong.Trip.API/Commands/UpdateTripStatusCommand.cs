@@ -102,7 +102,8 @@ public class UpdateTripStatusCommandHandler : ICommandHandler<UpdateTripStatusCo
                 s.Order,
                 s.EstimatedTime,
                 s.ActualArrivalTime)).ToList(),
-            trip.CreatedAt);
+            trip.CreatedAt,
+            IsPrivate: trip.IsPrivate);
     }
 }
 

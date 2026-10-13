@@ -123,6 +123,7 @@ builder.Services.AddScoped<DeliveryStatusChangedIntegrationEventHandler>();
 builder.Services.AddScoped<PaymentCompletedIntegrationEventHandler>();
 builder.Services.AddScoped<DriverProfileReviewedIntegrationEventHandler>();
 builder.Services.AddScoped<PassengerStopNextIntegrationEventHandler>();
+builder.Services.AddScoped<ReferralRewardedIntegrationEventHandler>();
 builder.Services.AddScoped<NegotiationMessageSentIntegrationEventHandler>();
 builder.Services.AddScoped<ConversationRequestCreatedIntegrationEventHandler>();
 builder.Services.AddScoped<KycStatusChangedIntegrationEventHandler>();
@@ -211,6 +212,7 @@ eventBus.Subscribe<DeliveryStatusChangedIntegrationEvent, DeliveryStatusChangedI
 eventBus.Subscribe<PaymentCompletedIntegrationEvent, PaymentCompletedIntegrationEventHandler>();
 eventBus.Subscribe<DriverProfileReviewedIntegrationEvent, DriverProfileReviewedIntegrationEventHandler>();
 eventBus.Subscribe<PassengerStopNextIntegrationEvent, PassengerStopNextIntegrationEventHandler>();
+eventBus.Subscribe<ReferralRewardedIntegrationEvent, ReferralRewardedIntegrationEventHandler>();
 eventBus.Subscribe<NegotiationMessageSentIntegrationEvent, NegotiationMessageSentIntegrationEventHandler>();
 eventBus.Subscribe<ConversationRequestCreatedIntegrationEvent, ConversationRequestCreatedIntegrationEventHandler>();
 eventBus.Subscribe<KycStatusChangedIntegrationEvent, KycStatusChangedIntegrationEventHandler>();

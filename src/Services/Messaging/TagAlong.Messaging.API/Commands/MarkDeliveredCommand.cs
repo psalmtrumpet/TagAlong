@@ -24,8 +24,12 @@ public class MarkDeliveredCommandHandler : ICommandHandler<MarkDeliveredCommand,
         IMessageRepository messageRepository,
         IHubContext<MessagingHub, IMessagingClient> hubContext,
         IEventBus eventBus,
-        IConfiguration config)
+        IConfiguration config,
+        IHttpClientFactory http,
+        ILogger<MarkDeliveredCommandHandler> logger)
     {
+        _http = http;
+        _logger = logger;
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
         _hubContext = hubContext;
@@ -34,6 +38,55 @@ public class MarkDeliveredCommandHandler : ICommandHandler<MarkDeliveredCommand,
     }
 
     private readonly IConfiguration _config;
+    private readonly IHttpClientFactory _http;
+    private readonly ILogger<MarkDeliveredCommandHandler> _logger;
+
+    /// <summary>TagAlong's flat fee for a private (premium) ride — defaults to the shared fee.</summary>
+    public static decimal PrivateRideFlatFee(IConfiguration config) =>
+        decimal.TryParse(config["Earnings:RidePrivateFlatFee"], System.Globalization.NumberStyles.Number,
+            System.Globalization.CultureInfo.InvariantCulture, out var fee) && fee >= 0 ? fee : RideFlatFee(config);
+
+    /// <summary>The fee for this ride: private rides have their own fee; a referral free ride waives it.</summary>
+    private async Task<(decimal Fee, bool Waived)> FeeForAsync(Conversation c, CancellationToken ct)
+    {
+        var fee = await IsPrivateTripAsync(c.TripId, ct) ? PrivateRideFlatFee(_config) : RideFlatFee(_config);
+        if (fee <= 0 || c.AgreedPrice is not > 0) return (fee, false);
+        try
+        {
+            using var res = await _http.CreateClient("user-api")
+                .PostAsync($"internal/referrals/{c.TravelerId}/use-free-trip", null, ct);
+            if (res.IsSuccessStatusCode)
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct));
+                if (doc.RootElement.GetProperty("used").GetBoolean())
+                {
+                    _logger.LogInformation("Referral free ride used by driver {DriverId} on {ConversationId}", c.TravelerId, c.Id);
+                    return (fee, true);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Couldn't check the driver's referral free rides");
+        }
+        return (fee, false);
+    }
+
+    private async Task<bool> IsPrivateTripAsync(Guid? tripId, CancellationToken ct)
+    {
+        if (tripId == null) return false;
+        try
+        {
+            using var res = await _http.CreateClient("trip-api").GetAsync($"api/trips/{tripId}", ct);
+            if (!res.IsSuccessStatusCode) return false;
+            using var doc = System.Text.Json.JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct));
+            return doc.RootElement.TryGetProperty("isPrivate", out var p) && p.ValueKind == System.Text.Json.JsonValueKind.True;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     /// <summary>TagAlong's flat fee per ride (Earnings:RideFlatFee, default ₦200).</summary>
     public static decimal RideFlatFee(IConfiguration config) =>
@@ -49,7 +102,8 @@ public class MarkDeliveredCommandHandler : ICommandHandler<MarkDeliveredCommand,
         if (conversation.TravelerId != request.UserId)
             return Result.Failure<ConversationDto>(Error.Unauthorized("Only the traveler can mark as delivered"));
 
-        conversation.MarkDelivered(RideFlatFee(_config));
+        var (fee, waived) = await FeeForAsync(conversation, cancellationToken);
+        conversation.MarkDelivered(fee, waived);
         _conversationRepository.Update(conversation);
 
         var msg = Message.CreateDelivered(request.ConversationId, request.UserId);

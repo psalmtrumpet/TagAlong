@@ -24,6 +24,8 @@ public class Trip : AggregateRoot
     public int MaxPackages { get; private set; }
     public int CurrentPackageCount { get; private set; }
     public int PassengerCapacity { get; private set; }
+    /// <summary>Private (premium) ride: the driver takes one passenger only, not shared.</summary>
+    public bool IsPrivate { get; private set; }
     public int CurrentPassengerCount { get; private set; }
     public double? CurrentLatitude { get; private set; }
     public double? CurrentLongitude { get; private set; }
@@ -156,6 +158,14 @@ public class Trip : AggregateRoot
         RouteLine = routeLine;
         OriginalDurationSeconds = originalDurationSeconds;
         RouteStatus = TripRouteStatus.Stored;
+        SetUpdated();
+    }
+
+    /// <summary>One passenger only — like a regular ride-hailing trip.</summary>
+    public void MakePrivate()
+    {
+        IsPrivate = true;
+        PassengerCapacity = 1;
         SetUpdated();
     }
 

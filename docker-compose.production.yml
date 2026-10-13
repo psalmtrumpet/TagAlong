@@ -209,6 +209,8 @@ services:
       - SmileId__PartnerId=${SMILEID_PARTNER_ID}
       # Reads driver licence / vehicle photos (optional — skipped when empty)
       - Anthropic__ApiKey=${ANTHROPIC_API_KEY:-}
+      # Wallet credit a rider earns when someone they referred completes a first ride
+      - Referral__RiderCredit=${REFERRAL_RIDER_CREDIT:-100}
       # Driver review emails
       - Email__SmtpHost=${Email__SmtpHost:-}
       - Email__SmtpPort=${Email__SmtpPort:-587}
@@ -395,6 +397,8 @@ services:
     environment:
       # TagAlong's flat fee per completed ride, in naira
       - Earnings__RideFlatFee=${RIDE_PLATFORM_FEE:-200}
+      # Private (premium, one-passenger) rides — defaults to the shared fee
+      - Earnings__RidePrivateFlatFee=${RIDE_PRIVATE_PLATFORM_FEE:-}
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__DefaultConnection=${MESSAGING_DB_CONNECTION}

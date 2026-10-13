@@ -46,6 +46,7 @@ public class UpdateDepartureTimeCommandHandler : ICommandHandler<UpdateDeparture
             trip.PassengerCapacity, trip.CurrentPassengerCount,
             trip.CurrentLatitude, trip.CurrentLongitude, trip.LocationUpdatedAt,
             trip.Stops.Select(s => new TripStopResponse(s.Id, s.Location, s.Latitude, s.Longitude, s.Order, s.EstimatedTime, s.ActualArrivalTime)).ToList(),
-            trip.CreatedAt));
+            trip.CreatedAt,
+            IsPrivate: trip.IsPrivate));
     }
 }

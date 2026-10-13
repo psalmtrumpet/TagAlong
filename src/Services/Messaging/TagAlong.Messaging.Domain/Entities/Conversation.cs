@@ -23,6 +23,8 @@ public class Conversation : AggregateRoot
     // fee change doesn't rewrite past rides.
     public decimal? PlatformFee { get; private set; }
     public decimal? DriverEarning { get; private set; }
+    /// <summary>TagAlong's fee was waived (the driver used a referral free ride).</summary>
+    public bool FeeWaived { get; private set; }
     public Guid SenderId { get; private set; }
     public Guid TravelerId { get; private set; }
     public Guid? RecipientUserId { get; private set; }
@@ -150,7 +152,8 @@ public class Conversation : AggregateRoot
     }
 
     /// <param name="platformFee">TagAlong's flat fee for this ride (never more than the fare).</param>
-    public void MarkDelivered(decimal platformFee = 0)
+    /// <param name="feeWaived">The driver used a referral free ride: no fee this time.</param>
+    public void MarkDelivered(decimal platformFee = 0, bool feeWaived = false)
     {
         if (Status != ConversationStatus.InProgress)
             throw new InvalidOperationException("Can only mark an in-progress trip as delivered");
@@ -159,7 +162,8 @@ public class Conversation : AggregateRoot
         DeliveredAt = DateTime.UtcNow;
         if (AgreedPrice is { } fare)
         {
-            PlatformFee = Math.Clamp(platformFee, 0, fare);
+            FeeWaived = feeWaived;
+            PlatformFee = feeWaived ? 0 : Math.Clamp(platformFee, 0, fare);
             DriverEarning = fare - PlatformFee;
         }
         SetUpdated();

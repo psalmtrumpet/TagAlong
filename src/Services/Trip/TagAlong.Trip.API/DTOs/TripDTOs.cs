@@ -19,7 +19,9 @@ public record CreateTripRequest(
     string TripType = "Passenger",
     // The route the driver chose (Google-encoded); fetched automatically when absent
     string? RoutePolyline = null,
-    int? RouteDurationSeconds = null);
+    int? RouteDurationSeconds = null,
+    // Private (premium) ride: one passenger only
+    bool IsPrivate = false);
 
 public record TripStopRequest(
     string Location,
@@ -67,7 +69,8 @@ public record TripResponse(
     DateTime? LocationUpdatedAt,
     List<TripStopResponse> Stops,
     DateTime CreatedAt,
-    int? DetourSeconds = null);
+    int? DetourSeconds = null,
+    bool IsPrivate = false);
 
 public record TripStopResponse(
     Guid Id,

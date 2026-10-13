@@ -14,6 +14,9 @@ public class UserDbContext : DbContext
     public DbSet<NinCache> NinCaches => Set<NinCache>();
     public DbSet<SmileWebhookLog> SmileWebhookLogs => Set<SmileWebhookLog>();
     public DbSet<DriverProfile> DriverProfiles => Set<DriverProfile>();
+    public DbSet<ReferralAccount> ReferralAccounts => Set<ReferralAccount>();
+    public DbSet<Referral> Referrals => Set<Referral>();
+    public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -179,6 +182,38 @@ public class UserDbContext : DbContext
             entity.Property(e => e.RejectionReason).HasMaxLength(500);
             entity.Property(e => e.DocumentCheckJson).HasColumnType("nvarchar(max)");
             entity.Ignore(e => e.IsApproved);
+        });
+
+        modelBuilder.Entity<ReferralAccount>(entity =>
+        {
+            entity.ToTable("referral_accounts");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.AuthUserId).IsUnique();
+            entity.HasIndex(e => e.Code).IsUnique();
+            entity.Property(e => e.Code).HasMaxLength(20).IsRequired();
+            entity.Property(e => e.WalletBalance).HasColumnType("decimal(18,2)");
+        });
+
+        modelBuilder.Entity<Referral>(entity =>
+        {
+            entity.ToTable("referrals");
+            entity.HasKey(e => e.Id);
+            // Each person can only be referred once
+            entity.HasIndex(e => e.ReferredUserId).IsUnique();
+            entity.HasIndex(e => e.ReferrerUserId);
+            entity.Property(e => e.Code).HasMaxLength(20).IsRequired();
+            entity.Property(e => e.Reward).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.RewardAmount).HasColumnType("decimal(18,2)");
+            entity.Ignore(e => e.IsQualified);
+        });
+
+        modelBuilder.Entity<WalletTransaction>(entity =>
+        {
+            entity.ToTable("wallet_transactions");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.AuthUserId);
+            entity.Property(e => e.Amount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Description).HasMaxLength(200).IsRequired();
         });
     }
 }

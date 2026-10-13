@@ -34,6 +34,8 @@ public class TripDbContext : DbContext
                 .HasMaxLength(50)
                 .IsRequired(false);
 
+            entity.Property(e => e.IsPrivate).HasDefaultValue(false);
+
             entity.Property(e => e.VehiclePlateNumber)
                 .HasMaxLength(100)
                 .IsRequired(false);

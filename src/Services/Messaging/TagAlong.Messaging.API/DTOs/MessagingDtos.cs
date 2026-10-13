@@ -34,7 +34,8 @@ public record ConversationDto(
     double? DropLng = null,
     string? DropName = null,
     decimal? PlatformFee = null,
-    decimal? DriverEarning = null);
+    decimal? DriverEarning = null,
+    bool FeeWaived = false);
 
 public record MessageDto(
     Guid Id,
@@ -86,7 +87,8 @@ public record RideEarningDto(
     decimal Fare,
     decimal PlatformFee,
     decimal Earning,
-    bool IsDelivery);
+    bool IsDelivery,
+    bool FeeWaived = false);
 
 public record EarningsTotalsDto(int Rides, decimal Fares, decimal PlatformFees, decimal Earnings);
 
