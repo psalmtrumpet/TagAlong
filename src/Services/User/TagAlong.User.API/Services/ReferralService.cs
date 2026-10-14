@@ -14,10 +14,10 @@ public record ReferralRewardedIntegrationEvent(
     string? ReferredName) : IntegrationEvent;
 
 /// <summary>
-/// Referral codes and rewards. A referral counts once the referred person
-/// completes their first ride (as passenger or driver). The referrer then gets
-/// one TagAlong-fee-free ride if they're an approved driver, otherwise wallet
-/// credit (Referral:RiderCredit, default ₦100).
+/// Referral codes and rewards. Every ride the referred person completes (as
+/// passenger or driver) rewards the referrer: one TagAlong-fee-free ride if
+/// they're an approved driver, otherwise wallet credit (Referral:RiderCredit,
+/// default ₦100).
 /// </summary>
 public class ReferralService
 {
@@ -112,13 +112,15 @@ public class ReferralService
     }
 
     /// <summary>
-    /// Called when a ride completes: if this user was referred and this is their
-    /// first ride, the referral counts and the referrer is rewarded.
+    /// Called when a ride completes: if this user was referred, their referrer
+    /// is rewarded for this ride (once per ride).
     /// </summary>
-    public async Task QualifyAsync(Guid userId, CancellationToken ct)
+    public async Task RewardRideAsync(Guid userId, Guid conversationId, CancellationToken ct)
     {
-        var referral = await _db.Referrals.FirstOrDefaultAsync(r => r.ReferredUserId == userId && r.QualifiedAt == null, ct);
+        var referral = await _db.Referrals.FirstOrDefaultAsync(r => r.ReferredUserId == userId, ct);
         if (referral == null) return;
+        if (await _db.ReferralEarnings.AnyAsync(e => e.ConversationId == conversationId && e.ReferredUserId == userId, ct))
+            return; // already rewarded for this ride
 
         var account = await GetOrCreateAccountAsync(referral.ReferrerUserId, ct);
         var isDriver = await _db.DriverProfiles.AnyAsync(d =>
@@ -126,27 +128,39 @@ public class ReferralService
         var referredName = await _db.UserProfiles.AsNoTracking().IgnoreQueryFilters()
             .Where(p => p.AuthUserId == userId).Select(p => p.FirstName).FirstOrDefaultAsync(ct);
 
+        ReferralReward reward;
+        decimal amount;
         if (isDriver)
         {
+            reward = ReferralReward.FreeTrip;
+            amount = 0;
             account.AddFreeTrip();
-            referral.Qualify(ReferralReward.FreeTrip, 0);
         }
         else
         {
-            var credit = RiderCredit;
-            account.Credit(credit);
-            referral.Qualify(ReferralReward.WalletCredit, credit);
-            _db.WalletTransactions.Add(WalletTransaction.Create(referral.ReferrerUserId, credit,
-                $"Referral bonus — {referredName ?? "a friend"} completed their first ride", referral.Id));
+            reward = ReferralReward.WalletCredit;
+            amount = RiderCredit;
+            account.Credit(amount);
+            _db.WalletTransactions.Add(WalletTransaction.Create(referral.ReferrerUserId, amount,
+                $"Referral bonus — {referredName ?? "a friend"} completed a ride", conversationId));
         }
-        await _db.SaveChangesAsync(ct);
-        _logger.LogInformation("Referral qualified: {ReferrerId} rewarded ({Reward}) for {UserId}",
-            referral.ReferrerUserId, referral.Reward, userId);
+        if (!referral.IsQualified) referral.Qualify(reward, amount); // their first ride
+        _db.ReferralEarnings.Add(ReferralEarning.Create(referral, conversationId, reward, amount));
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            return; // the same ride was rewarded concurrently
+        }
+        _logger.LogInformation("Referral reward: {ReferrerId} got {Reward} for {UserId}'s ride {ConversationId}",
+            referral.ReferrerUserId, reward, userId, conversationId);
 
         try
         {
             await _eventBus.PublishAsync(new ReferralRewardedIntegrationEvent(
-                referral.ReferrerUserId, referral.Reward.ToString(), referral.RewardAmount, referredName));
+                referral.ReferrerUserId, reward.ToString(), amount, referredName));
         }
         catch (Exception ex)
         {

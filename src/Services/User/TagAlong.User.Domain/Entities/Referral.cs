@@ -45,8 +45,8 @@ public enum ReferralReward
 }
 
 /// <summary>
-/// One person signing up with someone's code. It only counts (and rewards the
-/// referrer) once the referred person completes their first ride.
+/// One person signing up with someone's code. The referrer is rewarded for
+/// every ride the referred person completes; QualifiedAt is their first one.
 /// </summary>
 public class Referral
 {
@@ -78,6 +78,33 @@ public class Referral
         Reward = reward;
         RewardAmount = amount;
     }
+}
+
+/// <summary>The reward a referrer got for one ride completed by someone they referred.</summary>
+public class ReferralEarning
+{
+    public Guid Id { get; private set; }
+    public Guid ReferralId { get; private set; }
+    public Guid ReferrerUserId { get; private set; }
+    public Guid ReferredUserId { get; private set; }
+    public Guid ConversationId { get; private set; }
+    public ReferralReward Reward { get; private set; }
+    public decimal Amount { get; private set; }
+    public DateTime CreatedAt { get; private set; }
+
+    private ReferralEarning() { }
+
+    public static ReferralEarning Create(Referral referral, Guid conversationId, ReferralReward reward, decimal amount) => new()
+    {
+        Id = Guid.NewGuid(),
+        ReferralId = referral.Id,
+        ReferrerUserId = referral.ReferrerUserId,
+        ReferredUserId = referral.ReferredUserId,
+        ConversationId = conversationId,
+        Reward = reward,
+        Amount = amount,
+        CreatedAt = DateTime.UtcNow,
+    };
 }
 
 /// <summary>A movement in a user's wallet (e.g. a referral credit).</summary>

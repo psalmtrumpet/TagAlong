@@ -45,10 +45,10 @@ public class ConversationCompletedIntegrationEventHandler : IIntegrationEventHan
         }
         await _userProfileRepository.SaveChangesAsync(cancellationToken);
 
-        // A referred person's first completed ride makes their referral count
+        // Every ride a referred person completes rewards whoever referred them
         foreach (var userId in new[] { @event.TravelerId, @event.SenderId })
         {
-            try { await _referrals.QualifyAsync(userId, cancellationToken); }
+            try { await _referrals.RewardRideAsync(userId, @event.ConversationId, cancellationToken); }
             catch (Exception ex) { _logger.LogError(ex, "Referral check failed for {UserId}", userId); }
         }
 

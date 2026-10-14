@@ -35,6 +35,7 @@ public class ReferralsController : ControllerBase
         var mine = await _db.Referrals.AsNoTracking().Where(r => r.ReferrerUserId == userId.Value).ToListAsync(ct);
         var usedCode = await _db.Referrals.AsNoTracking()
             .Where(r => r.ReferredUserId == userId.Value).Select(r => r.Code).FirstOrDefaultAsync(ct);
+        var earned = await _db.ReferralEarnings.AsNoTracking().Where(e => e.ReferrerUserId == userId.Value).ToListAsync(ct);
         var transactions = await _db.WalletTransactions.AsNoTracking()
             .Where(t => t.AuthUserId == userId.Value)
             .OrderByDescending(t => t.CreatedAt).Take(50)
@@ -46,6 +47,10 @@ public class ReferralsController : ControllerBase
             code = account.Code,
             successfulReferrals = mine.Count(r => r.QualifiedAt != null),
             pendingReferrals = mine.Count(r => r.QualifiedAt == null),
+            // Every ride by people you referred
+            referralRides = earned.Count,
+            freeRidesEarned = earned.Count(e => e.Reward == ReferralReward.FreeTrip),
+            walletEarned = earned.Where(e => e.Reward == ReferralReward.WalletCredit).Sum(e => e.Amount),
             freeTripCredits = account.FreeTripCredits,
             walletBalance = account.WalletBalance,
             riderCredit = _referrals.RiderCredit,

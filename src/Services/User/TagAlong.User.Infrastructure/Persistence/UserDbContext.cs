@@ -17,6 +17,7 @@ public class UserDbContext : DbContext
     public DbSet<ReferralAccount> ReferralAccounts => Set<ReferralAccount>();
     public DbSet<Referral> Referrals => Set<Referral>();
     public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
+    public DbSet<ReferralEarning> ReferralEarnings => Set<ReferralEarning>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -205,6 +206,17 @@ public class UserDbContext : DbContext
             entity.Property(e => e.Reward).HasConversion<string>().HasMaxLength(20);
             entity.Property(e => e.RewardAmount).HasColumnType("decimal(18,2)");
             entity.Ignore(e => e.IsQualified);
+        });
+
+        modelBuilder.Entity<ReferralEarning>(entity =>
+        {
+            entity.ToTable("referral_earnings");
+            entity.HasKey(e => e.Id);
+            // A ride rewards each referred participant's referrer once
+            entity.HasIndex(e => new { e.ConversationId, e.ReferredUserId }).IsUnique();
+            entity.HasIndex(e => e.ReferrerUserId);
+            entity.Property(e => e.Reward).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.Amount).HasColumnType("decimal(18,2)");
         });
 
         modelBuilder.Entity<WalletTransaction>(entity =>
