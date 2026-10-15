@@ -36,22 +36,39 @@ public class UpdateTripStatusCommandHandler : ICommandHandler<UpdateTripStatusCo
 
         var oldStatus = trip.Status.ToString();
 
-        switch (request.NewStatus.ToLower())
+        var target = request.NewStatus.ToLower() switch
         {
-            case "start":
-            case "inprogress":
-                trip.Start();
-                break;
-            case "complete":
-            case "completed":
-                trip.Complete();
-                break;
-            case "cancel":
-            case "cancelled":
-                trip.Cancel();
-                break;
-            default:
-                return Result.Failure<TripResponse>(Error.Validation($"Invalid status: {request.NewStatus}"));
+            "start" or "inprogress" => Domain.Entities.TripStatus.InProgress,
+            "complete" or "completed" => Domain.Entities.TripStatus.Completed,
+            "cancel" or "cancelled" => Domain.Entities.TripStatus.Cancelled,
+            _ => (Domain.Entities.TripStatus?)null,
+        };
+        if (target == null)
+            return Result.Failure<TripResponse>(Error.Validation($"Invalid status: {request.NewStatus}"));
+
+        // Already there (e.g. Start tapped twice, or a slow first response) — nothing to do
+        if (trip.Status == target)
+            return Result.Success(MapToResponse(trip));
+
+        try
+        {
+            switch (target)
+            {
+                case Domain.Entities.TripStatus.InProgress: trip.Start(); break;
+                case Domain.Entities.TripStatus.Completed: trip.Complete(); break;
+                case Domain.Entities.TripStatus.Cancelled: trip.Cancel(); break;
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // A change that doesn't fit the trip's state — say why instead of a 500
+            return Result.Failure<TripResponse>(Error.Validation(trip.Status switch
+            {
+                Domain.Entities.TripStatus.Completed => "This trip has already ended.",
+                Domain.Entities.TripStatus.Cancelled => "This trip was cancelled.",
+                Domain.Entities.TripStatus.Scheduled => "This trip hasn't started yet.",
+                _ => "This trip is already under way.",
+            }));
         }
 
         _tripRepository.Update(trip);
