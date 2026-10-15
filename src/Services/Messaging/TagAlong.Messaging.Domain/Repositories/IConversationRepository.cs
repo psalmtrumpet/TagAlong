@@ -13,6 +13,8 @@ public interface IConversationRepository
     Task<IEnumerable<Conversation>> GetUnstartedByTripIdAsync(Guid tripId, CancellationToken cancellationToken = default);
     /// <summary>Passengers currently on board this trip.</summary>
     Task<IEnumerable<Conversation>> GetInProgressByTripIdAsync(Guid tripId, CancellationToken cancellationToken = default);
+    /// <summary>On-board rides on a trip that haven't changed since <paramref name="before"/>.</summary>
+    Task<IEnumerable<Conversation>> GetInProgressRidesUnchangedSinceAsync(DateTime before, CancellationToken cancellationToken = default);
     Task<int> CountInProgressByTravelerIdAsync(Guid travelerId, CancellationToken cancellationToken = default);
     Task AddAsync(Conversation conversation, CancellationToken cancellationToken = default);
     void Update(Conversation conversation);

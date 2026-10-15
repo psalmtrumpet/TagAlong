@@ -68,6 +68,13 @@ public class ConversationRepository : IConversationRepository
     }
 
     // Bookings on a trip that haven't started yet (an in-progress ride is never cut off).
+    public async Task<IEnumerable<Conversation>> GetInProgressRidesUnchangedSinceAsync(DateTime before, CancellationToken cancellationToken = default)
+    {
+        return await _context.Conversations
+            .Where(c => c.TripId != null && c.Status == ConversationStatus.InProgress && (c.UpdatedAt ?? c.CreatedAt) < before)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IEnumerable<Conversation>> GetInProgressByTripIdAsync(Guid tripId, CancellationToken cancellationToken = default)
     {
         return await _context.Conversations

@@ -89,6 +89,8 @@ builder.Services.AddHttpClient("trip-api", c =>
     c.BaseAddress = new Uri(builder.Configuration["ServiceUrls:TripApi"] ?? "http://trip-api/");
     c.Timeout = TimeSpan.FromSeconds(5);
 });
+// Completes on-board rides left behind when a trip ended
+builder.Services.AddHostedService<TagAlong.Messaging.API.BackgroundJobs.StuckRideSweeper>();
 builder.Services.AddHttpClient<IUserLookupService, UserLookupService>(client =>
 {
     client.BaseAddress = new Uri(userApiBaseUrl);
