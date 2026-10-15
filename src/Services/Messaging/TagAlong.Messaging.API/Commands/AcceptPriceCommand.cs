@@ -63,6 +63,19 @@ public class AcceptPriceCommandHandler : ICommandHandler<AcceptPriceCommand, Mes
             return Result.Failure<MessageDto>(Error.Unauthorized("Not authorized to accept price in this conversation"));
         }
 
+        // Only the latest offer can be accepted, and only by the person it was made to —
+        // a countered (older) price or your own offer can't be accepted
+        var latest = await _messageRepository.GetLatestPriceProposalAsync(request.ConversationId, cancellationToken);
+        if (latest == null || latest.MessageType == MessageType.PriceAccepted)
+            return Result.Failure<MessageDto>(Error.Validation(latest == null
+                ? "There's no price offer to accept."
+                : "A price has already been agreed."));
+        if (latest.SenderId == request.UserId)
+            return Result.Failure<MessageDto>(Error.Validation("You can't accept your own offer — wait for their reply."));
+        if (latest.ProposedPrice != request.AcceptedPrice)
+            return Result.Failure<MessageDto>(Error.Validation(
+                $"That offer was replaced by a newer one (₦{latest.ProposedPrice:N0}). Accept or counter the latest price."));
+
         // Transition conversation to Active — chat is now unlocked
         conversation.ConfirmPriceAgreement(request.AcceptedPrice);
         _conversationRepository.Update(conversation);

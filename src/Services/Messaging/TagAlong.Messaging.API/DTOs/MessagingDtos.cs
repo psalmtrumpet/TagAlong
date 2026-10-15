@@ -100,6 +100,8 @@ public record EarningsDto(
     decimal CurrentPlatformFee,
     List<RideEarningDto> Rides);
 
+public record ShareLocationRequest(double Latitude, double Longitude);
+
 public record SendMessageRequest(
     string Content);
 

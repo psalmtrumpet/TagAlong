@@ -1,9 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.Extensions.Caching.Memory;
-using TagAlong.EventBus;
-using TagAlong.Messaging.API.IntegrationEvents;
 using TagAlong.Messaging.API.DTOs;
 using TagAlong.Messaging.Domain.Entities;
 using TagAlong.Messaging.Domain.Repositories;
@@ -16,24 +13,18 @@ public class MessagingHub : Hub<IMessagingClient>
     private readonly IConversationRepository _conversationRepository;
     private readonly IMessageRepository _messageRepository;
     private readonly ILogger<MessagingHub> _logger;
-    private readonly IMemoryCache _cache;
-    private readonly IEventBus _eventBus;
-
-    /// <summary>Tell a riding passenger their stop is next when the car is this close.</summary>
-    private const double NextStopMeters = 500;
+    private readonly TagAlong.Messaging.API.Services.LocationRelay _locations;
 
     public MessagingHub(
         IConversationRepository conversationRepository,
         IMessageRepository messageRepository,
         ILogger<MessagingHub> logger,
-        IMemoryCache cache,
-        IEventBus eventBus)
+        TagAlong.Messaging.API.Services.LocationRelay locations)
     {
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
         _logger = logger;
-        _cache = cache;
-        _eventBus = eventBus;
+        _locations = locations;
     }
 
     public override async Task OnConnectedAsync()
@@ -142,76 +133,7 @@ public class MessagingHub : Hub<IMessagingClient>
     {
         var userId = GetUserId();
         if (!userId.HasValue) return;
-
-        var conversation = await _conversationRepository.GetByIdAsync(conversationId);
-        if (conversation == null || !conversation.IsParticipant(userId.Value)) return;
-
-        // Persist last-known carrier location so the public tracking page can poll it.
-        // Only the traveler's position is the carrier's — the sender also broadcasts
-        // (so the carrier can find them) and must not overwrite it.
-        if (conversation.TravelerId == userId.Value)
-        {
-            conversation.UpdateHelperLocation(latitude, longitude);
-            _conversationRepository.Update(conversation);
-            await _conversationRepository.SaveChangesAsync();
-
-            if (conversation.Status == ConversationStatus.InProgress)
-                await AnnounceNextStopAsync(conversation, latitude, longitude);
-        }
-
-        var convIdStr = conversationId.ToString();
-        // OthersInGroup prevents the sender from seeing their own location echoed back.
-        // The other user also receives it via their personal user_ group.
-        await Clients.OthersInGroup($"conversation_{conversationId}").ReceiveHelperLocation(convIdStr, latitude, longitude);
-
-        var otherUserId = conversation.GetOtherParticipant(userId.Value);
-        await Clients.Group($"user_{otherUserId}").ReceiveHelperLocation(convIdStr, latitude, longitude);
-    }
-
-    /// <summary>
-    /// Once per ride: when the car is near the passenger's drop-off, post
-    /// "Next stop" in the chat and push it to the passenger (their app may be closed).
-    /// </summary>
-    private async Task AnnounceNextStopAsync(Conversation conversation, double lat, double lng)
-    {
-        var stopLat = conversation.DropLat ?? conversation.PassengerDestLat;
-        var stopLng = conversation.DropLng ?? conversation.PassengerDestLng;
-        if (stopLat is null || stopLng is null) return;
-        if (DistanceMeters(lat, lng, stopLat.Value, stopLng.Value) > NextStopMeters) return;
-
-        var key = $"next-stop:{conversation.Id}";
-        if (_cache.TryGetValue(key, out _)) return;
-        _cache.Set(key, true, TimeSpan.FromHours(12));
-
-        var stopName = conversation.DropName
-            ?? conversation.PassengerDestAddress?.Split(',')[0].Trim()
-            ?? "your stop";
-        try
-        {
-            var msg = Message.CreateSystemMessage(conversation.Id, $"Next stop: {stopName} — get ready to get off");
-            await _messageRepository.AddAsync(msg);
-            await _messageRepository.SaveChangesAsync();
-            var dto = MapToDto(msg);
-            await Clients.Group($"conversation_{conversation.Id}").ReceiveMessage(dto);
-            await Clients.Group($"user_{conversation.SenderId}").ReceiveMessage(dto);
-
-            await _eventBus.PublishAsync(new PassengerStopNextIntegrationEvent(conversation.Id, conversation.SenderId, stopName));
-            _logger.LogInformation("Next stop announced for conversation {ConversationId}", conversation.Id);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Couldn't announce the next stop for {ConversationId}", conversation.Id);
-        }
-    }
-
-    private static double DistanceMeters(double lat1, double lng1, double lat2, double lng2)
-    {
-        const double R = 6371000;
-        var dLat = (lat2 - lat1) * Math.PI / 180;
-        var dLng = (lng2 - lng1) * Math.PI / 180;
-        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
-                Math.Cos(lat1 * Math.PI / 180) * Math.Cos(lat2 * Math.PI / 180) * Math.Sin(dLng / 2) * Math.Sin(dLng / 2);
-        return 2 * R * Math.Asin(Math.Sqrt(a));
+        await _locations.ShareAsync(userId.Value, conversationId, latitude, longitude);
     }
 
     public async Task MarkAsRead(Guid messageId)

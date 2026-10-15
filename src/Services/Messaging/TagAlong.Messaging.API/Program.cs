@@ -133,6 +133,7 @@ builder.Services.AddRabbitMQEventBus(
 
 // Integration event handlers
 builder.Services.AddMemoryCache();
+builder.Services.AddScoped<TagAlong.Messaging.API.Services.LocationRelay>();
 builder.Services.AddScoped<TripStatusChangedIntegrationEventHandler>();
 
 // JWT Authentication

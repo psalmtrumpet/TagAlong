@@ -306,6 +306,19 @@ public class ConversationsController : ControllerBase
         return Ok(result.Value);
     }
 
+    /// <summary>
+    /// Share your live position on a ride over plain HTTP — the fallback when the
+    /// phone's live connection has dropped (e.g. Android putting the app to sleep).
+    /// </summary>
+    [HttpPost("{id:guid}/location")]
+    public async Task<IActionResult> ShareLocation(Guid id, [FromBody] ShareLocationRequest request,
+        [FromServices] TagAlong.Messaging.API.Services.LocationRelay locations)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+        return await locations.ShareAsync(userId.Value, id, request.Latitude, request.Longitude) ? Ok() : NotFound();
+    }
+
     /// <summary>The driver moves the pickup and/or drop-off point (to another spot on their route).</summary>
     [HttpPut("{id:guid}/meet-points")]
     [ProducesResponseType(typeof(ConversationDto), StatusCodes.Status200OK)]
