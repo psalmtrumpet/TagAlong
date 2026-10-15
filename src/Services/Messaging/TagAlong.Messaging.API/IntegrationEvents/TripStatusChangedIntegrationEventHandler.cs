@@ -21,12 +21,19 @@ public class TripStatusChangedIntegrationEventHandler
     public TripStatusChangedIntegrationEventHandler(
         IConversationRepository conversationRepository,
         IMessageRepository messageRepository,
-        ILogger<TripStatusChangedIntegrationEventHandler> logger)
+        ILogger<TripStatusChangedIntegrationEventHandler> logger,
+        MediatR.IMediator mediator,
+        Microsoft.AspNetCore.SignalR.IHubContext<TagAlong.Messaging.API.Hubs.MessagingHub, TagAlong.Messaging.API.Hubs.IMessagingClient> hub)
     {
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
         _logger = logger;
+        _mediator = mediator;
+        _hub = hub;
     }
+
+    private readonly MediatR.IMediator _mediator;
+    private readonly Microsoft.AspNetCore.SignalR.IHubContext<TagAlong.Messaging.API.Hubs.MessagingHub, TagAlong.Messaging.API.Hubs.IMessagingClient> _hub;
 
     public async Task HandleAsync(TripStatusChangedIntegrationEvent @event, CancellationToken cancellationToken = default)
     {
@@ -54,5 +61,28 @@ public class TripStatusChangedIntegrationEventHandler
         }
 
         await _conversationRepository.SaveChangesAsync(cancellationToken);
+
+        // Both sides see the booking close straight away
+        foreach (var conversation in conversations)
+        {
+            var dto = TagAlong.Messaging.API.Commands.ConversationDtoMapper.ToDto(conversation);
+            await _hub.Clients.Group($"user_{conversation.SenderId}").ConversationUpdated(dto);
+            await _hub.Clients.Group($"user_{conversation.TravelerId}").ConversationUpdated(dto);
+        }
+
+        // Journey over: anyone still on board has arrived — complete their ride
+        // exactly like a drop-off (fee, earnings, referral, rating prompt).
+        if (newStatus == "completed")
+        {
+            foreach (var onBoard in await _conversationRepository.GetInProgressByTripIdAsync(@event.TripId, cancellationToken))
+            {
+                var result = await _mediator.Send(
+                    new TagAlong.Messaging.API.Commands.MarkDeliveredCommand(onBoard.Id, onBoard.TravelerId), cancellationToken);
+                if (result.IsFailure)
+                    _logger.LogWarning("Couldn't complete ride {ConversationId} when its trip ended: {Error}", onBoard.Id, result.Error.Message);
+                else
+                    _logger.LogInformation("Completed on-board ride {ConversationId} because trip {TripId} ended", onBoard.Id, @event.TripId);
+            }
+        }
     }
 }

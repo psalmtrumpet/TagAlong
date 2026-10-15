@@ -47,9 +47,12 @@ public class MarkDeliveredCommandHandler : ICommandHandler<MarkDeliveredCommand,
             System.Globalization.CultureInfo.InvariantCulture, out var fee) && fee >= 0 ? fee : RideFlatFee(config);
 
     /// <summary>The fee for this ride: private rides have their own fee; a referral free ride waives it.</summary>
+    private bool _isPrivate;
+
     private async Task<(decimal Fee, bool Waived)> FeeForAsync(Conversation c, CancellationToken ct)
     {
-        var fee = await IsPrivateTripAsync(c.TripId, ct) ? PrivateRideFlatFee(_config) : RideFlatFee(_config);
+        _isPrivate = await IsPrivateTripAsync(c.TripId, ct);
+        var fee = _isPrivate ? PrivateRideFlatFee(_config) : RideFlatFee(_config);
         if (fee <= 0 || c.AgreedPrice is not > 0) return (fee, false);
         try
         {
@@ -123,6 +126,20 @@ public class MarkDeliveredCommandHandler : ICommandHandler<MarkDeliveredCommand,
         var otherUserId = conversation.GetOtherParticipant(request.UserId);
         await _hubContext.Clients.Group($"user_{otherUserId}").ReceiveMessage(msgDto);
         await _hubContext.Clients.Group($"user_{otherUserId}").DeliveryCompleted(dto);
+
+        // A private ride has one passenger — once they're dropped off, the journey's over
+        if (_isPrivate && conversation.TripId is { } tripId)
+        {
+            try
+            {
+                using var res = await _http.CreateClient("trip-api").PostAsync($"internal/trips/{tripId}/complete", null, cancellationToken);
+                _logger.LogInformation("Private trip {TripId} ended after drop-off ({Status})", tripId, (int)res.StatusCode);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Couldn't end private trip {TripId} after drop-off", tripId);
+            }
+        }
 
         return Result.Success(dto);
     }
