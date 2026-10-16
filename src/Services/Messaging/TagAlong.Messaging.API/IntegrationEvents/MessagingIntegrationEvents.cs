@@ -27,6 +27,14 @@ public record PriceAcceptedIntegrationEvent(
     DateTime AcceptedAt) : IntegrationEvent;
 
 /// <summary>The car is close to a riding passenger's drop-off — "your stop is next".</summary>
+/// <summary>A push about an on-demand ride (new request, counter-offer, matched, expired).</summary>
+public record RidePushIntegrationEvent(
+    Guid UserId,
+    string Title,
+    string Body,
+    Guid ReferenceId,
+    string ReferenceType) : IntegrationEvent;
+
 public record PassengerStopNextIntegrationEvent(
     Guid ConversationId,
     Guid PassengerId,

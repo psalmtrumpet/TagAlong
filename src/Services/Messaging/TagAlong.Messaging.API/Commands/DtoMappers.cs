@@ -38,7 +38,8 @@ internal static class ConversationDtoMapper
         DropName: c.DropName,
         PlatformFee: c.PlatformFee,
         DriverEarning: c.DriverEarning,
-        FeeWaived: c.FeeWaived);
+        FeeWaived: c.FeeWaived,
+        IsOnDemand: c.IsOnDemand);
 }
 
 internal static class MessageDtoMapper

@@ -14,4 +14,11 @@ public interface IMessagingClient
     Task LockInRejected(ConversationDto conversation);
     Task DeliveryStarted(ConversationDto conversation);
     Task DeliveryCompleted(ConversationDto conversation);
+
+    // On-demand rides
+    Task HailRequested(TagAlong.Messaging.API.Hails.HailOfferDto offer);
+    Task HailClosed(Guid hailId, string reason);
+    Task HailCounterOffer(TagAlong.Messaging.API.Hails.HailCounterDto counter);
+    Task HailMatched(Guid hailId, ConversationDto conversation);
+    Task HailExpired(Guid hailId);
 }

@@ -399,6 +399,12 @@ services:
       - Earnings__RideFlatFee=${RIDE_PLATFORM_FEE:-200}
       # Private (premium, one-passenger) rides — defaults to the shared fee
       - Earnings__RidePrivateFlatFee=${RIDE_PRIVATE_PLATFORM_FEE:-}
+      # On-demand rides ("Ride now"): who gets a request, how long it waits, suggested fare
+      - Hail__MaxEtaMinutes=${HAIL_MAX_ETA_MINUTES:-20}
+      - Hail__FinishingSoonMinutes=${HAIL_FINISHING_SOON_MINUTES:-5}
+      - Hail__ExpirySeconds=${HAIL_EXPIRY_SECONDS:-180}
+      - Hail__SuggestedBase=${HAIL_SUGGESTED_BASE:-500}
+      - Hail__SuggestedPerKm=${HAIL_SUGGESTED_PER_KM:-150}
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__DefaultConnection=${MESSAGING_DB_CONNECTION}

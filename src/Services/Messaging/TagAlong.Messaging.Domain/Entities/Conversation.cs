@@ -25,6 +25,8 @@ public class Conversation : AggregateRoot
     public decimal? DriverEarning { get; private set; }
     /// <summary>TagAlong's fee was waived (the driver used a referral free ride).</summary>
     public bool FeeWaived { get; private set; }
+    /// <summary>Booked on demand ("Ride now"): one passenger, no offered trip, private fee.</summary>
+    public bool IsOnDemand { get; private set; }
     public Guid SenderId { get; private set; }
     public Guid TravelerId { get; private set; }
     public Guid? RecipientUserId { get; private set; }
@@ -66,7 +68,8 @@ public class Conversation : AggregateRoot
         string? meetName = null,
         double? dropLat = null,
         double? dropLng = null,
-        string? dropName = null)
+        string? dropName = null,
+        bool isOnDemand = false)
     {
         return new Conversation
         {
@@ -90,7 +93,17 @@ public class Conversation : AggregateRoot
             DropLat = dropLat,
             DropLng = dropLng,
             DropName = dropName,
+            IsOnDemand = isOnDemand,
         };
+    }
+
+    /// <summary>An on-demand ride a driver just accepted: the price is agreed and they're on their way.</summary>
+    public void BookOnDemand(decimal price)
+    {
+        AgreedPrice = price;
+        LockInProposedBy = null;
+        Status = ConversationStatus.LockedIn;
+        SetUpdated();
     }
 
     public void Accept()

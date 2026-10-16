@@ -40,6 +40,10 @@ public class StartDeliveryCommandHandler : ICommandHandler<StartDeliveryCommand,
         if (conversation.TravelerId != request.UserId)
             return Result.Failure<ConversationDto>(Error.Unauthorized("Only the traveler can start the trip"));
 
+        if (conversation.IsOnDemand && conversation.Status == ConversationStatus.LockedIn &&
+            await _conversationRepository.CountInProgressByTravelerIdAsync(conversation.TravelerId, cancellationToken) > 0)
+            return Result.Failure<ConversationDto>(Error.Validation("Drop off your current passenger before starting this ride."));
+
         conversation.StartTrip();
         _conversationRepository.Update(conversation);
 

@@ -312,7 +312,12 @@ public class UserProfile : AggregateRoot
         }
         else if (HasOngoingTrip)
         {
-            SetTripEnded();
+            // Last passenger dropped off: stay available for the next request.
+            // (An offered trip ending takes the driver offline separately; an
+            // expired window is picked up by the expiry job now nobody's on board.)
+            HasOngoingTrip = false;
+            ActivePassengerCount = 0;
+            SetUpdated();
         }
     }
 

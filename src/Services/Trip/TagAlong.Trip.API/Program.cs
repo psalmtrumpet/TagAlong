@@ -111,6 +111,7 @@ builder.Services.AddHttpClient("overpass", c =>
 });
 builder.Services.AddScoped<MeetPointService>();
 builder.Services.AddScoped<RouteOptionsService>();
+builder.Services.AddScoped<EtaService>();
 
 builder.Services.AddScoped<ITripRouteService, TripRouteService>();
 builder.Services.AddScoped<IDetourVerifier, DetourVerifier>();

@@ -11,6 +11,8 @@ public class MessagingDbContext : DbContext
 
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<Message> Messages => Set<Message>();
+    public DbSet<HailRequest> HailRequests => Set<HailRequest>();
+    public DbSet<HailCandidate> HailCandidates => Set<HailCandidate>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -44,6 +46,7 @@ public class MessagingDbContext : DbContext
             entity.Property(c => c.PlatformFee).HasColumnName("platform_fee").HasColumnType("decimal(18,2)");
             entity.Property(c => c.DriverEarning).HasColumnName("driver_earning").HasColumnType("decimal(18,2)");
             entity.Property(c => c.FeeWaived).HasColumnName("fee_waived").HasDefaultValue(false);
+            entity.Property(c => c.IsOnDemand).HasColumnName("is_on_demand").HasDefaultValue(false);
             entity.Property(c => c.LockInProposedBy).HasColumnName("lock_in_proposed_by");
             entity.Property(c => c.StartedAt).HasColumnName("started_at");
             entity.Property(c => c.DeliveredAt).HasColumnName("delivered_at");
@@ -87,6 +90,56 @@ public class MessagingDbContext : DbContext
             entity.HasIndex(m => m.ConversationId);
             entity.HasIndex(m => m.SenderId);
             entity.HasIndex(m => m.SentAt);
+        });
+
+        modelBuilder.Entity<HailRequest>(entity =>
+        {
+            entity.ToTable("hail_requests");
+            entity.HasKey(h => h.Id);
+            entity.Property(h => h.Id).HasColumnName("id");
+            entity.Property(h => h.PassengerId).HasColumnName("passenger_id").IsRequired();
+            entity.Property(h => h.PickupLat).HasColumnName("pickup_lat");
+            entity.Property(h => h.PickupLng).HasColumnName("pickup_lng");
+            entity.Property(h => h.PickupName).HasColumnName("pickup_name").HasMaxLength(300);
+            entity.Property(h => h.DestLat).HasColumnName("dest_lat");
+            entity.Property(h => h.DestLng).HasColumnName("dest_lng");
+            entity.Property(h => h.DestName).HasColumnName("dest_name").HasMaxLength(300);
+            entity.Property(h => h.OfferedPrice).HasColumnName("offered_price").HasColumnType("decimal(18,2)");
+            entity.Property(h => h.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(20).IsRequired();
+            entity.Property(h => h.MatchedDriverId).HasColumnName("matched_driver_id");
+            entity.Property(h => h.ConversationId).HasColumnName("conversation_id");
+            entity.Property(h => h.ExpiresAt).HasColumnName("expires_at");
+            entity.Property(h => h.CreatedAt).HasColumnName("created_at").IsRequired();
+            entity.Property(h => h.UpdatedAt).HasColumnName("updated_at");
+            entity.Ignore(h => h.IsDeleted);
+            entity.Ignore(h => h.DeletedAt);
+            entity.Ignore(h => h.IsOpen);
+            entity.HasIndex(h => new { h.Status, h.ExpiresAt });
+            entity.HasIndex(h => h.PassengerId);
+        });
+
+        modelBuilder.Entity<HailCandidate>(entity =>
+        {
+            entity.ToTable("hail_candidates");
+            entity.HasKey(c => c.Id);
+            entity.Property(c => c.Id).HasColumnName("id");
+            entity.Property(c => c.HailId).HasColumnName("hail_id").IsRequired();
+            entity.Property(c => c.DriverId).HasColumnName("driver_id").IsRequired();
+            entity.Property(c => c.DriverName).HasColumnName("driver_name").HasMaxLength(200);
+            entity.Property(c => c.DriverRating).HasColumnName("driver_rating").HasColumnType("decimal(4,2)");
+            entity.Property(c => c.DriverTotalRatings).HasColumnName("driver_total_ratings");
+            entity.Property(c => c.Vehicle).HasColumnName("vehicle").HasMaxLength(200);
+            entity.Property(c => c.VehiclePlate).HasColumnName("vehicle_plate").HasMaxLength(30);
+            entity.Property(c => c.EtaSeconds).HasColumnName("eta_seconds");
+            entity.Property(c => c.FinishingCurrentRide).HasColumnName("finishing_current_ride");
+            entity.Property(c => c.CounterPrice).HasColumnName("counter_price").HasColumnType("decimal(18,2)");
+            entity.Property(c => c.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(20).IsRequired();
+            entity.Property(c => c.CreatedAt).HasColumnName("created_at").IsRequired();
+            entity.Property(c => c.UpdatedAt).HasColumnName("updated_at");
+            entity.Ignore(c => c.IsDeleted);
+            entity.Ignore(c => c.DeletedAt);
+            entity.HasIndex(c => c.HailId);
+            entity.HasIndex(c => c.DriverId);
         });
     }
 }

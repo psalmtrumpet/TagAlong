@@ -91,6 +91,9 @@ builder.Services.AddHttpClient("trip-api", c =>
 });
 // Completes on-board rides left behind when a trip ended
 builder.Services.AddHostedService<TagAlong.Messaging.API.BackgroundJobs.StuckRideSweeper>();
+// On-demand rides: matching, and closing requests nobody accepted
+builder.Services.AddScoped<TagAlong.Messaging.API.Hails.HailService>();
+builder.Services.AddHostedService<TagAlong.Messaging.API.BackgroundJobs.HailExpiryJob>();
 builder.Services.AddHttpClient<IUserLookupService, UserLookupService>(client =>
 {
     client.BaseAddress = new Uri(userApiBaseUrl);

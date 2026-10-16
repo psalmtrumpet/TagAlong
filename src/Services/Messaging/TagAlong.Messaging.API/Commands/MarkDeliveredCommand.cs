@@ -51,7 +51,7 @@ public class MarkDeliveredCommandHandler : ICommandHandler<MarkDeliveredCommand,
 
     private async Task<(decimal Fee, bool Waived)> FeeForAsync(Conversation c, CancellationToken ct)
     {
-        _isPrivate = await IsPrivateTripAsync(c.TripId, ct);
+        _isPrivate = c.IsOnDemand || await IsPrivateTripAsync(c.TripId, ct);
         var fee = _isPrivate ? PrivateRideFlatFee(_config) : RideFlatFee(_config);
         if (fee <= 0 || c.AgreedPrice is not > 0) return (fee, false);
         try

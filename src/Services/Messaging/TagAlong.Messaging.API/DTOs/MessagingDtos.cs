@@ -35,7 +35,8 @@ public record ConversationDto(
     string? DropName = null,
     decimal? PlatformFee = null,
     decimal? DriverEarning = null,
-    bool FeeWaived = false);
+    bool FeeWaived = false,
+    bool IsOnDemand = false);
 
 public record MessageDto(
     Guid Id,
