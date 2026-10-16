@@ -56,7 +56,8 @@ public class TripRepository : ITripRepository
     {
         var query = _context.Trips
             .Include(t => t.Stops)
-            .Where(t => t.Status == TripStatus.Scheduled && t.DepartureTime.Date >= DateTime.UtcNow.Date);
+            .Where(t => t.Status == TripStatus.InProgress ||
+                        (t.Status == TripStatus.Scheduled && t.DepartureTime.Date >= DateTime.UtcNow.Date));
 
         if (tripType.HasValue)
             query = query.Where(t => t.TripType == tripType.Value);
@@ -87,20 +88,11 @@ public class TripRepository : ITripRepository
         {
             var latDelta = radiusKm / 111.0;
             var lonDelta = radiusKm / (111.0 * Math.Cos(originLat.Value * Math.PI / 180));
-            if (tripType == TripType.Delivery)
-            {
-                query = query.Where(t =>
-                    originLat.Value >= (t.OriginLatitude  < t.DestinationLatitude  ? t.OriginLatitude  : t.DestinationLatitude)  - latDelta &&
-                    originLat.Value <= (t.OriginLatitude  > t.DestinationLatitude  ? t.OriginLatitude  : t.DestinationLatitude)  + latDelta &&
-                    originLon.Value >= (t.OriginLongitude < t.DestinationLongitude ? t.OriginLongitude : t.DestinationLongitude) - lonDelta &&
-                    originLon.Value <= (t.OriginLongitude > t.DestinationLongitude ? t.OriginLongitude : t.DestinationLongitude) + lonDelta);
-            }
-            else
-            {
-                query = query.Where(t =>
-                    t.OriginLatitude  >= originLat.Value - latDelta && t.OriginLatitude  <= originLat.Value + latDelta &&
-                    t.OriginLongitude >= originLon.Value - lonDelta && t.OriginLongitude <= originLon.Value + lonDelta);
-            }
+            query = query.Where(t =>
+                originLat.Value >= (t.OriginLatitude  < t.DestinationLatitude  ? t.OriginLatitude  : t.DestinationLatitude)  - latDelta &&
+                originLat.Value <= (t.OriginLatitude  > t.DestinationLatitude  ? t.OriginLatitude  : t.DestinationLatitude)  + latDelta &&
+                originLon.Value >= (t.OriginLongitude < t.DestinationLongitude ? t.OriginLongitude : t.DestinationLongitude) - lonDelta &&
+                originLon.Value <= (t.OriginLongitude > t.DestinationLongitude ? t.OriginLongitude : t.DestinationLongitude) + lonDelta);
         }
 
         // SQL loose pre-filter for destination: keep any trip whose route bounding
@@ -137,8 +129,10 @@ public class TripRepository : ITripRepository
                         t.DestinationLatitude, t.DestinationLongitude) <= radiusKm)
                     .ToList();
             else
+                // Ride: the driver passes the pickup — near the route, or near where they start
                 candidates = candidates
-                    .Where(t => HaversineKm(originLat.Value, originLon.Value, t.OriginLatitude, t.OriginLongitude) <= radiusKm)
+                    .Where(t => HaversineKm(originLat.Value, originLon.Value, t.OriginLatitude, t.OriginLongitude) <= radiusKm ||
+                                NearRouteKm(t, originLat.Value, originLon.Value) <= PickupCorridorKm)
                     .ToList();
         }
 
@@ -162,9 +156,42 @@ public class TripRepository : ITripRepository
                 .ToList();
         }
 
+        // A ride must reach the pickup before the drop-off
+        if (tripType != TripType.Delivery && originLat.HasValue && originLon.HasValue && destLat.HasValue && destLon.HasValue)
+            candidates = candidates
+                .Where(t => ProgressAlong(t, originLat.Value, originLon.Value) <= ProgressAlong(t, destLat.Value, destLon.Value))
+                .ToList();
+
         return candidates
             .Skip((page - 1) * pageSize)
             .Take(pageSize);
+    }
+
+    /// <summary>How far off a trip's road a pickup can be (the driver picks up at a stop on it).</summary>
+    private const double PickupCorridorKm = 2.5;
+
+    /// <summary>Distance (km) from a point to the trip's route (stored road line, else the straight line).</summary>
+    private static double NearRouteKm(Domain.Entities.Trip t, double lat, double lon)
+    {
+        if (t.RouteLine is not null && t.RouteStatus == TripRouteStatus.Stored)
+        {
+            var nearest = DistanceOp.NearestPoints(t.RouteLine, new Point(lon, lat) { SRID = 4326 });
+            return HaversineKm(nearest[0].Y, nearest[0].X, lat, lon);
+        }
+        return PointToRouteKm(lat, lon, t.OriginLatitude, t.OriginLongitude, t.DestinationLatitude, t.DestinationLongitude);
+    }
+
+    /// <summary>How far along the trip's route a point is (0 at the start; comparable within one trip).</summary>
+    private static double ProgressAlong(Domain.Entities.Trip t, double lat, double lon)
+    {
+        if (t.RouteLine is not null && t.RouteStatus == TripRouteStatus.Stored)
+            return new LocationIndexedLine(t.RouteLine).Project(new Coordinate(lon, lat)).SegmentIndex +
+                   new LocationIndexedLine(t.RouteLine).Project(new Coordinate(lon, lat)).SegmentFraction;
+        // Straight line: projection onto start→end
+        double bx = t.DestinationLongitude - t.OriginLongitude, by = t.DestinationLatitude - t.OriginLatitude;
+        double px = lon - t.OriginLongitude, py = lat - t.OriginLatitude;
+        var len = bx * bx + by * by;
+        return len < 1e-12 ? 0 : (px * bx + py * by) / len;
     }
 
     // Haversine great-circle distance between two points (km).
