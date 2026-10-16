@@ -36,6 +36,16 @@ public class HailsController : ControllerBase
     public async Task<IActionResult> Cancel(Guid id, CancellationToken ct) =>
         Respond(await _hails.CancelAsync(Me, id, ct));
 
+    /// <summary>Don't wait for these drivers (too far).</summary>
+    [HttpPost("{id:guid}/skip")]
+    public async Task<IActionResult> Skip(Guid id, [FromBody] SkipDriversRequest body, CancellationToken ct) =>
+        Respond(await _hails.SkipAsync(Me, id, body.DriverIds ?? new List<Guid>(), ct));
+
+    /// <summary>Keep only drivers who can get here within this many minutes.</summary>
+    [HttpPost("{id:guid}/only-within")]
+    public async Task<IActionResult> OnlyWithin(Guid id, [FromBody] OnlyWithinRequest body, CancellationToken ct) =>
+        Respond(await _hails.OnlyWithinAsync(Me, id, body.Minutes, ct));
+
     [HttpPost("{id:guid}/accept-counter")]
     public async Task<IActionResult> AcceptCounter(Guid id, [FromBody] AcceptCounterRequest body, CancellationToken ct) =>
         Respond(await _hails.AcceptCounterAsync(Me, id, body.DriverId, ct));

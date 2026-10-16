@@ -70,7 +70,7 @@ public class InternalAvailabilityController : ControllerBase
             .Where(p => vehicles.ContainsKey(p.AuthUserId))
             .Where(p => also.Contains(p.AuthUserId) || p.DistanceFromKm(lat, lng) <= radiusKm)
             .OrderBy(p => p.DistanceFromKm(lat, lng))
-            .Take(40)
+            .Take(100)
             .Select(p =>
             {
                 var v = vehicles[p.AuthUserId];

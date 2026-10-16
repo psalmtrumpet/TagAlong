@@ -132,6 +132,9 @@ public class MessagingDbContext : DbContext
             entity.Property(c => c.VehiclePlate).HasColumnName("vehicle_plate").HasMaxLength(30);
             entity.Property(c => c.EtaSeconds).HasColumnName("eta_seconds");
             entity.Property(c => c.FinishingCurrentRide).HasColumnName("finishing_current_ride");
+            entity.Property(c => c.DriverLat).HasColumnName("driver_lat");
+            entity.Property(c => c.DriverLng).HasColumnName("driver_lng");
+            entity.Property(c => c.DistanceMeters).HasColumnName("distance_meters");
             entity.Property(c => c.CounterPrice).HasColumnName("counter_price").HasColumnType("decimal(18,2)");
             entity.Property(c => c.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(20).IsRequired();
             entity.Property(c => c.CreatedAt).HasColumnName("created_at").IsRequired();

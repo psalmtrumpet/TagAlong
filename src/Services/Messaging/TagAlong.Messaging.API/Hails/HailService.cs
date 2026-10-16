@@ -48,11 +48,10 @@ public class HailService
     // ── Settings ──
     private double Setting(string key, double fallback) =>
         double.TryParse(_config[$"Hail:{key}"], NumberStyles.Number, CultureInfo.InvariantCulture, out var v) && v > 0 ? v : fallback;
-    private int MaxEtaSeconds => (int)(Setting("MaxEtaMinutes", 20) * 60);
+    private int MaxEtaSeconds => (int)(Setting("MaxEtaMinutes", 30) * 60);
     private int FinishingSoonSeconds => (int)(Setting("FinishingSoonMinutes", 5) * 60);
-    private double PrefilterRadiusKm => Setting("PrefilterRadiusKm", 15);
+    private double PrefilterRadiusKm => Setting("PrefilterRadiusKm", 25);
     private TimeSpan Lifetime => TimeSpan.FromSeconds(Setting("ExpirySeconds", 180));
-    private const int MaxDrivers = 15;
 
     // ── Quote ──
 
@@ -128,6 +127,39 @@ public class HailService
         return await ToDtoAsync(hail, count, ct);
     }
 
+    /// <summary>The passenger doesn't want to wait for these drivers: withdraw the request from them.</summary>
+    public async Task<Result<HailDto>> SkipAsync(Guid passengerId, Guid hailId, List<Guid> driverIds, CancellationToken ct)
+    {
+        var hail = await _db.HailRequests.FirstOrDefaultAsync(h => h.Id == hailId && h.PassengerId == passengerId, ct);
+        if (hail == null) return Result.Failure<HailDto>(Error.NotFound("Ride request not found"));
+        var skip = await _db.HailCandidates
+            .Where(c => c.HailId == hailId && driverIds.Contains(c.DriverId) && c.Status != HailCandidateStatus.Skipped)
+            .ToListAsync(ct);
+        return await SkipCandidatesAsync(hail, skip, ct);
+    }
+
+    /// <summary>Keep only drivers who can get here within <paramref name="minutes"/>.</summary>
+    public async Task<Result<HailDto>> OnlyWithinAsync(Guid passengerId, Guid hailId, int minutes, CancellationToken ct)
+    {
+        var hail = await _db.HailRequests.FirstOrDefaultAsync(h => h.Id == hailId && h.PassengerId == passengerId, ct);
+        if (hail == null) return Result.Failure<HailDto>(Error.NotFound("Ride request not found"));
+        var limit = Math.Max(1, minutes) * 60;
+        var skip = await _db.HailCandidates
+            .Where(c => c.HailId == hailId && c.EtaSeconds > limit && c.Status != HailCandidateStatus.Skipped)
+            .ToListAsync(ct);
+        return await SkipCandidatesAsync(hail, skip, ct);
+    }
+
+    private async Task<Result<HailDto>> SkipCandidatesAsync(HailRequest hail, List<HailCandidate> skip, CancellationToken ct)
+    {
+        foreach (var c in skip) c.Skip();
+        await _db.SaveChangesAsync(ct);
+        foreach (var c in skip)
+            await _hub.Clients.Group($"user_{c.DriverId}").HailClosed(hail.Id, "withdrawn");
+        var count = await _db.HailCandidates.CountAsync(c => c.HailId == hail.Id, ct);
+        return Result.Success(await ToDtoAsync(hail, count, ct));
+    }
+
     public Task<Result<ConversationDto>> AcceptCounterAsync(Guid passengerId, Guid hailId, Guid driverId, CancellationToken ct) =>
         MatchAsync(hailId, driverId, passengerId, useCounter: true, ct);
 
@@ -143,6 +175,8 @@ public class HailService
         if (hail == null || !hail.IsOpen) return Result.Failure(Error.Validation("This ride request is no longer available."));
         var candidate = await _db.HailCandidates.FirstOrDefaultAsync(c => c.HailId == hailId && c.DriverId == driverId, ct);
         if (candidate == null) return Result.Failure(Error.NotFound("Ride request not found"));
+        if (candidate.Status == HailCandidateStatus.Skipped)
+            return Result.Failure(Error.Validation("The passenger chose a closer driver."));
 
         candidate.Counter(price);
         await _db.SaveChangesAsync(ct);
@@ -170,6 +204,7 @@ public class HailService
         var rows = await (from c in _db.HailCandidates.AsNoTracking()
                           join h in _db.HailRequests.AsNoTracking() on c.HailId equals h.Id
                           where c.DriverId == driverId && c.Status != HailCandidateStatus.Declined &&
+                                c.Status != HailCandidateStatus.Skipped &&
                                 h.Status == HailStatus.Open && h.ExpiresAt > now
                           orderby h.CreatedAt descending
                           select new { h, c }).Take(5).ToListAsync(ct);
@@ -206,6 +241,9 @@ public class HailService
             return Result.Failure<ConversationDto>(Error.NotFound("Ride request not found"));
         var candidate = await _db.HailCandidates.AsNoTracking().FirstOrDefaultAsync(c => c.HailId == hailId && c.DriverId == driverId, ct);
         if (candidate == null) return Result.Failure<ConversationDto>(Error.NotFound("Ride request not found"));
+        if (candidate.Status == HailCandidateStatus.Skipped)
+            return Result.Failure<ConversationDto>(Error.Validation(
+                useCounter ? "You skipped that driver." : "The passenger chose a closer driver."));
         if (useCounter && candidate.CounterPrice is null)
             return Result.Failure<ConversationDto>(Error.Validation("That driver hasn't made an offer."));
         if (!hail.IsOpen) return Result.Failure<ConversationDto>(Error.Conflict(Taken(hail)));
@@ -276,7 +314,7 @@ public class HailService
     private record NearDriver(Guid UserId, string Name, decimal AverageRating, int TotalRatings,
         double Latitude, double Longitude, bool HasOngoingTrip, string Vehicle, string VehiclePlate);
     private record BusyTrip(Guid DriverId, Guid TripId, bool IsPrivate, string Status);
-    private record Found(NearDriver Driver, int EtaSeconds, bool Finishing);
+    private record Found(NearDriver Driver, int EtaSeconds, bool Finishing, double Lat, double Lng);
 
     /// <summary>Find drivers within a short drive, record them and send them the request. Returns how many.</summary>
     private async Task<int> FindAndNotifyAsync(HailRequest hail, CancellationToken ct)
@@ -296,11 +334,17 @@ public class HailService
         var candidates = new List<HailCandidate>();
         foreach (var f in found)
         {
-            if (existing.TryGetValue(f.Driver.UserId, out var c)) c.Renotify(f.EtaSeconds, f.Finishing);
+            var meters = (int)Math.Round(HaversineKm(f.Lat, f.Lng, hail.PickupLat, hail.PickupLng) * 1000 * 1.3);
+            if (existing.TryGetValue(f.Driver.UserId, out var c))
+            {
+                // Skipped by the passenger: don't ask them again when the offer is raised
+                if (c.Status == HailCandidateStatus.Skipped) continue;
+                c.Renotify(f.EtaSeconds, f.Finishing, f.Lat, f.Lng, meters);
+            }
             else
             {
                 c = HailCandidate.Create(hail.Id, f.Driver.UserId, f.Driver.Name, f.Driver.AverageRating, f.Driver.TotalRatings,
-                    f.Driver.Vehicle, f.Driver.VehiclePlate, f.EtaSeconds, f.Finishing);
+                    f.Driver.Vehicle, f.Driver.VehiclePlate, f.EtaSeconds, f.Finishing, f.Lat, f.Lng, meters);
                 _db.HailCandidates.Add(c);
             }
             candidates.Add(c);
@@ -373,7 +417,7 @@ public class HailService
         for (var i = 0; i < idle.Count; i++)
         {
             var eta = idleEtas[i] ?? EstimateSeconds(idle[i].Latitude, idle[i].Longitude, hail.PickupLat, hail.PickupLng);
-            if (eta <= MaxEtaSeconds) result.Add(new Found(idle[i], eta, false));
+            if (eta <= MaxEtaSeconds) result.Add(new Found(idle[i], eta, false, idle[i].Latitude, idle[i].Longitude));
         }
 
         // Finishing a private ride: to their drop-off first (must be close), then here
@@ -388,11 +432,11 @@ public class HailService
                              ?? EstimateSeconds(ride.HelperLastLat!.Value, ride.HelperLastLng!.Value, drop.Lat, drop.Lng);
                 if (toDrop > FinishingSoonSeconds) continue;
                 var total = toDrop + (fromDrop[i] ?? EstimateSeconds(drop.Lat, drop.Lng, hail.PickupLat, hail.PickupLng));
-                if (total <= MaxEtaSeconds) result.Add(new Found(d, total, true));
+                if (total <= MaxEtaSeconds) result.Add(new Found(d, total, true, ride.HelperLastLat!.Value, ride.HelperLastLng!.Value));
             }
         }
 
-        return result.OrderBy(f => f.EtaSeconds).Take(MaxDrivers).ToList();
+        return result.OrderBy(f => f.EtaSeconds).ToList();
     }
 
     private static (double Lat, double Lng)? DropOf(Conversation c) =>
@@ -492,12 +536,17 @@ public class HailService
 
     private async Task<HailDto> ToDtoAsync(HailRequest h, int notified, CancellationToken ct)
     {
-        var counters = await _db.HailCandidates.AsNoTracking()
-            .Where(c => c.HailId == h.Id && c.Status == HailCandidateStatus.Countered)
-            .OrderBy(c => c.CounterPrice)
+        var all = await _db.HailCandidates.AsNoTracking()
+            .Where(c => c.HailId == h.Id)
+            .OrderBy(c => c.EtaSeconds)
             .ToListAsync(ct);
+        var counters = all.Where(c => c.Status == HailCandidateStatus.Countered).OrderBy(c => c.CounterPrice);
+        var drivers = all.Select(c => new HailDriverDto(
+            c.DriverId, c.DriverName, c.DriverRating, c.DriverTotalRatings, c.Vehicle, c.VehiclePlate,
+            c.EtaSeconds, c.DistanceMeters, c.DriverLat, c.DriverLng, c.FinishingCurrentRide,
+            c.Status.ToString(), c.CounterPrice)).ToList();
         return new HailDto(h.Id, h.Status.ToString(), h.PickupLat, h.PickupLng, h.PickupName, h.DestLat, h.DestLng, h.DestName,
-            h.OfferedPrice, h.ExpiresAt, notified, h.ConversationId, counters.Select(ToCounterDto).ToList());
+            h.OfferedPrice, h.ExpiresAt, notified, h.ConversationId, counters.Select(ToCounterDto).ToList(), drivers);
     }
 
     private static HailCounterDto ToCounterDto(HailCandidate c) => new(

@@ -9,6 +9,26 @@ public record PriceRequest(decimal Price);
 
 public record AcceptCounterRequest(Guid DriverId);
 
+public record SkipDriversRequest(List<Guid> DriverIds);
+
+public record OnlyWithinRequest(int Minutes);
+
+/// <summary>A driver the request went to, as the passenger sees them (list and map).</summary>
+public record HailDriverDto(
+    Guid DriverId,
+    string Name,
+    decimal Rating,
+    int TotalRatings,
+    string Vehicle,
+    string VehiclePlate,
+    int EtaSeconds,
+    int DistanceMeters,
+    double Lat,
+    double Lng,
+    bool FinishingCurrentRide,
+    string Status,
+    decimal? CounterPrice);
+
 /// <summary>Suggested fare and how many drivers are around, before the passenger asks.</summary>
 public record HailQuoteDto(int DistanceMeters, int? DurationSeconds, decimal SuggestedPrice, int DriversNearby);
 
@@ -35,7 +55,8 @@ public record HailDto(
     DateTime ExpiresAt,
     int DriversNotified,
     Guid? ConversationId,
-    List<HailCounterDto> Counters);
+    List<HailCounterDto> Counters,
+    List<HailDriverDto> Drivers);
 
 /// <summary>An incoming request, as a driver sees it.</summary>
 public record HailOfferDto(

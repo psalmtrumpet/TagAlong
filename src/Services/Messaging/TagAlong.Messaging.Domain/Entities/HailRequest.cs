@@ -94,6 +94,11 @@ public class HailCandidate : Entity
     public int EtaSeconds { get; private set; }
     /// <summary>The driver is dropping someone off first.</summary>
     public bool FinishingCurrentRide { get; private set; }
+    /// <summary>Where the driver was when asked (their live ride position if finishing one).</summary>
+    public double DriverLat { get; private set; }
+    public double DriverLng { get; private set; }
+    /// <summary>Rough road distance to the pickup, for display.</summary>
+    public int DistanceMeters { get; private set; }
     public decimal? CounterPrice { get; private set; }
     public HailCandidateStatus Status { get; private set; } = HailCandidateStatus.Notified;
 
@@ -101,8 +106,12 @@ public class HailCandidate : Entity
 
     public static HailCandidate Create(
         Guid hailId, Guid driverId, string driverName, decimal rating, int totalRatings,
-        string vehicle, string plate, int etaSeconds, bool finishingCurrentRide) => new()
+        string vehicle, string plate, int etaSeconds, bool finishingCurrentRide,
+        double driverLat, double driverLng, int distanceMeters) => new()
     {
+        DriverLat = driverLat,
+        DriverLng = driverLng,
+        DistanceMeters = distanceMeters,
         HailId = hailId,
         DriverId = driverId,
         DriverName = driverName,
@@ -128,8 +137,18 @@ public class HailCandidate : Entity
     }
 
     /// <summary>Sent again after the passenger raised their offer.</summary>
-    public void Renotify(int etaSeconds, bool finishingCurrentRide)
+    /// <summary>The passenger chose not to wait for this driver (too far).</summary>
+    public void Skip()
     {
+        Status = HailCandidateStatus.Skipped;
+        SetUpdated();
+    }
+
+    public void Renotify(int etaSeconds, bool finishingCurrentRide, double driverLat, double driverLng, int distanceMeters)
+    {
+        DriverLat = driverLat;
+        DriverLng = driverLng;
+        DistanceMeters = distanceMeters;
         EtaSeconds = etaSeconds;
         FinishingCurrentRide = finishingCurrentRide;
         CounterPrice = null;
@@ -142,5 +161,6 @@ public enum HailCandidateStatus
 {
     Notified,
     Countered,
-    Declined
+    Declined,
+    Skipped
 }
