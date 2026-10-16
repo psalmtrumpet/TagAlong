@@ -99,7 +99,11 @@ public enum ReportReason
     DangerousItems,
     NonDelivery,
     DamagedPackage,
-    Other
+    Other,
+    // Ride safety
+    UnsafeDriving,
+    SafetyConcern,
+    Overcharging
 }
 
 public enum ReportStatus

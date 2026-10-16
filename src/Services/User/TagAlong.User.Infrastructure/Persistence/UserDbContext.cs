@@ -18,6 +18,8 @@ public class UserDbContext : DbContext
     public DbSet<Referral> Referrals => Set<Referral>();
     public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
     public DbSet<ReferralEarning> ReferralEarnings => Set<ReferralEarning>();
+    public DbSet<EmergencyContact> EmergencyContacts => Set<EmergencyContact>();
+    public DbSet<SafetyRecording> SafetyRecordings => Set<SafetyRecording>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -206,6 +208,24 @@ public class UserDbContext : DbContext
             entity.Property(e => e.Reward).HasConversion<string>().HasMaxLength(20);
             entity.Property(e => e.RewardAmount).HasColumnType("decimal(18,2)");
             entity.Ignore(e => e.IsQualified);
+        });
+
+        modelBuilder.Entity<EmergencyContact>(entity =>
+        {
+            entity.ToTable("emergency_contacts");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.AuthUserId);
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.Phone).HasMaxLength(30);
+        });
+
+        modelBuilder.Entity<SafetyRecording>(entity =>
+        {
+            entity.ToTable("safety_recordings");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.AuthUserId);
+            entity.HasIndex(e => e.ConversationId);
+            entity.Property(e => e.FilePath).HasMaxLength(200);
         });
 
         modelBuilder.Entity<ReferralEarning>(entity =>

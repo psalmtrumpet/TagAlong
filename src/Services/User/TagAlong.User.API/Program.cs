@@ -87,6 +87,9 @@ builder.Services.AddScoped<ISmileWebhookLogRepository, SmileWebhookLogRepository
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<TagAlong.User.API.Services.SmileIdPollService>();
 builder.Services.AddSingleton<FileService>();
+// Ride safety recordings (encrypted) and their 30-day clean-up
+builder.Services.AddSingleton<TagAlong.User.API.Services.RecordingStore>();
+builder.Services.AddHostedService<TagAlong.User.API.Services.RecordingCleanupJob>();
 // Reads driver licence / vehicle photos with a vision model (needs Anthropic:ApiKey)
 builder.Services.AddSingleton<TagAlong.User.API.Services.DriverDocumentReader>();
 builder.Services.AddSingleton<TagAlong.User.API.Services.KycPhotoService>();

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Track your TagAlong delivery</title>
+<title>Live on TagAlong</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
@@ -56,12 +56,12 @@
 <div id="map" style="position:relative">
   <div id="waiting">
     <div class="spinner"></div>
-    <p>Waiting for carrier to share location…</p>
+    <p id="waiting-text">Waiting for the driver's location…</p>
   </div>
   <div id="delivered">
-    <span>📦</span>
-    <h3>Package Delivered!</h3>
-    <p>Your delivery has been completed.</p>
+    <span id="done-icon">📦</span>
+    <h3 id="done-title">Package Delivered!</h3>
+    <p id="done-text">Your delivery has been completed.</p>
   </div>
 </div>
 
@@ -153,8 +153,28 @@ async function poll() {
     const destText    = document.getElementById('dest-text');
     const liveDot     = document.getElementById('live-dot');
 
+    // A ride someone shared for safety, or a package delivery
+    const ride = d.isDelivery === false;
+    if (ride && !window.__rideText) {
+      window.__rideText = true;
+      document.title = 'Live ride on TagAlong';
+      document.getElementById('waiting-text').textContent = "Waiting for the driver's location…";
+      document.getElementById('done-icon').textContent = '✅';
+      document.getElementById('done-title').textContent = 'Arrived safely';
+      document.getElementById('done-text').textContent = 'This ride has ended.';
+      truckIcon.options.html = truckIcon.options.html.replace('🚛 Carrier', '🚗 Driver');
+    }
+    const rideStatus = {
+      Pending:'Ride requested',
+      Negotiating:'Agreeing the fare',
+      Active:'Ride agreed',
+      LockedIn:'Driver is on the way to the pickup' + (d.pickupName ? ' at ' + d.pickupName : ''),
+      InProgress:'On the way' + (d.destAddress ? ' to ' + d.destAddress : ''),
+      Closed:'Ride complete',
+      Declined:'Ride cancelled'
+    };
     // Status text
-    const statusMap = {
+    const statusMap = ride ? rideStatus : {
       Pending:'Waiting for carrier to accept',
       Negotiating:'Negotiating with carrier',
       Active:'Carrier accepted — awaiting pickup',
@@ -188,7 +208,7 @@ async function poll() {
       if (!carrierMarker) {
         carrierMarker = L.marker([d.helperLat, d.helperLng], { icon: truckIcon }).addTo(map);
       } else {
-        carrierMarker.setLatLng([d.helperLat, d.helperLng]);
+        glideMarker(carrierMarker, [d.helperLat, d.helperLng]);
       }
 
       // Route carrier → dest (InProgress) or just show carrier (other)
@@ -207,11 +227,35 @@ async function poll() {
 
       // Last seen
       if (d.helperLastSeen) {
-        const ago = Math.round((Date.now() - new Date(d.helperLastSeen)) / 1000);
-        lastSeen.textContent = ago < 10 ? 'Updated just now' : `Updated ${ago}s ago`;
+        // API timestamps are UTC but carry no zone suffix — don't let the
+        // browser read them as local time.
+        const ts = /[zZ]|[+-]\d\d:\d\d$/.test(d.helperLastSeen) ? d.helperLastSeen : d.helperLastSeen + 'Z';
+        const ago = Math.max(0, Math.round((Date.now() - new Date(ts)) / 1000));
+        lastSeen.textContent = ago < 10 ? 'Updated just now'
+          : ago < 120 ? `Updated ${ago}s ago`
+          : `Updated ${Math.round(ago / 60)} min ago`;
+        // Live dot goes grey when the carrier's phone stops reporting
+        liveDot.style.background = ago < 60 ? '' : '#9ca3af';
       }
     }
   } catch(_) {}
+}
+
+// Move a marker smoothly to a new position instead of jumping
+// (updates arrive every few seconds).
+let glideFrame = null;
+function glideMarker(marker, to) {
+  const from = marker.getLatLng();
+  if (from.lat === to[0] && from.lng === to[1]) return;
+  if (glideFrame) cancelAnimationFrame(glideFrame);
+  const start = performance.now(), duration = 3500;
+  const step = (now) => {
+    const t = Math.min(1, (now - start) / duration);
+    const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; // ease in-out
+    marker.setLatLng([from.lat + (to[0] - from.lat) * e, from.lng + (to[1] - from.lng) * e]);
+    glideFrame = t < 1 ? requestAnimationFrame(step) : null;
+  };
+  glideFrame = requestAnimationFrame(step);
 }
 
 // Initial map view (Lagos)

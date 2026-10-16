@@ -34,9 +34,11 @@ public class TrackingController : ControllerBase
             helperLat      = conv.HelperLastLat,
             helperLng      = conv.HelperLastLng,
             helperLastSeen = conv.HelperLastSeenAt,
-            destLat        = conv.PassengerDestLat,
-            destLng        = conv.PassengerDestLng,
-            destAddress    = conv.PassengerDestAddress,
+            destLat        = conv.DropLat ?? conv.PassengerDestLat,
+            destLng        = conv.DropLng ?? conv.PassengerDestLng,
+            destAddress    = conv.DropName ?? conv.PassengerDestAddress,
+            isDelivery     = conv.IsDelivery,
+            pickupName     = conv.MeetName ?? conv.PickupAddress,
         });
     }
 }
