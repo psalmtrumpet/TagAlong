@@ -24,7 +24,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`)
   }
 
-  return res.json()
+  // Some actions reply with no body
+  const text = await res.text()
+  return (text ? JSON.parse(text) : undefined) as T
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -323,6 +325,63 @@ export async function backfillKycPhotos(): Promise<{ verifiedUsers: number; with
 export async function fetchImage(path: string): Promise<string | null> {
   const token = getToken()
   const res = await fetch(`${BASE}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+  if (!res.ok) return null
+  return URL.createObjectURL(await res.blob())
+}
+
+// ── Reports & ride safety ─────────────────────────────────────────────────────
+
+export interface Report {
+  id: string
+  reporterId: string
+  reportedUserId: string | null
+  reportType: string
+  reason: string
+  description: string
+  status: string
+  adminNotes: string | null
+  resolution: string | null
+  createdAt: string
+}
+
+export interface SafetyRecording {
+  id: string
+  userId: string
+  conversationId: string | null
+  sizeBytes: number
+  durationSeconds: number
+  flagged: boolean
+  createdAt: string
+}
+
+/** Open reports (new or being looked into), oldest first. */
+export async function getOpenReports(page = 1): Promise<Report[]> {
+  return request(`/api/reports/pending?page=${page}&pageSize=50`)
+}
+
+export async function reviewReport(id: string, adminNotes: string): Promise<void> {
+  await request(`/api/reports/${id}/review`, { method: 'PUT', body: JSON.stringify({ adminNotes }) })
+}
+
+export async function resolveReport(id: string, resolution: string): Promise<void> {
+  await request(`/api/reports/${id}/resolve`, { method: 'PUT', body: JSON.stringify({ resolution }) })
+}
+
+export async function rejectReport(id: string, resolution: string): Promise<void> {
+  await request(`/api/reports/${id}/reject`, { method: 'PUT', body: JSON.stringify({ resolution }) })
+}
+
+/** Audio recorded during a ride (by either person), for looking into a report. */
+export async function getRideRecordings(conversationId: string): Promise<SafetyRecording[]> {
+  return request(`/api/admin/users/recordings?conversationId=${conversationId}`)
+}
+
+/** Decrypted recording as an object URL for an <audio> player. */
+export async function fetchRecording(id: string): Promise<string | null> {
+  const token = getToken()
+  const res = await fetch(`${BASE}/api/admin/users/recordings/${id}/audio`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
   if (!res.ok) return null
   return URL.createObjectURL(await res.blob())
 }

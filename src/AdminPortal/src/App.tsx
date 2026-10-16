@@ -12,6 +12,7 @@ import ConversationDetailPage from './pages/ConversationDetailPage'
 import WaitlistPage from './pages/WaitlistPage'
 import DriversPage from './pages/DriversPage'
 import DriverDetailPage from './pages/DriverDetailPage'
+import ReportsPage from './pages/ReportsPage'
 
 function Protected({ children }: { children: React.ReactNode }) {
   return (
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/conversations/:id" element={<Protected><ConversationDetailPage /></Protected>} />
         <Route path="/drivers" element={<Protected><DriversPage /></Protected>} />
         <Route path="/drivers/:authUserId" element={<Protected><DriverDetailPage /></Protected>} />
+        <Route path="/reports" element={<Protected><ReportsPage /></Protected>} />
         <Route path="/waitlist" element={<Protected><WaitlistPage /></Protected>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
