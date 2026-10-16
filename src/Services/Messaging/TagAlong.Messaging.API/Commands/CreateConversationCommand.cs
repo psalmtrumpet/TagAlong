@@ -68,6 +68,10 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
 
     public async Task<Result<ConversationDto>> Handle(CreateConversationCommand request, CancellationToken cancellationToken)
     {
+        // A seat on someone's trip needs to know where the passenger gets off
+        if (request.TripId != null && !request.IsDelivery && request.PackageRequestId == null && request.PassengerDestLat == null)
+            return Result.Failure<ConversationDto>(Error.Validation("Choose your drop-off before requesting a ride."));
+
         // Reuse an open (not Declined/Closed) conversation for the same pair and trip.
         // A different trip, or a declined/closed conversation, starts a new one.
         var existingConversation = await _conversationRepository.GetOpenByParticipantsAsync(
