@@ -63,6 +63,11 @@ public class SendPriceProposalCommandHandler : ICommandHandler<SendPriceProposal
             return Result.Failure<MessageDto>(Error.Unauthorized("Not authorized to send messages in this conversation"));
         }
 
+        // Once both sides have agreed a price, negotiation is over
+        if (conversation.Status is ConversationStatus.LockedIn or ConversationStatus.InProgress or ConversationStatus.Closed
+            || (conversation.Status == ConversationStatus.Active && conversation.AgreedPrice != null))
+            return Result.Failure<MessageDto>(Error.Validation("The price is already agreed."));
+
         var message = Message.CreatePriceProposal(request.ConversationId, request.SenderId, request.ProposedPrice, request.Message);
         await _messageRepository.AddAsync(message, cancellationToken);
         await _messageRepository.SaveChangesAsync(cancellationToken);

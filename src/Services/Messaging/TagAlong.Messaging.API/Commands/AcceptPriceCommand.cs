@@ -83,12 +83,27 @@ public class AcceptPriceCommandHandler : ICommandHandler<AcceptPriceCommand, Mes
         var message = Message.CreatePriceAccepted(request.ConversationId, request.UserId, request.AcceptedPrice, request.Message);
         await _messageRepository.AddAsync(message, cancellationToken);
 
-        // System message confirming chat is unlocked
-        var systemMsg = Message.CreateSystemMessage(request.ConversationId,
-            $"Price agreed at ₦{request.AcceptedPrice:N0}. You can now chat freely and track each other.");
-        await _messageRepository.AddAsync(systemMsg, cancellationToken);
+        // A ride is booked as soon as both agree the price — no second "lock in" step
+        Message? lockedMsg = null;
+        var autoBook = !conversation.IsDelivery;
+        if (autoBook)
+        {
+            conversation.ProposeLockIn(request.UserId, request.AcceptedPrice);
+            conversation.ConfirmLockIn();
+            lockedMsg = Message.CreateLockInConfirmed(request.ConversationId, request.UserId, request.AcceptedPrice);
+            await _messageRepository.AddAsync(lockedMsg, cancellationToken);
+        }
+        else
+        {
+            // System message confirming chat is unlocked
+            var systemMsg = Message.CreateSystemMessage(request.ConversationId,
+                $"Price agreed at ₦{request.AcceptedPrice:N0}. You can now chat freely and track each other.");
+            await _messageRepository.AddAsync(systemMsg, cancellationToken);
+        }
 
         await _conversationRepository.SaveChangesAsync(cancellationToken);
+        if (autoBook)
+            await ConversationLifecyclePublisher.TripBookingsAsync(_conversationRepository, _eventBus, conversation, cancellationToken);
 
         var dto = MapToDto(message);
 
@@ -97,6 +112,19 @@ public class AcceptPriceCommandHandler : ICommandHandler<AcceptPriceCommand, Mes
 
         var otherUserId = conversation.GetOtherParticipant(request.UserId);
         await _hubContext.Clients.Group($"user_{otherUserId}").ReceiveMessage(dto);
+
+        if (lockedMsg != null)
+        {
+            var lockedDto = MapToDto(lockedMsg);
+            var convDto = ConversationDtoMapper.ToDto(conversation);
+            await _hubContext.Clients.Group($"conversation_{request.ConversationId}").ReceiveMessage(lockedDto);
+            await _hubContext.Clients.Group($"user_{otherUserId}").ReceiveMessage(lockedDto);
+            foreach (var u in new[] { conversation.SenderId, conversation.TravelerId })
+            {
+                await _hubContext.Clients.Group($"user_{u}").LockInConfirmed(convDto);
+                await _hubContext.Clients.Group($"user_{u}").ConversationUpdated(convDto);
+            }
+        }
 
         // Publish price accepted event
         await _eventBus.PublishAsync(new PriceAcceptedIntegrationEvent(

@@ -381,12 +381,12 @@ public class ConversationsController : ControllerBase
 
     [HttpPost("{id:guid}/approaching")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> NotifyApproaching(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> NotifyApproaching(Guid id, [FromQuery] bool arrived, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
-        var result = await _mediator.Send(new NotifyApproachingCommand(id, userId.Value), cancellationToken);
+        var result = await _mediator.Send(new NotifyApproachingCommand(id, userId.Value, arrived), cancellationToken);
         if (result.IsFailure)
             return result.Error.Code.Contains("NotFound")
                 ? NotFound(new { error = result.Error.Message })
