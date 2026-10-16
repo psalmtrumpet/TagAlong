@@ -62,7 +62,7 @@ public class HailService
         var duration = (await EtasAsync(new List<(double, double)> { (pLat, pLng) }, dLat, dLng, ct)).FirstOrDefault();
         var raw = (decimal)Setting("SuggestedBase", 500) + (decimal)Setting("SuggestedPerKm", 150) * meters / 1000m;
         var suggested = Math.Max(50, Math.Round(raw / 50m) * 50);
-        var nearby = (await DriversNearAsync(pLat, pLng, ct)).Count;
+        var nearby = (await DriversNearAsync(pLat, pLng, new List<Guid>(), ct)).Count;
         return new HailQuoteDto(meters, duration, suggested, nearby);
     }
 
@@ -322,7 +322,17 @@ public class HailService
 
     private async Task<List<Found>> FindDriversAsync(HailRequest hail, CancellationToken ct)
     {
-        var near = (await DriversNearAsync(hail.PickupLat, hail.PickupLng, ct))
+        // Drivers with someone on board whose live position (not their saved
+        // one) is around here — they may be about to finish
+        var box = PrefilterRadiusKm / 111.0;
+        var seen = DateTime.UtcNow.AddMinutes(-5);
+        var onBoardHere = await _db.Conversations.AsNoTracking()
+            .Where(c => c.Status == ConversationStatus.InProgress && c.HelperLastSeenAt > seen &&
+                        c.HelperLastLat > hail.PickupLat - box && c.HelperLastLat < hail.PickupLat + box &&
+                        c.HelperLastLng > hail.PickupLng - box && c.HelperLastLng < hail.PickupLng + box)
+            .Select(c => c.TravelerId).Distinct().ToListAsync(ct);
+
+        var near = (await DriversNearAsync(hail.PickupLat, hail.PickupLng, onBoardHere, ct))
             .Where(d => d.UserId != hail.PassengerId).ToList();
         if (near.Count == 0) return new();
         var ids = near.Select(d => d.UserId).ToList();
@@ -390,13 +400,14 @@ public class HailService
         : c.PassengerDestLat is { } x && c.PassengerDestLng is { } y ? (x, y)
         : null;
 
-    private async Task<List<NearDriver>> DriversNearAsync(double lat, double lng, CancellationToken ct)
+    private async Task<List<NearDriver>> DriversNearAsync(double lat, double lng, List<Guid> alsoIds, CancellationToken ct)
     {
         try
         {
             var inv = CultureInfo.InvariantCulture;
             var list = await _http.CreateClient("user-api").GetFromJsonAsync<List<NearDriver>>(
-                $"internal/availability/drivers-near?lat={lat.ToString(inv)}&lng={lng.ToString(inv)}&radiusKm={PrefilterRadiusKm.ToString(inv)}",
+                $"internal/availability/drivers-near?lat={lat.ToString(inv)}&lng={lng.ToString(inv)}&radiusKm={PrefilterRadiusKm.ToString(inv)}" +
+                (alsoIds.Count > 0 ? $"&alsoIds={string.Join(',', alsoIds)}" : ""),
                 Json, ct);
             return list ?? new();
         }

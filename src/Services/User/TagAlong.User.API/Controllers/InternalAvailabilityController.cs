@@ -37,10 +37,14 @@ public class InternalAvailabilityController : ControllerBase
     /// <summary>
     /// Approved drivers who are available within <paramref name="radiusKm"/>
     /// (straight line) of a point — candidates for an on-demand ride request.
+    /// <paramref name="alsoIds"/>: drivers to include wherever their profile says
+    /// they are (Messaging knows they're nearby from their live ride position).
     /// </summary>
     [HttpGet("drivers-near")]
-    public async Task<IActionResult> DriversNear(double lat, double lng, double radiusKm = 15, CancellationToken ct = default)
+    public async Task<IActionResult> DriversNear(double lat, double lng, double radiusKm = 15, string? alsoIds = null, CancellationToken ct = default)
     {
+        var also = (alsoIds ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => Guid.TryParse(x, out var g) ? g : Guid.Empty).Where(g => g != Guid.Empty).ToList();
         var now = DateTime.UtcNow;
         var fresh = now - MaxLocationAge;
         var dLat = radiusKm / 111.0;
@@ -49,8 +53,9 @@ public class InternalAvailabilityController : ControllerBase
         var profiles = await _db.UserProfiles.AsNoTracking()
             .Where(u => u.IsAvailable && !u.IsSuspended)
             .Where(u => u.CurrentLatitude.HasValue && u.CurrentLongitude.HasValue)
-            .Where(u => u.CurrentLatitude >= lat - dLat && u.CurrentLatitude <= lat + dLat)
-            .Where(u => u.CurrentLongitude >= lng - dLng && u.CurrentLongitude <= lng + dLng)
+            .Where(u => also.Contains(u.AuthUserId) ||
+                        (u.CurrentLatitude >= lat - dLat && u.CurrentLatitude <= lat + dLat &&
+                         u.CurrentLongitude >= lng - dLng && u.CurrentLongitude <= lng + dLng))
             .Where(u => u.HasOngoingTrip || !u.AvailabilityExpiresAt.HasValue || u.AvailabilityExpiresAt > now)
             .Where(u => u.HasOngoingTrip || (u.LocationUpdatedAt.HasValue && u.LocationUpdatedAt > fresh))
             .ToListAsync(ct);
@@ -63,7 +68,7 @@ public class InternalAvailabilityController : ControllerBase
 
         var drivers = profiles
             .Where(p => vehicles.ContainsKey(p.AuthUserId))
-            .Where(p => p.DistanceFromKm(lat, lng) <= radiusKm)
+            .Where(p => also.Contains(p.AuthUserId) || p.DistanceFromKm(lat, lng) <= radiusKm)
             .OrderBy(p => p.DistanceFromKm(lat, lng))
             .Take(40)
             .Select(p =>
