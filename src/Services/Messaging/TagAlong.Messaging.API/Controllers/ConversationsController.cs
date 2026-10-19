@@ -21,6 +21,34 @@ public class ConversationsController : ControllerBase
         _mediator = mediator;
     }
 
+    /// <summary>Rides the signed-in user completed, as passenger or driver: where from, where to, when.</summary>
+    [HttpGet("history")]
+    public async Task<IActionResult> GetRideHistory(
+        [FromServices] TagAlong.Messaging.Infrastructure.Persistence.MessagingDbContext db,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+        var me = userId.Value;
+        var rides = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+            db.Conversations
+                .Where(c => (c.SenderId == me || c.TravelerId == me) && c.DeliveredAt != null && !c.IsDelivery)
+                .OrderByDescending(c => c.DeliveredAt)
+                .Skip((Math.Max(1, page) - 1) * Math.Clamp(pageSize, 1, 100))
+                .Take(Math.Clamp(pageSize, 1, 100))
+                .Select(c => new
+                {
+                    c.Id,
+                    From = c.MeetName ?? c.PickupAddress,
+                    To = c.DropName ?? c.PassengerDestAddress,
+                    CompletedAt = c.DeliveredAt,
+                }),
+            cancellationToken);
+        return Ok(rides);
+    }
+
     /// <summary>The signed-in driver's earnings from completed rides, with a per-ride breakdown.</summary>
     [HttpGet("earnings")]
     [ProducesResponseType(typeof(EarningsDto), StatusCodes.Status200OK)]
