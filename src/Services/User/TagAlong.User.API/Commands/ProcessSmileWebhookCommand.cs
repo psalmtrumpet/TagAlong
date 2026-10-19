@@ -141,6 +141,15 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         // 1012 = ID data callback — always non-final, no action needed
         if (resultCode == "1012")
         {
+            // Smile sends the name / DOB / gender here, not in the final result — keep them
+            var info = TagAlong.User.API.Services.SmilePersonalInfo.From(
+                payload.FirstName, payload.LastName, payload.MiddleName, payload.FullName, payload.Dob, payload.Gender);
+            if (info.HasAny)
+            {
+                kyc.RecordPersonalInfo(info.FirstName, info.LastName, info.MiddleName, info.DateOfBirth, info.Gender);
+                _kycRepo.Update(kyc);
+                await _kycRepo.SaveChangesAsync(cancellationToken);
+            }
             var smileUserId1012 = payload.PartnerParams?.UserId;
             if (!string.IsNullOrEmpty(smileUserId1012) && string.IsNullOrEmpty(kyc.SmileUserId))
             {
@@ -236,19 +245,21 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
             : !string.IsNullOrWhiteSpace(payload.IdNumber) ? payload.IdNumber!.Trim() : string.Empty;
 
         var (resolvedFirst, resolvedLast) = payload.ResolvedName();
+        var details = TagAlong.User.API.Services.SmilePersonalInfo.From(
+            payload.FirstName, payload.LastName, payload.MiddleName, payload.FullName, payload.Dob, payload.Gender);
 
         // SmileID has already validated the identity via biometric comparison — trust the result.
         var profile = await _profiles.GetByAuthUserIdAsync(kyc.AuthUserId, cancellationToken);
 
         kyc.Complete(
             nin: nin,
-            firstName: resolvedFirst,
-            lastName: resolvedLast,
-            middleName: payload.MiddleName,
-            dateOfBirth: payload.Dob,
-            gender: payload.Gender,
+            firstName: details.FirstName ?? resolvedFirst ?? kyc.FirstName,
+            lastName: details.LastName ?? resolvedLast ?? kyc.LastName,
+            middleName: details.MiddleName ?? kyc.MiddleName,
+            dateOfBirth: details.DateOfBirth ?? kyc.DateOfBirth,
+            gender: details.Gender ?? kyc.Gender,
             nationality: "Nigerian",
-            residenceState: null,
+            residenceState: kyc.ResidenceState,
             photoPath: kyc.PhotoPath);
 
         _kycRepo.Update(kyc);

@@ -145,6 +145,33 @@ public class AdminDriverProfilesController : ControllerBase
         return await Get(authUserId, ct);
     }
 
+    /// <summary>
+    /// Fill in NIN details (name, DOB, gender) for users verified before they were
+    /// saved, from Smile ID's stored ID-data callbacks.
+    /// </summary>
+    [HttpPost("/api/admin/users/kyc-details/backfill")]
+    public async Task<IActionResult> BackfillKycDetails(CancellationToken ct)
+    {
+        var missing = await _db.KycVerifications
+            .Where(k => k.Status == KycStatus.Completed && k.FirstName == null && k.SmileJobId != null)
+            .ToListAsync(ct);
+        int filled = 0;
+        foreach (var k in missing)
+        {
+            var bodies = await _db.SmileWebhookLogs.AsNoTracking()
+                .Where(l => l.JobId == k.SmileJobId && l.BodySnippet != null && l.BodySnippet.Contains("FullName"))
+                .OrderByDescending(l => l.ReceivedAt)
+                .Select(l => l.BodySnippet!)
+                .ToListAsync(ct);
+            var info = bodies.Select(TagAlong.User.API.Services.SmilePersonalInfo.FromBody).FirstOrDefault(i => i.HasAny);
+            if (info == null) continue;
+            k.RecordPersonalInfo(info.FirstName, info.LastName, info.MiddleName, info.DateOfBirth, info.Gender);
+            filled++;
+        }
+        await _db.SaveChangesAsync(ct);
+        return Ok(new { missing = missing.Count, filled });
+    }
+
     /// <summary>Save verification selfies for users verified before this was added.</summary>
     [HttpPost("/api/admin/users/kyc-photos/backfill")]
     public async Task<IActionResult> BackfillKycPhotos(CancellationToken ct)

@@ -64,6 +64,17 @@ public class KycVerification
     /// <summary>Stores the selfie captured during verification.</summary>
     public void AttachPhoto(string photoPath) => PhotoPath = photoPath;
 
+    /// <summary>Name, date of birth and gender held against the NIN (kept even before the check finishes).</summary>
+    public void RecordPersonalInfo(string? firstName, string? lastName, string? middleName, string? dateOfBirth, string? gender)
+    {
+        FirstName = firstName ?? FirstName;
+        LastName = lastName ?? LastName;
+        MiddleName = middleName ?? MiddleName;
+        DateOfBirth = dateOfBirth ?? DateOfBirth;
+        Gender = gender ?? Gender;
+        Nationality ??= "Nigerian";
+    }
+
     public void Complete(
         string nin,
         string? firstName,
