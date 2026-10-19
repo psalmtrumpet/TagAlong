@@ -14,6 +14,12 @@ public class DeviceTokenRepository : IDeviceTokenRepository
         _context = context;
     }
 
+    public async Task RemoveTokenFromOtherUsersAsync(string token, Guid keepUserId, CancellationToken cancellationToken = default)
+    {
+        var others = await _context.DeviceTokens.Where(t => t.Token == token && t.UserId != keepUserId).ToListAsync(cancellationToken);
+        if (others.Count > 0) _context.DeviceTokens.RemoveRange(others);
+    }
+
     public Task<DeviceToken?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
         => _context.DeviceTokens.FirstOrDefaultAsync(t => t.UserId == userId, cancellationToken);
 

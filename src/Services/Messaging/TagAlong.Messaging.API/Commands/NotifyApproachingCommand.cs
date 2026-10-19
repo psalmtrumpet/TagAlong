@@ -52,7 +52,13 @@ public class NotifyApproachingCommandHandler : ICommandHandler<NotifyApproaching
 
         if (request.Arrived)
         {
-            var name = (await _users.GetDisplayNameAsync(request.UserId, cancellationToken))?.Split(' ')[0] ?? "Your driver";
+            // Once per pickup: the auto "arrived" and a tap on the button shouldn't both post
+            var recent = await _messages.GetByConversationIdAsync(request.ConversationId, 1, 500, cancellationToken);
+            if (recent.Any(m => m.MessageType == MessageType.System && m.Content.Contains(" has arrived at ")))
+                return Result.Success(true);
+
+            var first = (await _users.GetDisplayNameAsync(request.UserId, cancellationToken))?.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+            var name = string.IsNullOrEmpty(first) ? "Your driver" : char.ToUpper(first[0]) + first[1..].ToLower();
             var where = conversation.MeetName ?? conversation.PickupAddress ?? "the pickup";
             // In the chat too, so it's there when they open it
             var msg = Message.CreateSystemMessage(request.ConversationId, $"{name} has arrived at {where}.");

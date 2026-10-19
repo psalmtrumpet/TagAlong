@@ -33,6 +33,10 @@ public class NotificationsController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
+        // The same phone signed in to another account before: stop sending
+        // that account's notifications to this phone
+        await _deviceTokenRepository.RemoveTokenFromOtherUsersAsync(request.Token, userId.Value, cancellationToken);
+
         var existing = await _deviceTokenRepository.GetByUserIdAsync(userId.Value, cancellationToken);
         if (existing != null)
         {
