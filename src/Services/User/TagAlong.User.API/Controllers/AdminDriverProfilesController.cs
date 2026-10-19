@@ -172,6 +172,35 @@ public class AdminDriverProfilesController : ControllerBase
         return Ok(new { missing = missing.Count, filled });
     }
 
+    /// <summary>
+    /// One-off: stop storing full NINs — mask them on KYC records, re-key the NIN
+    /// cache by a one-way hash, and hide them in stored Smile ID callbacks.
+    /// </summary>
+    [HttpPost("/api/admin/users/kyc/protect-nins")]
+    public async Task<IActionResult> ProtectNins([FromServices] TagAlong.User.Domain.Repositories.INinCacheRepository cache, CancellationToken ct)
+    {
+        int kycMasked = 0, cacheRekeyed = 0, logsMasked = 0;
+        foreach (var k in await _db.KycVerifications.Where(k => k.NIN != null && !k.NIN.EndsWith("***")).ToListAsync(ct))
+        {
+            k.RecordIdNumber(k.NIN);
+            kycMasked++;
+        }
+        foreach (var c in await _db.NinCaches.Where(c => c.NIN.Length == 11).ToListAsync(ct))
+        {
+            _db.NinCaches.Add(NinCache.Create(cache.KeyFor(c.NIN), c.FirstName, c.LastName, c.MiddleName, c.DateOfBirth, c.Gender));
+            _db.NinCaches.Remove(c);
+            cacheRekeyed++;
+        }
+        foreach (var l in await _db.SmileWebhookLogs.Where(l => l.BodySnippet != null).ToListAsync(ct))
+        {
+            var before = l.BodySnippet;
+            l.MaskBody();
+            if (l.BodySnippet != before) logsMasked++;
+        }
+        await _db.SaveChangesAsync(ct);
+        return Ok(new { kycMasked, cacheRekeyed, logsMasked });
+    }
+
     /// <summary>Save verification selfies for users verified before this was added.</summary>
     [HttpPost("/api/admin/users/kyc-photos/backfill")]
     public async Task<IActionResult> BackfillKycPhotos(CancellationToken ct)

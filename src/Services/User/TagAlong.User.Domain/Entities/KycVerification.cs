@@ -58,7 +58,18 @@ public class KycVerification
     /// <summary>The NIN the user entered for this verification.</summary>
     public void RecordIdNumber(string? nin)
     {
-        if (!string.IsNullOrWhiteSpace(nin)) NIN = nin.Trim();
+        if (!string.IsNullOrWhiteSpace(nin)) NIN = MaskNin(nin);
+    }
+
+    /// <summary>
+    /// NINs are never stored in full: the last 3 digits are hidden
+    /// ("87246870***"). Already-masked values pass through unchanged.
+    /// </summary>
+    public static string MaskNin(string nin)
+    {
+        var n = nin.Trim();
+        if (n.EndsWith("***")) return n;
+        return n.Length <= 3 ? "***" : n[..^3] + "***";
     }
 
     /// <summary>Stores the selfie captured during verification.</summary>
@@ -86,7 +97,7 @@ public class KycVerification
         string? residenceState,
         string? photoPath)
     {
-        NIN = nin;
+        NIN = string.IsNullOrWhiteSpace(nin) ? NIN : MaskNin(nin);
         FirstName = firstName;
         LastName = lastName;
         MiddleName = middleName;

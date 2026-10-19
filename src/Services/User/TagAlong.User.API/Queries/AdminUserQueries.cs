@@ -130,7 +130,7 @@ public class AdminGetUserDetailQueryHandler : IQueryHandler<AdminGetUserDetailQu
             profile.IsAvailable && (profile.HasOngoingTrip || profile.AvailabilityExpiresAt == null || profile.AvailabilityExpiresAt > DateTime.UtcNow),
             profile.AverageRating, profile.TotalRatings,
             profile.CompletedDeliveries, profile.CompletedTrips, profile.CreatedAt,
-            kyc?.NIN, kyc?.FirstName, kyc?.LastName, kyc?.MiddleName,
+            AdminGetStatsQueryHandler.MaskNin(kyc?.NIN), kyc?.FirstName, kyc?.LastName, kyc?.MiddleName,
             kyc?.DateOfBirth, kyc?.Gender, kyc?.Nationality, kyc?.ResidenceState,
             kyc?.PhotoPath, kyc?.Status.ToString()));
     }
@@ -162,4 +162,8 @@ public class AdminGetStatsQueryHandler : IQueryHandler<AdminGetStatsQuery, Admin
 
         return Result.Success(new AdminStatsDto(total, verified, total - verified - suspended, suspended, active));
     }
+
+    /// <summary>The admin dashboard shows the NIN with its last 3 digits hidden.</summary>
+    internal static string? MaskNin(string? nin) =>
+        string.IsNullOrWhiteSpace(nin) ? nin : nin.Trim().Length <= 3 ? "***" : nin.Trim()[..^3] + "***";
 }

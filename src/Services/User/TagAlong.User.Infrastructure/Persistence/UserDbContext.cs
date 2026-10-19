@@ -127,7 +127,7 @@ public class UserDbContext : DbContext
         {
             entity.ToTable("nin_cache");
             entity.HasKey(e => e.NIN);
-            entity.Property(e => e.NIN).HasMaxLength(11).IsRequired();
+            entity.Property(e => e.NIN).HasMaxLength(64).IsRequired(); // keyed hash of the NIN
             entity.Property(e => e.FirstName).HasMaxLength(100);
             entity.Property(e => e.LastName).HasMaxLength(100);
             entity.Property(e => e.MiddleName).HasMaxLength(100);

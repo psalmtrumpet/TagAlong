@@ -147,7 +147,18 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
             if (info.HasAny)
             {
                 kyc.RecordPersonalInfo(info.FirstName, info.LastName, info.MiddleName, info.DateOfBirth, info.Gender);
+                kyc.RecordIdNumber(payload.IdNumber);
                 _kycRepo.Update(kyc);
+                // Remember this NIN (by hash) so verifying it again skips Smile ID
+                if (!string.IsNullOrWhiteSpace(payload.IdNumber) && payload.IdNumber.Trim().Length == 11)
+                {
+                    var cached = await _ninCache.GetByNinAsync(payload.IdNumber, cancellationToken);
+                    if (cached == null)
+                        await _ninCache.AddAsync(NinCache.Create(_ninCache.KeyFor(payload.IdNumber), info.FirstName, info.LastName,
+                            info.MiddleName, info.DateOfBirth, info.Gender), cancellationToken);
+                    else
+                        cached.Refresh(info.FirstName, info.LastName, info.MiddleName, info.DateOfBirth, info.Gender);
+                }
                 await _kycRepo.SaveChangesAsync(cancellationToken);
             }
             var smileUserId1012 = payload.PartnerParams?.UserId;
@@ -270,13 +281,15 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
             _profiles.Update(profile);
         }
 
-        // Upsert NIN cache so future verifications of this NIN skip the SmileID call
-        if (!string.IsNullOrEmpty(nin))
+        // Upsert NIN cache (by hash) so future verifications of this NIN skip the SmileID call.
+        // Needs the real number from this callback — the stored one is masked.
+        var fullNin = payload.IdNumber?.Trim();
+        if (!string.IsNullOrEmpty(fullNin) && fullNin.Length == 11 && !fullNin.EndsWith("***"))
         {
-            var cacheEntry = await _ninCache.GetByNinAsync(nin, cancellationToken);
+            var cacheEntry = await _ninCache.GetByNinAsync(fullNin, cancellationToken);
             if (cacheEntry == null)
-                await _ninCache.AddAsync(NinCache.Create(nin, resolvedFirst, resolvedLast,
-                    payload.MiddleName, payload.Dob, payload.Gender), cancellationToken);
+                await _ninCache.AddAsync(NinCache.Create(_ninCache.KeyFor(fullNin), details.FirstName ?? resolvedFirst, details.LastName ?? resolvedLast,
+                    details.MiddleName, details.DateOfBirth, details.Gender), cancellationToken);
             else
                 cacheEntry.Refresh(resolvedFirst, resolvedLast,
                     payload.MiddleName, payload.Dob, payload.Gender);
