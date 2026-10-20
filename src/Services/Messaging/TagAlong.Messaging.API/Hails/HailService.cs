@@ -48,7 +48,7 @@ public class HailService
     // ── Settings ──
     private double Setting(string key, double fallback) =>
         double.TryParse(_config[$"Hail:{key}"], NumberStyles.Number, CultureInfo.InvariantCulture, out var v) && v > 0 ? v : fallback;
-    private int MaxEtaSeconds => (int)(Setting("MaxEtaMinutes", 30) * 60);
+    private int MaxEtaSeconds => (int)(Setting("MaxEtaMinutes", 20) * 60);
     private int FinishingSoonSeconds => (int)(Setting("FinishingSoonMinutes", 5) * 60);
     private double PrefilterRadiusKm => Setting("PrefilterRadiusKm", 25);
     private TimeSpan Lifetime => TimeSpan.FromSeconds(Setting("ExpirySeconds", 180));
