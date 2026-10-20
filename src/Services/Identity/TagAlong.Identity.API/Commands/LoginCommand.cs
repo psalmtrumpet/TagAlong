@@ -47,7 +47,11 @@ public class LoginCommandHandler : ICommandHandler<LoginCommand, AuthResponse>
         }
 
         var accessToken = _jwtService.GenerateAccessToken(user);
-        var refreshToken = _jwtService.GenerateRefreshToken();
+        // Reuse a still-valid refresh token: signing in on a second phone (or two
+        // refreshes at once) must not sign the other session out
+        var refreshToken = !string.IsNullOrEmpty(user.RefreshToken) && user.RefreshTokenExpiryTime > DateTime.UtcNow
+            ? user.RefreshToken!
+            : _jwtService.GenerateRefreshToken();
         var refreshTokenExpiry = DateTime.UtcNow.AddDays(int.Parse(_configuration["JwtSettings:RefreshTokenExpirationInDays"] ?? "7"));
 
         user.UpdateRefreshToken(refreshToken, refreshTokenExpiry);

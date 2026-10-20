@@ -59,7 +59,9 @@ public class RefreshTokenCommandHandler : ICommandHandler<RefreshTokenCommand, A
         }
 
         var newAccessToken = _jwtService.GenerateAccessToken(user);
-        var newRefreshToken = _jwtService.GenerateRefreshToken();
+        // Keep the same refresh token (sliding expiry) — replacing it on every refresh
+        // broke the session whenever two requests refreshed at the same moment
+        var newRefreshToken = user.RefreshToken!;
         var refreshTokenExpiry = DateTime.UtcNow.AddDays(int.Parse(_configuration["JwtSettings:RefreshTokenExpirationInDays"] ?? "7"));
 
         user.UpdateRefreshToken(newRefreshToken, refreshTokenExpiry);
