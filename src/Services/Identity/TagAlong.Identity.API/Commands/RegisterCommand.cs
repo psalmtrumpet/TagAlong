@@ -23,14 +23,17 @@ public class RegisterCommandHandler : ICommandHandler<RegisterCommand, AuthRespo
     private readonly IJwtService _jwtService;
     private readonly IEventBus _eventBus;
     private readonly IConfiguration _configuration;
+    private readonly IEmailService _email;
 
     public RegisterCommandHandler(
         IUserRepository userRepository,
         IPasswordService passwordService,
         IJwtService jwtService,
         IEventBus eventBus,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IEmailService email)
     {
+        _email = email;
         _userRepository = userRepository;
         _passwordService = passwordService;
         _jwtService = jwtService;
@@ -72,6 +75,8 @@ public class RegisterCommandHandler : ICommandHandler<RegisterCommand, AuthRespo
             user.LastName,
             user.PhoneNumber,
             DateTime.UtcNow), cancellationToken);
+
+        WelcomeEmail.Send(_email, user.Email, user.FirstName);
 
         return Result.Success(new AuthResponse(
             user.Id,

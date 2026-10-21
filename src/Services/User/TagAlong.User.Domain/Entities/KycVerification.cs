@@ -12,6 +12,7 @@ public class KycVerification
     public string? Gender { get; private set; }
     public string? Nationality { get; private set; }
     public string? ResidenceState { get; private set; }
+    public string? Address { get; private set; }
     public string? PhotoPath { get; private set; }
     public KycStatus Status { get; private set; }
     public string? FailureReason { get; private set; }
@@ -74,6 +75,12 @@ public class KycVerification
 
     /// <summary>Stores the selfie captured during verification.</summary>
     public void AttachPhoto(string photoPath) => PhotoPath = photoPath;
+
+    /// <summary>Address held against the NIN, as Smile ID returns it.</summary>
+    public void RecordAddress(string? address)
+    {
+        if (!string.IsNullOrWhiteSpace(address)) Address = address.Trim();
+    }
 
     /// <summary>Name, date of birth and gender held against the NIN (kept even before the check finishes).</summary>
     public void RecordPersonalInfo(string? firstName, string? lastName, string? middleName, string? dateOfBirth, string? gender)

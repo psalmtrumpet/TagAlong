@@ -9,6 +9,7 @@ const nav = [
   { label: 'Conversations',  path: '/conversations', icon: '◐' },
   { label: 'Drivers',        path: '/drivers',       icon: '◑' },
   { label: 'Reports',        path: '/reports',       icon: '◬' },
+  { label: 'Recordings',     path: '/recordings',    icon: '◉' },
   { label: 'Waitlist',       path: '/waitlist',      icon: '◫' },
 ]
 

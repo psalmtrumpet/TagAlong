@@ -80,6 +80,7 @@ export interface AdminUserDetail extends AdminUser {
   kycGender: string | null
   kycNationality: string | null
   kycResidenceState: string | null
+  kycAddress: string | null
   kycPhotoPath: string | null
   kycStatus: string | null
 }
@@ -387,4 +388,9 @@ export async function fetchRecording(id: string): Promise<string | null> {
   })
   if (!res.ok) return null
   return URL.createObjectURL(await res.blob())
+}
+
+/** Every recent safety recording (newest first, up to 200). */
+export async function getAllRecordings(): Promise<SafetyRecording[]> {
+  return request('/api/admin/users/recordings')
 }

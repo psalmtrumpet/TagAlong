@@ -17,14 +17,17 @@ public class GoogleLoginCommandHandler : ICommandHandler<GoogleLoginCommand, Aut
     private readonly IJwtService _jwtService;
     private readonly IEventBus _eventBus;
     private readonly IConfiguration _configuration;
+    private readonly IEmailService _email;
 
     public GoogleLoginCommandHandler(
         IUserRepository userRepository,
         IGoogleAuthService googleAuthService,
         IJwtService jwtService,
         IEventBus eventBus,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IEmailService email)
     {
+        _email = email;
         _userRepository = userRepository;
         _googleAuthService = googleAuthService;
         _jwtService = jwtService;
@@ -95,6 +98,8 @@ public class GoogleLoginCommandHandler : ICommandHandler<GoogleLoginCommand, Aut
                 user.LastName,
                 user.PhoneNumber,
                 DateTime.UtcNow), cancellationToken);
+
+            WelcomeEmail.Send(_email, user.Email, user.FirstName);
         }
 
         return Result.Success(new AuthResponse(

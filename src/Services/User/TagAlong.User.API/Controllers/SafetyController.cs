@@ -148,15 +148,15 @@ public class AdminRecordingsController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>Recordings for a ride, or made by or with a user.</summary>
+    /// <summary>Recordings — for a ride, by a user, or (no filter) the most recent 200.</summary>
     [HttpGet]
     public async Task<IActionResult> List([FromQuery] Guid? conversationId, [FromQuery] Guid? userId, CancellationToken ct)
     {
-        if (conversationId == null && userId == null) return BadRequest(new { error = "Give a ride or a user." });
         var q = _db.SafetyRecordings.AsNoTracking();
         if (conversationId != null) q = q.Where(r => r.ConversationId == conversationId);
         if (userId != null) q = q.Where(r => r.AuthUserId == userId);
         var list = await q.OrderByDescending(r => r.CreatedAt)
+            .Take(200)
             .Select(r => new SafetyRecordingDto(r.Id, r.AuthUserId, r.ConversationId, r.SizeBytes, r.DurationSeconds, r.Flagged, r.CreatedAt))
             .ToListAsync(ct);
         return Ok(list);

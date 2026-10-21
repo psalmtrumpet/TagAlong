@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getConversation, ConversationDetail, AdminMessage } from '../lib/api'
+import { Recordings } from './ReportsPage'
 
 function fmt(d?: string | null) {
   if (!d) return '—'
@@ -144,6 +145,11 @@ export default function ConversationDetailPage() {
             />
           ))}
         </div>
+      </div>
+
+      <div className="card p-5 mt-6">
+        <h2 className="text-sm font-semibold text-gray-900 mb-3">Safety recordings on this ride</h2>
+        <Recordings rideId={c.id} />
       </div>
     </div>
   )

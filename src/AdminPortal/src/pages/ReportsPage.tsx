@@ -32,13 +32,13 @@ function nameOf(id: string): Promise<string> {
   return nameCache.get(id)!
 }
 
-function UserName({ id }: { id: string | null }) {
+export function UserName({ id }: { id: string | null }) {
   const [name, setName] = useState<string>(id ? id.slice(0, 8) : '—')
   useEffect(() => { if (id) nameOf(id).then(setName) }, [id])
   return id ? <Link to={`/users/${id}`} className="text-brand-700 hover:underline">{name}</Link> : <span>—</span>
 }
 
-function Recordings({ rideId }: { rideId: string }) {
+export function Recordings({ rideId }: { rideId: string }) {
   const [items, setItems] = useState<SafetyRecording[] | null>(null)
   const [urls, setUrls] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)

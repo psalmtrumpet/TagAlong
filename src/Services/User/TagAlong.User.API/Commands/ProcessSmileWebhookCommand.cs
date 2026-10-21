@@ -153,6 +153,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
             if (info.HasAny)
             {
                 kyc.RecordPersonalInfo(info.FirstName, info.LastName, info.MiddleName, info.DateOfBirth, info.Gender);
+                kyc.RecordAddress(TagAlong.User.API.Services.SmilePersonalInfo.AddressFrom(request.RawBody));
                 kyc.RecordIdNumber(payload.IdNumber);
                 _kycRepo.Update(kyc);
                 // Remember this NIN (by hash) so verifying it again skips Smile ID

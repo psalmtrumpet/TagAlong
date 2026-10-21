@@ -160,6 +160,7 @@ export default function UserDetailPage() {
             <Field label="Gender"           value={user.kycGender} />
             <Field label="Nationality"      value={user.kycNationality} />
             <Field label="Residence State"  value={user.kycResidenceState} />
+            <Field label="Address"          value={user.kycAddress} />
           </div>
         ) : (
           <p className="text-sm text-gray-400">No KYC data available for this user.</p>

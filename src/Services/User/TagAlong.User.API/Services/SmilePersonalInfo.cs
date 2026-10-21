@@ -44,6 +44,9 @@ public record SmilePersonalInfo(string? FirstName, string? LastName, string? Mid
         Field(body, "FirstName"), Field(body, "LastName"), Field(body, "MiddleName"),
         Field(body, "FullName"), Field(body, "DOB"), Field(body, "Gender"));
 
+    /// <summary>The address held against the NIN, from a callback body.</summary>
+    public static string? AddressFrom(string body) => Title(Clean(Field(body, "Address")));
+
     private static string? Field(string body, string name)
     {
         var m = Regex.Match(body, $"\"{name}\"\\s*:\\s*\"([^\"]*)\"");
