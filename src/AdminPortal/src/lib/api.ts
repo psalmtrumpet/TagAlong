@@ -81,6 +81,7 @@ export interface AdminUserDetail extends AdminUser {
   kycNationality: string | null
   kycResidenceState: string | null
   kycAddress: string | null
+  kycDeviceFlag: string | null
   kycPhotoPath: string | null
   kycStatus: string | null
 }

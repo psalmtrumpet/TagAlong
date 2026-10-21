@@ -234,8 +234,13 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
                        || string.Equals(faceAction, "Passed", StringComparison.OrdinalIgnoreCase)
                        || string.Equals(faceAction, "Completed", StringComparison.OrdinalIgnoreCase)
                        || string.Equals(faceAction, "Not Applicable", StringComparison.OrdinalIgnoreCase);
+        // 0817 = "Approved with Attention – Suspicious Device Detected": the person checks out but
+        // Smile distrusts the phone. Accept it only when the NIN and face checks passed, and flag
+        // the account so an admin can look at it.
+        var deviceFlagged = resultCode == "0817" && ninVerified && faceMatched
+            && !string.Equals(payload.Actions?.LivenessCheck, "Failed", StringComparison.OrdinalIgnoreCase);
         // 0810 with Verify_ID_Number=Verified is the approved result for Biometric KYC Job Type 1
-        var isSuccess = resultCode == "1210" || resultCode == "0810";
+        var isSuccess = resultCode == "1210" || resultCode == "0810" || deviceFlagged;
 
         if (!isSuccess)
         {
@@ -244,6 +249,7 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
                 "1220" => "Your face did not match your NIN photo. Please try again in good lighting.",
                 "1013" => "We couldn't find that NIN. Please check the 11-digit number and try again.",
                 "1015" => "The NIN service is unavailable right now. Please try again in a little while.",
+                "0817" => "We couldn't verify you on this phone. Turn off any VPN or developer options and try again.",
                 _ => $"Verification could not be completed (code {resultCode}). Please try again.",
             };
             kyc.Fail(reason);
@@ -283,6 +289,12 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
             nationality: "Nigerian",
             residenceState: kyc.ResidenceState,
             photoPath: kyc.PhotoPath);
+
+        if (deviceFlagged)
+        {
+            kyc.FlagDevice($"Suspicious device (Smile ID 0817, {DateTime.UtcNow:yyyy-MM-dd})");
+            _logger.LogWarning("SmileID: job={JobId} 0817 approved with a suspicious device — verified and flagged for review", jobId);
+        }
 
         _kycRepo.Update(kyc);
 

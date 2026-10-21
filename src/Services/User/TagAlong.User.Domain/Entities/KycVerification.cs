@@ -13,6 +13,8 @@ public class KycVerification
     public string? Nationality { get; private set; }
     public string? ResidenceState { get; private set; }
     public string? Address { get; private set; }
+    /// <summary>Set when Smile ID approved the person but flagged the phone used (possible fraud).</summary>
+    public string? DeviceFlag { get; private set; }
     public string? PhotoPath { get; private set; }
     public KycStatus Status { get; private set; }
     public string? FailureReason { get; private set; }
@@ -75,6 +77,8 @@ public class KycVerification
 
     /// <summary>Stores the selfie captured during verification.</summary>
     public void AttachPhoto(string photoPath) => PhotoPath = photoPath;
+
+    public void FlagDevice(string reason) => DeviceFlag = reason;
 
     /// <summary>Address held against the NIN, as Smile ID returns it.</summary>
     public void RecordAddress(string? address)

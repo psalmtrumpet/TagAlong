@@ -56,6 +56,7 @@ public record AdminUserDetailDto(
     string? KycNationality,
     string? KycResidenceState,
     string? KycAddress,
+    string? KycDeviceFlag,
     string? KycPhotoPath,
     string? KycStatus);
 
@@ -132,7 +133,7 @@ public class AdminGetUserDetailQueryHandler : IQueryHandler<AdminGetUserDetailQu
             profile.AverageRating, profile.TotalRatings,
             profile.CompletedDeliveries, profile.CompletedTrips, profile.CreatedAt,
             AdminGetStatsQueryHandler.MaskNin(kyc?.NIN), kyc?.FirstName, kyc?.LastName, kyc?.MiddleName,
-            kyc?.DateOfBirth, kyc?.Gender, kyc?.Nationality, kyc?.ResidenceState, kyc?.Address,
+            kyc?.DateOfBirth, kyc?.Gender, kyc?.Nationality, kyc?.ResidenceState, kyc?.Address, kyc?.DeviceFlag,
             kyc?.PhotoPath, kyc?.Status.ToString()));
     }
 }

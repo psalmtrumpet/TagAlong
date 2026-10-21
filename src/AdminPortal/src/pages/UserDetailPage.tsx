@@ -152,6 +152,14 @@ export default function UserDetailPage() {
             : <span className="badge-amber">{user.kycStatus ?? 'Not submitted'}</span>}
         </div>
 
+        {user.kycDeviceFlag && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <strong>Device flagged:</strong> {user.kycDeviceFlag}. Smile ID approved this person's NIN and selfie but
+            didn't trust the phone used (shared by many accounts, emulator, rooted, VPN or developer options).
+            Check the selfie matches the profile before trusting this account.
+          </div>
+        )}
+
         {kycDone ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Field label="NIN"              value={user.kycNin} />
