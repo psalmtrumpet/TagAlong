@@ -70,6 +70,9 @@ public class HailService
     public async Task<Result<HailDto>> CreateAsync(Guid passengerId, CreateHailRequest r, CancellationToken ct)
     {
         if (r.OfferedPrice <= 0) return Result.Failure<HailDto>(Error.Validation("Enter the price you'd like to pay."));
+        // Only verified people can request a ride (if the user service can't answer, don't block)
+        if (await _users.IsVerifiedAsync(passengerId, ct) == false)
+            return Result.Failure<HailDto>(Error.Validation(TagAlong.Messaging.API.Services.RideRules.VerifyBeforeRequesting));
         if (Math.Abs(r.PickupLat) < 0.0001 || Math.Abs(r.DestLat) < 0.0001)
             return Result.Failure<HailDto>(Error.Validation("Choose your pickup and destination."));
 

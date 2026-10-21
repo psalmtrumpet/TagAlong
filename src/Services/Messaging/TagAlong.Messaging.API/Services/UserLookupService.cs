@@ -6,6 +6,15 @@ namespace TagAlong.Messaging.API.Services;
 public interface IUserLookupService
 {
     Task<string?> GetDisplayNameAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Whether the person has verified their identity; null if the user service couldn't say.</summary>
+    Task<bool?> IsVerifiedAsync(Guid userId, CancellationToken cancellationToken = default);
+}
+
+public static class RideRules
+{
+    public const string VerifyBeforeRequesting =
+        "Verify your identity before requesting a ride. It takes about a minute with your NIN and a selfie.";
 }
 
 public class UserLookupService : IUserLookupService
@@ -40,6 +49,23 @@ public class UserLookupService : IUserLookupService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to look up display name for user {UserId}", userId);
+            return null;
+        }
+    }
+
+    public async Task<bool?> IsVerifiedAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"api/users/{userId}", cancellationToken);
+            if (!response.IsSuccessStatusCode) return null;
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+            return doc.RootElement.TryGetProperty("isVerified", out var v) && v.ValueKind is JsonValueKind.True or JsonValueKind.False
+                ? v.GetBoolean() : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to check verification for user {UserId}", userId);
             return null;
         }
     }

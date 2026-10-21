@@ -51,14 +51,17 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
     private readonly IHubContext<MessagingHub, IMessagingClient> _hubContext;
     private readonly IEventBus _eventBus;
     private readonly ILogger<CreateConversationCommandHandler> _logger;
+    private readonly TagAlong.Messaging.API.Services.IUserLookupService _users;
 
     public CreateConversationCommandHandler(
         IConversationRepository conversationRepository,
         IMessageRepository messageRepository,
         IHubContext<MessagingHub, IMessagingClient> hubContext,
         IEventBus eventBus,
-        ILogger<CreateConversationCommandHandler> logger)
+        ILogger<CreateConversationCommandHandler> logger,
+        TagAlong.Messaging.API.Services.IUserLookupService users)
     {
+        _users = users;
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
         _hubContext = hubContext;
@@ -68,6 +71,13 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
 
     public async Task<Result<ConversationDto>> Handle(CreateConversationCommand request, CancellationToken cancellationToken)
     {
+        // Only verified people can request a ride (if the user service can't answer, don't block)
+        if (await _users.IsVerifiedAsync(request.SenderId, cancellationToken) == false)
+        {
+            _logger.LogInformation("Ride request refused: user {UserId} is not verified", request.SenderId);
+            return Result.Failure<ConversationDto>(Error.Validation(TagAlong.Messaging.API.Services.RideRules.VerifyBeforeRequesting));
+        }
+
         // A seat on someone's trip needs to know where the passenger gets off
         if (request.TripId != null && !request.IsDelivery && request.PackageRequestId == null && request.PassengerDestLat == null)
             return Result.Failure<ConversationDto>(Error.Validation("Choose your drop-off before requesting a ride."));
