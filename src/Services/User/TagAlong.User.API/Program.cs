@@ -105,6 +105,7 @@ builder.Services.AddRabbitMQEventBus(
     "user-service-queue");
 
 builder.Services.AddScoped<UserCreatedIntegrationEventHandler>();
+builder.Services.AddScoped<UserPhoneChangedIntegrationEventHandler>();
 builder.Services.AddScoped<TripStatusChangedIntegrationEventHandler>();
 builder.Services.AddScoped<TravelerTripStateChangedIntegrationEventHandler>();
 builder.Services.AddScoped<ReviewRatingSyncHandler>();
@@ -206,6 +207,7 @@ app.MapHub<LocationHub>("/locationHub");
 // Subscribe to events
 var eventBus = app.Services.GetRequiredService<IEventBus>();
 eventBus.Subscribe<UserCreatedIntegrationEvent, UserCreatedIntegrationEventHandler>();
+eventBus.Subscribe<UserPhoneChangedIntegrationEvent, UserPhoneChangedIntegrationEventHandler>();
 eventBus.Subscribe<TripStatusChangedIntegrationEvent, TripStatusChangedIntegrationEventHandler>();
 eventBus.Subscribe<TravelerTripStateChangedIntegrationEvent, TravelerTripStateChangedIntegrationEventHandler>();
 eventBus.Subscribe<ReviewCreatedIntegrationEvent, ReviewRatingSyncHandler>();

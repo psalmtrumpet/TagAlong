@@ -111,3 +111,6 @@ public record UserCreatedIntegrationEvent(
     string LastName,
     string PhoneNumber,
     DateTime CreatedAt) : IntegrationEvent;
+
+/// <summary>Someone added or changed their phone number.</summary>
+public record UserPhoneChangedIntegrationEvent(Guid UserId, string PhoneNumber) : IntegrationEvent;

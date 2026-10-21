@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using TagAlong.Common.CQRS;
 using TagAlong.Common.Results;
+using TagAlong.EventBus;
 using TagAlong.Identity.API.DTOs;
 using TagAlong.Identity.Domain.Repositories;
 using TagAlong.Identity.Infrastructure.Services;
@@ -15,13 +16,16 @@ public class UpdateProfileCommandHandler : ICommandHandler<UpdateProfileCommand,
     private readonly IJwtService _jwtService;
     private readonly IConfiguration _configuration;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IEventBus _eventBus;
 
     public UpdateProfileCommandHandler(
         IUserRepository userRepository,
         IJwtService jwtService,
         IConfiguration configuration,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        IEventBus eventBus)
     {
+        _eventBus = eventBus;
         _userRepository = userRepository;
         _jwtService = jwtService;
         _configuration = configuration;
@@ -44,8 +48,9 @@ public class UpdateProfileCommandHandler : ICommandHandler<UpdateProfileCommand,
         user.UpdateProfile(request.FirstName.Trim(), request.LastName.Trim());
 
         var phone = request.PhoneNumber?.Trim();
-        if (!string.IsNullOrEmpty(phone) && phone != user.PhoneNumber)
-            user.UpdatePhoneNumber(phone);
+        var phoneChanged = !string.IsNullOrEmpty(phone) && phone != user.PhoneNumber;
+        if (phoneChanged)
+            user.UpdatePhoneNumber(phone!);
 
         var gender = request.Gender?.Trim();
         if (!string.IsNullOrEmpty(gender) && gender != user.Gender)
@@ -53,6 +58,10 @@ public class UpdateProfileCommandHandler : ICommandHandler<UpdateProfileCommand,
 
         _userRepository.Update(user);
         await _userRepository.SaveChangesAsync(cancellationToken);
+
+        // The user profile keeps its own copy (the admin portal reads it there)
+        if (phoneChanged)
+            await _eventBus.PublishAsync(new UserPhoneChangedIntegrationEvent(user.Id, phone!), cancellationToken);
 
         var accessToken = _jwtService.GenerateAccessToken(user);
         return Result.Success(new AuthResponse(
