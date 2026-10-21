@@ -43,6 +43,10 @@ public class RegisterCommandHandler : ICommandHandler<RegisterCommand, AuthRespo
 
     public async Task<Result<AuthResponse>> Handle(RegisterCommand request, CancellationToken cancellationToken)
     {
+        var passwordProblem = TagAlong.Identity.API.Validators.PasswordRules.Problem(request.Password);
+        if (passwordProblem != null)
+            return Result.Failure<AuthResponse>(Error.Validation(passwordProblem));
+
         if (await _userRepository.ExistsAsync(request.Email, cancellationToken))
         {
             // Generic message — do not confirm whether the email is registered
