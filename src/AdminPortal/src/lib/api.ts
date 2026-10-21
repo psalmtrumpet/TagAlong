@@ -239,9 +239,12 @@ export async function getConversationStats(): Promise<ConversationStats> {
 export interface WaitlistEntry {
   id: string
   name: string
-  email: string
+  email: string | null
   phone: string
   area: string | null
+  role: string | null
+  fromArea: string | null
+  toArea: string | null
   joinedAt: string
 }
 

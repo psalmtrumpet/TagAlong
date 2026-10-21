@@ -26,7 +26,7 @@ export default function WaitlistPage() {
 
   const filtered = search
     ? entries.filter(e =>
-        `${e.name} ${e.email} ${e.phone} ${e.area ?? ''}`.toLowerCase().includes(search.toLowerCase()))
+        `${e.name} ${e.email ?? ''} ${e.phone} ${e.area ?? ''} ${e.role ?? ''} ${e.fromArea ?? ''} ${e.toArea ?? ''}`.toLowerCase().includes(search.toLowerCase()))
     : entries
 
   function exportExcel() {
@@ -36,6 +36,8 @@ export default function WaitlistPage() {
       Email: e.email,
       Phone: e.phone || '—',
       Area: e.area || '—',
+      Wants: e.role === 'drive' ? 'Drive' : e.role === 'ride' ? 'Ride' : '—',
+      Trip: e.fromArea || e.toArea ? `${e.fromArea ?? '?'} → ${e.toArea ?? '?'}` : '—',
       'Joined At': new Date(e.joinedAt).toLocaleString('en-NG'),
     }))
     const ws = XLSX.utils.json_to_sheet(rows)
@@ -81,7 +83,8 @@ export default function WaitlistPage() {
                 <th className="px-4 py-3 text-left">Name</th>
                 <th className="px-4 py-3 text-left">Email</th>
                 <th className="px-4 py-3 text-left">Phone</th>
-                <th className="px-4 py-3 text-left">Area</th>
+                <th className="px-4 py-3 text-left">Wants</th>
+                <th className="px-4 py-3 text-left">Usual trip</th>
                 <th className="px-4 py-3 text-left">Signed up</th>
               </tr>
             </thead>
@@ -100,9 +103,10 @@ export default function WaitlistPage() {
                 <tr key={e.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 text-gray-400 tabular-nums">{i + 1}</td>
                   <td className="px-4 py-3 font-medium text-gray-900">{e.name || '—'}</td>
-                  <td className="px-4 py-3 text-gray-600">{e.email}</td>
+                  <td className="px-4 py-3 text-gray-600">{e.email || '—'}</td>
                   <td className="px-4 py-3 text-gray-500">{e.phone || '—'}</td>
-                  <td className="px-4 py-3 text-gray-700">{e.area || '—'}</td>
+                  <td className="px-4 py-3 text-gray-700">{e.role === 'drive' ? 'Drive' : e.role === 'ride' ? 'Ride' : '—'}</td>
+                  <td className="px-4 py-3 text-gray-700">{e.fromArea || e.toArea ? `${e.fromArea ?? '?'} → ${e.toArea ?? '?'}` : (e.area || '—')}</td>
                   <td className="px-4 py-3 text-gray-500">{fmt(e.joinedAt)}</td>
                 </tr>
               ))}
