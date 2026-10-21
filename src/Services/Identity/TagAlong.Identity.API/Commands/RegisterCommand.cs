@@ -43,6 +43,15 @@ public class RegisterCommandHandler : ICommandHandler<RegisterCommand, AuthRespo
 
     public async Task<Result<AuthResponse>> Handle(RegisterCommand request, CancellationToken cancellationToken)
     {
+        // The request validators don't run for commands, so check the basics here
+        if (string.IsNullOrWhiteSpace(request.Email) ||
+            !System.Text.RegularExpressions.Regex.IsMatch(request.Email.Trim(), @"^[^@\s]+@[^@\s]+\.[^@\s]{2,}$"))
+            return Result.Failure<AuthResponse>(Error.Validation("Enter a valid email address"));
+        if (string.IsNullOrWhiteSpace(request.FirstName) || string.IsNullOrWhiteSpace(request.LastName))
+            return Result.Failure<AuthResponse>(Error.Validation("First and last name are required"));
+        if (string.IsNullOrWhiteSpace(request.PhoneNumber) || request.PhoneNumber.Count(char.IsDigit) < 10)
+            return Result.Failure<AuthResponse>(Error.Validation("Enter a valid phone number"));
+
         var passwordProblem = TagAlong.Identity.API.Validators.PasswordRules.Problem(request.Password);
         if (passwordProblem != null)
             return Result.Failure<AuthResponse>(Error.Validation(passwordProblem));
