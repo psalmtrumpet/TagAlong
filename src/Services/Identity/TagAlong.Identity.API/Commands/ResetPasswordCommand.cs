@@ -33,8 +33,9 @@ public class ResetPasswordCommandHandler : ICommandHandler<ResetPasswordCommand,
         if (user.PasswordResetOtp != request.Code.Trim())
             return Result.Failure<bool>(Error.Validation("Invalid reset code"));
 
-        if (request.NewPassword.Length < 8)
-            return Result.Failure<bool>(Error.Validation("Password must be at least 8 characters"));
+        var problem = TagAlong.Identity.API.Validators.PasswordRules.Problem(request.NewPassword);
+        if (problem != null)
+            return Result.Failure<bool>(Error.Validation(problem));
 
         var hash = _passwordService.HashPassword(request.NewPassword);
         user.UpdatePassword(hash);
