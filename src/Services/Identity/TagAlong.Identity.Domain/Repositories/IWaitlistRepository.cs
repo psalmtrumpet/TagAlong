@@ -6,6 +6,8 @@ public interface IWaitlistRepository
 {
     Task<bool> ExistsAsync(string email, CancellationToken ct = default);
     Task AddAsync(WaitlistEntry entry, CancellationToken ct = default);
+    /// <summary>Already signed up with this (normalised) phone number?</summary>
+    Task<bool> PhoneExistsAsync(string normalizedPhone, CancellationToken ct = default);
     Task<IReadOnlyList<WaitlistEntry>> GetAllAsync(CancellationToken ct = default);
     Task SaveChangesAsync(CancellationToken ct = default);
 }

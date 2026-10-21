@@ -5,7 +5,8 @@ using TagAlong.Identity.Infrastructure.Services;
 
 namespace TagAlong.Identity.API.Commands;
 
-public record JoinWaitlistCommand(string Email, string Phone, string? Area, string? Name = null) : IRequest<JoinWaitlistResult>;
+public record JoinWaitlistCommand(string? Email, string Phone, string? Area, string? Name = null,
+    string? Role = null, string? FromArea = null, string? ToArea = null) : IRequest<JoinWaitlistResult>;
 public record JoinWaitlistResult(bool AlreadyOnList);
 
 public class JoinWaitlistCommandHandler : IRequestHandler<JoinWaitlistCommand, JoinWaitlistResult>
@@ -21,16 +22,21 @@ public class JoinWaitlistCommandHandler : IRequestHandler<JoinWaitlistCommand, J
 
     public async Task<JoinWaitlistResult> Handle(JoinWaitlistCommand request, CancellationToken ct)
     {
-        var already = await _repo.ExistsAsync(request.Email, ct);
+        var phone = WaitlistEntry.NormalizePhone(request.Phone);
+        var email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
+        var already = await _repo.PhoneExistsAsync(phone, ct)
+                      || (email != null && await _repo.ExistsAsync(email, ct));
         if (!already)
         {
-            var entry = WaitlistEntry.Create(request.Email, request.Phone, request.Area, request.Name);
+            var entry = WaitlistEntry.Create(email, request.Phone, request.Area, request.Name,
+                request.Role, request.FromArea, request.ToArea);
             await _repo.AddAsync(entry, ct);
             await _repo.SaveChangesAsync(ct);
 
+            if (email == null) return new JoinWaitlistResult(false);
             var name = request.Name?.Trim() ?? string.Empty;
             _ = _email.SendAsync(
-                request.Email.Trim().ToLowerInvariant(),
+                email.ToLowerInvariant(),
                 name,
                 "You're on the TagAlong waitlist!",
                 BuildAckEmail(name))
@@ -79,7 +85,7 @@ body{margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSys
 <p>Hi __FNAME__,</p>
 <p>Thanks for joining the TagAlong waitlist! You're among the first to hear about our launch.</p>
 <div style=""text-align:center""><span class=""badge"">&#10003; Waitlist confirmed</span></div>
-<p>TagAlong connects travellers and senders — share rides intercity, send packages affordably, or earn on your next trip. When we launch in your city, you'll be the first to know.</p>
+<p>TagAlong is a new way to get around Lagos: book a private ride with a driver nearby, or share a trip with someone already going your way — and agree the fare directly with your driver. We're launching route by route, and we'll message you the day we go live near you.</p>
 <p>Stay tuned — we're moving fast.</p>
 <p style=""margin-bottom:0"">The TagAlong Team</p>
 </div>

@@ -14,6 +14,9 @@ public class WaitlistRepository : IWaitlistRepository
     public Task<bool> ExistsAsync(string email, CancellationToken ct = default)
         => _db.WaitlistEntries.AnyAsync(w => w.Email == email.ToLowerInvariant(), ct);
 
+    public Task<bool> PhoneExistsAsync(string normalizedPhone, CancellationToken ct = default)
+        => _db.WaitlistEntries.AnyAsync(w => w.Phone == normalizedPhone, ct);
+
     public async Task AddAsync(WaitlistEntry entry, CancellationToken ct = default)
         => await _db.WaitlistEntries.AddAsync(entry, ct);
 

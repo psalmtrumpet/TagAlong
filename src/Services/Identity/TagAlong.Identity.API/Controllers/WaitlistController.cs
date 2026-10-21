@@ -22,14 +22,17 @@ public class WaitlistController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> Join([FromBody] JoinWaitlistRequest request, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(request.Email) || !request.Email.Contains('@'))
-            return BadRequest(new { error = "A valid email is required" });
+        // WhatsApp number is required; email is optional
         var digits = new string((request.Phone ?? string.Empty).Where(char.IsDigit).ToArray());
         if (digits.Length < 10)
-            return BadRequest(new { error = "A valid phone number is required" });
+            return BadRequest(new { error = "Please enter a valid WhatsApp number." });
+        if (!string.IsNullOrWhiteSpace(request.Email) && !request.Email.Contains('@'))
+            return BadRequest(new { error = "Please enter a valid email address, or leave it blank." });
+        var role = request.Role?.Trim().ToLowerInvariant();
+        if (role != null && role != "ride" && role != "drive") role = null;
 
         var result = await _mediator.Send(
-            new JoinWaitlistCommand(request.Email, request.Phone!, request.Area, request.Name), ct);
+            new JoinWaitlistCommand(request.Email, request.Phone!, request.Area, request.Name, role, request.FromArea, request.ToArea), ct);
 
         return Ok(new { message = result.AlreadyOnList ? "Already on the waitlist" : "Successfully joined the waitlist" });
     }
@@ -46,10 +49,14 @@ public class WaitlistController : ControllerBase
             e.Email,
             e.Phone,
             e.Area,
+            e.Role,
+            e.FromArea,
+            e.ToArea,
             e.JoinedAt,
         }));
     }
 }
 
 // Name is optional (the form now collects email, phone and Lagos area).
-public record JoinWaitlistRequest(string Email, string? Phone = null, string? Area = null, string? Name = null);
+public record JoinWaitlistRequest(string? Email = null, string? Phone = null, string? Area = null, string? Name = null,
+    string? Role = null, string? FromArea = null, string? ToArea = null);

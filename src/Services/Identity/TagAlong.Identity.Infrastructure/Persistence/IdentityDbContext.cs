@@ -93,7 +93,6 @@ public class IdentityDbContext : DbContext
                 .HasMaxLength(100);
 
             entity.Property(e => e.Email)
-                .IsRequired()
                 .HasMaxLength(254);
 
             entity.Property(e => e.Phone)
@@ -102,9 +101,14 @@ public class IdentityDbContext : DbContext
 
             entity.Property(e => e.Area)
                 .HasMaxLength(100);
+            entity.Property(e => e.Role).HasMaxLength(20);
+            entity.Property(e => e.FromArea).HasMaxLength(100);
+            entity.Property(e => e.ToArea).HasMaxLength(100);
 
             entity.HasIndex(e => e.Email)
-                .IsUnique();
+                .IsUnique()
+                .HasFilter("[Email] IS NOT NULL");
+            entity.HasIndex(e => e.Phone);
         });
     }
 }
