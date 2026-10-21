@@ -86,13 +86,16 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         var sigToVerify = !string.IsNullOrEmpty(request.HeaderSignature) ? request.HeaderSignature : payload.Signature;
         var tsToVerify  = !string.IsNullOrEmpty(request.HeaderTimestamp)  ? request.HeaderTimestamp  : payload.Timestamp;
 
-        if (string.IsNullOrEmpty(request.ApiKey))
+        // A job_status result is one we fetched from Smile ID ourselves over an
+        // authenticated call — only callbacks from outside need the signature check
+        if (!request.IsJobStatusResult && string.IsNullOrEmpty(request.ApiKey))
         {
             _logger.LogError("SmileID webhook received but SmileId:ApiKey is not configured — rejecting all requests");
             return Result.Success(new WebhookResult(false, "Webhook secret not configured"));
         }
 
-        if (string.IsNullOrEmpty(tsToVerify) || !VerifySignature(sigToVerify, tsToVerify, request.PartnerId, request.ApiKey))
+        if (!request.IsJobStatusResult &&
+            (string.IsNullOrEmpty(tsToVerify) || !VerifySignature(sigToVerify, tsToVerify, request.PartnerId, request.ApiKey)))
         {
             var snippet = request.RawBody.Length > 800 ? request.RawBody[..800] : request.RawBody;
             _logger.LogWarning(
@@ -115,10 +118,13 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         var kyc = await _kycRepo.GetBySmileJobIdAsync(jobId, cancellationToken);
         if (kyc == null)
         {
-            // Race condition: webhook can arrive before Flutter calls record-smile-job.
-            // Wait briefly and retry once before giving up.
-            await Task.Delay(3000, cancellationToken);
-            kyc = await _kycRepo.GetBySmileJobIdAsync(jobId, cancellationToken);
+            // Race condition: Smile ID's callback often arrives before the app calls
+            // record-smile-job (seen 8 s early). Keep checking for ~15 s.
+            for (var attempt = 0; attempt < 5 && kyc == null; attempt++)
+            {
+                await Task.Delay(3000, cancellationToken);
+                kyc = await _kycRepo.GetBySmileJobIdAsync(jobId, cancellationToken);
+            }
         }
         if (kyc == null)
         {
@@ -232,9 +238,13 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
 
         if (!isSuccess)
         {
-            var reason = resultCode == "1220"
-                ? "Your face did not match your NIN photo. Please try again in good lighting."
-                : $"Verification could not be completed (code {resultCode}). Please try again.";
+            var reason = resultCode switch
+            {
+                "1220" => "Your face did not match your NIN photo. Please try again in good lighting.",
+                "1013" => "We couldn't find that NIN. Please check the 11-digit number and try again.",
+                "1015" => "The NIN service is unavailable right now. Please try again in a little while.",
+                _ => $"Verification could not be completed (code {resultCode}). Please try again.",
+            };
             kyc.Fail(reason);
             _kycRepo.Update(kyc);
             await _kycRepo.SaveChangesAsync(cancellationToken);
