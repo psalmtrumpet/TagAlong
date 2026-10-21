@@ -51,7 +51,7 @@ public class InternalAvailabilityController : ControllerBase
         var dLng = radiusKm / (111.0 * Math.Cos(lat * Math.PI / 180));
 
         var profiles = await _db.UserProfiles.AsNoTracking()
-            .Where(u => u.IsAvailable && !u.IsSuspended)
+            .Where(u => u.IsAvailable && !u.IsSuspended && u.IsVerified)
             .Where(u => u.CurrentLatitude.HasValue && u.CurrentLongitude.HasValue)
             .Where(u => also.Contains(u.AuthUserId) ||
                         (u.CurrentLatitude >= lat - dLat && u.CurrentLatitude <= lat + dLat &&

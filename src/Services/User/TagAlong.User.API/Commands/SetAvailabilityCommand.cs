@@ -48,7 +48,11 @@ public class SetAvailabilityCommandHandler : ICommandHandler<SetAvailabilityComm
                     return Result.Failure<AvailabilityResponse>(Error.Validation("Latitude and Longitude are required when setting availability"));
                 }
 
-                // Taking passengers or packages needs an approved licence + vehicle
+                // Taking passengers needs a verified identity and an approved licence + vehicle
+                if (!profile.IsVerified)
+                    return Result.Failure<AvailabilityResponse>(Error.Validation(
+                        "Verify your identity before you can go available."));
+
                 var driverApproved = await _db.DriverProfiles.AsNoTracking().AnyAsync(
                     d => d.AuthUserId == request.AuthUserId && d.Status == DriverProfileStatus.Approved, cancellationToken);
                 if (!driverApproved)
