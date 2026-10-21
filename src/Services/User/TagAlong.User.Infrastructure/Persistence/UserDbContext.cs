@@ -161,6 +161,8 @@ public class UserDbContext : DbContext
             entity.Property(e => e.ResidenceState).HasMaxLength(100);
             entity.Property(e => e.Address).HasMaxLength(300);
             entity.Property(e => e.DeviceFlag).HasMaxLength(200);
+            entity.Property(e => e.NinHash).HasMaxLength(64);
+            entity.HasIndex(e => e.NinHash);
             entity.Property(e => e.PhotoPath).HasMaxLength(512);
             entity.Property(e => e.FailureReason).HasMaxLength(500);
             entity.Property(e => e.SmileUserId).HasMaxLength(100);

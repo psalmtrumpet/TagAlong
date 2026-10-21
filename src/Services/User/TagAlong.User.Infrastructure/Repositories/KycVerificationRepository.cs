@@ -28,6 +28,13 @@ public class KycVerificationRepository : IKycVerificationRepository
         => await _context.KycVerifications
             .FirstOrDefaultAsync(k => k.SmileJobId == jobId, cancellationToken);
 
+    public async Task<bool> NinUsedByAnotherAccountAsync(Guid authUserId, string? ninHash, string? maskedNin, string? dateOfBirth, CancellationToken cancellationToken = default)
+        => await _context.KycVerifications.AnyAsync(k =>
+            k.AuthUserId != authUserId && k.Status == KycStatus.Completed &&
+            ((ninHash != null && k.NinHash == ninHash) ||
+             (k.NinHash == null && maskedNin != null && dateOfBirth != null && k.NIN == maskedNin && k.DateOfBirth == dateOfBirth)),
+            cancellationToken);
+
     public async Task AddAsync(KycVerification kyc, CancellationToken cancellationToken = default)
         => await _context.KycVerifications.AddAsync(kyc, cancellationToken);
 

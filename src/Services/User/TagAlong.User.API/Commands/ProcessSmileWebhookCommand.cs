@@ -242,9 +242,22 @@ public class ProcessSmileWebhookCommandHandler : ICommandHandler<ProcessSmileWeb
         // 0810 with Verify_ID_Number=Verified is the approved result for Biometric KYC Job Type 1
         var isSuccess = resultCode == "1210" || resultCode == "0810" || deviceFlagged;
 
+        // One NIN, one account — checked again here in case two accounts raced
+        var duplicateNin = isSuccess && await _kycRepo.NinUsedByAnotherAccountAsync(
+            kyc.AuthUserId, kyc.NinHash,
+            !string.IsNullOrWhiteSpace(kyc.NIN) ? kyc.NIN
+                : payload.IdNumber is { Length: >= 8 } id ? KycVerification.MaskNin(id) : null,
+            TagAlong.User.API.Services.SmilePersonalInfo.From(null, null, null, null, payload.Dob, null).DateOfBirth ?? kyc.DateOfBirth,
+            cancellationToken);
+        if (duplicateNin)
+        {
+            _logger.LogWarning("Smile ID webhook: job {JobId} passed but its NIN is already verified on another account — refusing", jobId);
+            isSuccess = false;
+        }
+
         if (!isSuccess)
         {
-            var reason = resultCode switch
+            var reason = duplicateNin ? KycVerification.NinTakenMessage : resultCode switch
             {
                 "1220" => "Your face did not match your NIN photo. Please try again in good lighting.",
                 "1013" => "We couldn't find that NIN. Please check the 11-digit number and try again.",

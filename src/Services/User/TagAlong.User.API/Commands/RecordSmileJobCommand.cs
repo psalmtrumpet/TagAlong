@@ -75,33 +75,24 @@ public class RecordSmileJobCommandHandler : ICommandHandler<RecordSmileJobComman
 
         // Keep the NIN the user entered — SmileID's result doesn't always echo it back
         kyc.RecordIdNumber(request.IdNumber);
+        var ninHash = _ninCache.KeyFor(request.IdNumber);
+        kyc.SetNinHash(ninHash);
 
-        var cached = await _ninCache.GetByNinAsync(request.IdNumber, cancellationToken);
-
-        if (cached != null && (cached.FirstName != null || cached.LastName != null))
+        // One NIN, one account
+        if (await _kycRepo.NinUsedByAnotherAccountAsync(request.AuthUserId, ninHash, null, null, cancellationToken))
         {
-            // NIN already verified by SmileID — trust the cached result directly
-            kyc.Complete(
-                nin: request.IdNumber,
-                firstName: cached.FirstName,
-                lastName: cached.LastName,
-                middleName: cached.MiddleName,
-                dateOfBirth: cached.DateOfBirth,
-                gender: cached.Gender,
-                nationality: "Nigerian",
-                residenceState: null,
-                photoPath: null);
-
-            await _kycRepo.SaveChangesAsync(cancellationToken);
-            profile.Verify(null);
+            kyc.Fail(KycVerification.NinTakenMessage);
+            profile.ResetVerificationStatus();
             _profiles.Update(profile);
+            await _kycRepo.SaveChangesAsync(cancellationToken);
             await _profiles.SaveChangesAsync(cancellationToken);
-
-            _logger.LogInformation("Job {JobId} verified user {UserId} via NIN cache (name matched)", request.JobId, request.AuthUserId);
-            return Result.Success(new KycStatusResponse(true, "Verified", "Identity verified successfully"));
+            _logger.LogWarning("record-smile-job: user {UserId} tried a NIN already verified on another account", request.AuthUserId);
+            return Result.Success(new KycStatusResponse(false, "Failed", KycVerification.NinTakenMessage));
         }
 
-        // No cached name data — store jobId as Pending; webhook will do the name check and complete
+        // Every account goes through Smile ID's face check — a NIN seen before is no shortcut
+        // (that let anyone who knew a verified person's NIN verify as them).
+        // Store jobId as Pending; the webhook completes it
         profile.MarkVerificationPending();
         _profiles.Update(profile);
         await _kycRepo.SaveChangesAsync(cancellationToken);

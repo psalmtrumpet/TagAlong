@@ -212,19 +212,10 @@ public class KycController : ControllerBase
         if (string.IsNullOrWhiteSpace(nin) || nin.Trim().Length != 11)
             return BadRequest(new { error = "NIN must be exactly 11 digits" });
 
-        var entry = await _ninCache.GetByNinAsync(nin.Trim(), cancellationToken);
-        if (entry == null)
-            return NotFound(new { cached = false });
-
-        return Ok(new
-        {
-            cached = true,
-            firstName = entry.FirstName,
-            lastName = entry.LastName,
-            middleName = entry.MiddleName,
-            dateOfBirth = entry.DateOfBirth,
-            gender = entry.Gender
-        });
+        // No longer answers: it gave anyone a verified person's name and date of birth from their
+        // NIN, and let the app skip the face check. Kept so older app builds fall back to Smile ID.
+        await Task.CompletedTask;
+        return NotFound(new { cached = false });
     }
 
     private Guid? GetCurrentUserId()
