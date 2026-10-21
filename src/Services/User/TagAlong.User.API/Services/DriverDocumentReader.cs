@@ -345,7 +345,7 @@ public class DriverDocumentReader
             var colour = Str(veh, "colour");
             checks.Add(colour == null
                 ? new("Colour", "warn", "Couldn't tell the vehicle's colour.")
-                : Words(colour).Intersect(Words(d.VehicleColor)).Any()
+                : ColourFamilies(colour).Intersect(ColourFamilies(d.VehicleColor)).Any()
                     ? new("Colour", "pass", $"Matches what the driver entered ({d.VehicleColor}).")
                     : new("Colour", "warn", $"Photo looks {colour}, driver entered {d.VehicleColor}."));
 
@@ -460,7 +460,28 @@ public class DriverDocumentReader
 
     private static string Alnum(string s) => new(s.ToUpperInvariant().Where(char.IsLetterOrDigit).ToArray());
 
+    // Split on anything that isn't a letter or digit — "(wine red)" must give "RED", not "RED)"
     private static HashSet<string> Words(string s) =>
-        s.ToUpperInvariant().Split(new[] { ' ', ',', '.', '-' }, StringSplitOptions.RemoveEmptyEntries)
+        System.Text.RegularExpressions.Regex.Split(s.ToUpperInvariant(), "[^A-Z0-9]+")
             .Where(w => w.Length > 1).ToHashSet();
+
+    // Names people use for the same colour ("burgundy" vs "maroon" vs "wine")
+    private static readonly Dictionary<string, string> ColourFamily = new()
+    {
+        ["RED"] = "RED", ["MAROON"] = "RED", ["BURGUNDY"] = "RED", ["WINE"] = "RED", ["CLARET"] = "RED", ["CRIMSON"] = "RED",
+        ["BLUE"] = "BLUE", ["NAVY"] = "BLUE", ["AZURE"] = "BLUE", ["TEAL"] = "BLUE",
+        ["GREY"] = "GREY", ["GRAY"] = "GREY", ["SILVER"] = "GREY", ["ASH"] = "GREY", ["GUNMETAL"] = "GREY", ["CHARCOAL"] = "GREY",
+        ["WHITE"] = "WHITE", ["CREAM"] = "WHITE", ["PEARL"] = "WHITE", ["IVORY"] = "WHITE",
+        ["BLACK"] = "BLACK", ["EBONY"] = "BLACK",
+        ["GOLD"] = "GOLD", ["GOLDEN"] = "GOLD", ["CHAMPAGNE"] = "GOLD", ["BEIGE"] = "GOLD",
+        ["BROWN"] = "BROWN", ["BRONZE"] = "BROWN", ["COFFEE"] = "BROWN", ["CHOCOLATE"] = "BROWN",
+        ["GREEN"] = "GREEN", ["OLIVE"] = "GREEN", ["LIME"] = "GREEN",
+        ["YELLOW"] = "YELLOW", ["ORANGE"] = "ORANGE", ["PURPLE"] = "PURPLE", ["VIOLET"] = "PURPLE",
+    };
+
+    /// <summary>The colour families named in a description; unknown words count as themselves.</summary>
+    private static HashSet<string> ColourFamilies(string s) =>
+        Words(s).Select(w => ColourFamily.TryGetValue(w, out var f) ? f : w)
+            .Where(w => w is not ("DARK" or "LIGHT" or "DEEP" or "PALE" or "METALLIC" or "BRIGHT"))
+            .ToHashSet();
 }
