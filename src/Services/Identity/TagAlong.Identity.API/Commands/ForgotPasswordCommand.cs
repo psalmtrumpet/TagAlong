@@ -49,12 +49,15 @@ public class ForgotPasswordCommandHandler : ICommandHandler<ForgotPasswordComman
         const string t = @"
 <!DOCTYPE html>
 <html><head><meta charset='utf-8'>
-<link href='https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap' rel='stylesheet'>
+<link href='https://cdn.jsdelivr.net/npm/@fontsource/metropolis@5.3.0/400.css' rel='stylesheet'>
+<link href='https://cdn.jsdelivr.net/npm/@fontsource/metropolis@5.3.0/600.css' rel='stylesheet'>
+<link href='https://cdn.jsdelivr.net/npm/@fontsource/metropolis@5.3.0/700.css' rel='stylesheet'>
+<link href='https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&display=swap' rel='stylesheet'>
 <style>
-body{margin:0;padding:0;background:#f5f5f5;font-family:'Outfit',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+body{margin:0;padding:0;background:#F5F3EE;font-family:'Metropolis',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 .wrap{max-width:480px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden}
-.header{background:#F1B01C;padding:24px;text-align:center}
-.header img{height:40px}
+.header{background:#fff;padding:32px 24px 8px;text-align:center}
+.header img{width:200px;height:auto}
 .body{padding:32px}
 .otp{font-size:40px;font-weight:700;color:#000;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:8px;text-align:center;
      background:#FDF5E4;border:2px dashed #F1B01C;border-radius:8px;padding:16px;margin:24px 0}
@@ -65,7 +68,7 @@ body{margin:0;padding:0;background:#f5f5f5;font-family:'Outfit',-apple-system,Bl
 <body>
 <div class='wrap'>
   <div class='header'>
-    <img src='https://tagalong.delivery/assets/images/TAGALONG-LOGO-N.png' alt='TagAlong'>
+    <img src='https://tagalong.delivery/assets/images/tagalong-wordmark-email.png' alt='TagAlong' width='200'>
   </div>
   <div class='body'>
     <p>Hi __FNAME__,</p>

@@ -59,15 +59,18 @@ public class JoinWaitlistCommandHandler : IRequestHandler<JoinWaitlistCommand, J
         var t = @"<!DOCTYPE html>
 <html lang=""en"">
 <head><meta charset=""UTF-8""><meta name=""viewport"" content=""width=device-width,initial-scale=1"">
-<link href=""https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap"" rel=""stylesheet"">
+<link href=""https://cdn.jsdelivr.net/npm/@fontsource/metropolis@5.3.0/400.css"" rel=""stylesheet"">
+<link href=""https://cdn.jsdelivr.net/npm/@fontsource/metropolis@5.3.0/600.css"" rel=""stylesheet"">
+<link href=""https://cdn.jsdelivr.net/npm/@fontsource/metropolis@5.3.0/700.css"" rel=""stylesheet"">
+<link href=""https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&display=swap"" rel=""stylesheet"">
 <title>You're on the list!</title>
 <style>
-body{margin:0;padding:0;background:#f5f5f5;font-family:'Outfit',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+body{margin:0;padding:0;background:#F5F3EE;font-family:'Metropolis',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 .wrap{max-width:560px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)}
-.hero{background:#F1B01C;padding:36px 40px;text-align:center}
-.hero img{height:36px;margin:0 auto 16px;display:block}
+.hero{background:#fff;padding:36px 40px 8px;text-align:center}
+.hero img{width:200px;height:auto;margin:0 auto 24px;display:block}
 .hero h1{margin:0;font-size:22px;font-weight:700;color:#000;letter-spacing:-.3px;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
-.hero p{margin:8px 0 0;font-size:14px;color:rgba(0,0,0,.72)}
+.hero p{margin:8px 0 0;font-size:14px;color:#737373}
 .body{padding:36px 40px}
 .body p{margin:0 0 16px;font-size:15px;line-height:1.6;color:#333}
 .badge{display:inline-block;background:#FDF5E4;border:1px solid #F6DC9C;color:#B45309;font-size:13px;font-weight:600;padding:8px 18px;border-radius:20px;margin:8px 0 20px}
@@ -78,7 +81,7 @@ body{margin:0;padding:0;background:#f5f5f5;font-family:'Outfit',-apple-system,Bl
 <body>
 <div class=""wrap"">
 <div class=""hero"">
-<img src=""https://tagalong.delivery/assets/images/TAGALONG-LOGO-N.png"" alt=""TagAlong"" height=""36"">
+<img src=""https://tagalong.delivery/assets/images/tagalong-wordmark-email.png"" alt=""TagAlong"" width=""200"">
 <h1>You're on the list, __FNAME__! 🎉</h1>
 <p>TagAlong is launching soon — we'll let you know first.</p>
 </div>
