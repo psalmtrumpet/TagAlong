@@ -165,6 +165,13 @@ services:
       - Google__ClientId=${GOOGLE_CLIENT_ID}
       - Google__ClientSecret=${GOOGLE_CLIENT_SECRET}
       - Admin__SeedSecret=${ADMIN_SEED_SECRET}
+      # Welcome, password-reset and waitlist emails (same mailbox as user-api)
+      - Email__SmtpHost=${Email__SmtpHost:-smtp.hostinger.com}
+      - Email__SmtpPort=${Email__SmtpPort:-587}
+      - Email__SmtpUser=${Email__SmtpUser:-}
+      - Email__SmtpPass=${Email__SmtpPass:-}
+      - Email__FromAddress=${Email__FromAddress:-}
+      - Email__FromName=${Email__FromName:-TagAlong}
     depends_on:
       sqlserver:
         condition: service_healthy
