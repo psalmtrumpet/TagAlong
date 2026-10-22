@@ -59,19 +59,20 @@ public class JoinWaitlistCommandHandler : IRequestHandler<JoinWaitlistCommand, J
         var t = @"<!DOCTYPE html>
 <html lang=""en"">
 <head><meta charset=""UTF-8""><meta name=""viewport"" content=""width=device-width,initial-scale=1"">
+<link href=""https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap"" rel=""stylesheet"">
 <title>You're on the list!</title>
 <style>
-body{margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+body{margin:0;padding:0;background:#f5f5f5;font-family:'Outfit',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 .wrap{max-width:560px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)}
-.hero{background:#FF6B00;padding:36px 40px;text-align:center}
+.hero{background:#F1B01C;padding:36px 40px;text-align:center}
 .hero img{height:36px;margin:0 auto 16px;display:block}
-.hero h1{margin:0;font-size:22px;font-weight:700;color:#fff;letter-spacing:-.3px}
-.hero p{margin:8px 0 0;font-size:14px;color:rgba(255,255,255,.85)}
+.hero h1{margin:0;font-size:22px;font-weight:700;color:#000;letter-spacing:-.3px;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.hero p{margin:8px 0 0;font-size:14px;color:rgba(0,0,0,.72)}
 .body{padding:36px 40px}
 .body p{margin:0 0 16px;font-size:15px;line-height:1.6;color:#333}
-.badge{display:inline-block;background:#fff3e8;border:1px solid #ffd9bb;color:#c04f00;font-size:13px;font-weight:600;padding:8px 18px;border-radius:20px;margin:8px 0 20px}
+.badge{display:inline-block;background:#FDF5E4;border:1px solid #F6DC9C;color:#B45309;font-size:13px;font-weight:600;padding:8px 18px;border-radius:20px;margin:8px 0 20px}
 .footer{padding:20px 40px;background:#fafafa;border-top:1px solid #eee;text-align:center;font-size:12px;color:#999}
-.footer a{color:#FF6B00;text-decoration:none}
+.footer a{color:#B45309;text-decoration:none}
 @media(max-width:600px){.hero,.body,.footer{padding:28px 24px}}
 </style></head>
 <body>

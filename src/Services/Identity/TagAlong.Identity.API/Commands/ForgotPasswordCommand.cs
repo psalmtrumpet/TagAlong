@@ -49,14 +49,15 @@ public class ForgotPasswordCommandHandler : ICommandHandler<ForgotPasswordComman
         const string t = @"
 <!DOCTYPE html>
 <html><head><meta charset='utf-8'>
+<link href='https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap' rel='stylesheet'>
 <style>
-body{margin:0;padding:0;background:#f5f5f5;font-family:sans-serif}
+body{margin:0;padding:0;background:#f5f5f5;font-family:'Outfit',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 .wrap{max-width:480px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden}
-.header{background:#FF6B00;padding:24px;text-align:center}
+.header{background:#F1B01C;padding:24px;text-align:center}
 .header img{height:40px}
 .body{padding:32px}
-.otp{font-size:40px;font-weight:700;color:#FF6B00;letter-spacing:8px;text-align:center;
-     background:#fff5f0;border:2px dashed #FF6B00;border-radius:8px;padding:16px;margin:24px 0}
+.otp{font-size:40px;font-weight:700;color:#000;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:8px;text-align:center;
+     background:#FDF5E4;border:2px dashed #F1B01C;border-radius:8px;padding:16px;margin:24px 0}
 .note{font-size:13px;color:#888;text-align:center}
 .footer{background:#f9f9f9;padding:16px;text-align:center;font-size:12px;color:#aaa}
 </style>
