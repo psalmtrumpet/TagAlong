@@ -61,15 +61,21 @@ public class SearchTripsQueryHandler : IQueryHandler<SearchTripsQuery, List<Trip
             request.OriginLatitude.HasValue && request.OriginLongitude.HasValue &&
             request.DestinationLatitude.HasValue && request.DestinationLongitude.HasValue)
         {
+            // Shared rides never detour (the passenger meets the driver on the route, which
+            // the search already checked); only private trips and deliveries go off-route.
+            var tripList = trips.ToList();
+            var onRoute = tripList.Where(t => t.TripType != Domain.Entities.TripType.Delivery && !t.IsPrivate).ToList();
             var detourResults = await _detourVerifier.VerifyAndRankAsync(
-                trips,
+                tripList.Except(onRoute),
                 request.OriginLatitude.Value, request.OriginLongitude.Value,
                 request.DestinationLatitude.Value, request.DestinationLongitude.Value,
                 request.MaxDetourSeconds,
                 request.DetourTopN,
                 cancellationToken);
 
-            resultPairs = detourResults.Select(r => (r.Trip, r.DetourSeconds));
+            resultPairs = onRoute.Select(t => (t, (int?)0))
+                .Concat(detourResults.Select(r => (r.Trip, r.DetourSeconds)))
+                .OrderBy(p => p.Item1.DepartureTime);
         }
         else
         {

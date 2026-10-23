@@ -129,10 +129,12 @@ public class TripRepository : ITripRepository
                         t.DestinationLatitude, t.DestinationLongitude) <= radiusKm)
                     .ToList();
             else
-                // Ride: the driver passes the pickup — near the route, or near where they start
+                // Shared ride: no detours — the pickup must be a short way off the driver's
+                // route (they meet at a stop on it). Private: door to door, so near the route
+                // or near where the driver starts.
                 candidates = candidates
-                    .Where(t => HaversineKm(originLat.Value, originLon.Value, t.OriginLatitude, t.OriginLongitude) <= radiusKm ||
-                                NearRouteKm(t, originLat.Value, originLon.Value) <= PickupCorridorKm)
+                    .Where(t => NearRouteKm(t, originLat.Value, originLon.Value) <= PickupCorridorKm ||
+                                (t.IsPrivate && HaversineKm(originLat.Value, originLon.Value, t.OriginLatitude, t.OriginLongitude) <= radiusKm))
                     .ToList();
         }
 
@@ -145,6 +147,10 @@ public class TripRepository : ITripRepository
             candidates = candidates
                 .Where(t =>
                 {
+                    // Shared ride: dropped at a stop on the route — no detour
+                    if (tripType != TripType.Delivery && !t.IsPrivate)
+                        return NearRouteKm(t, destLat.Value, destLon.Value) <= PickupCorridorKm;
+
                     if (t.RouteLine is not null && t.RouteStatus == TripRouteStatus.Stored)
                         return CorridorMatchKm(t, destPoint, destLat.Value, destLon.Value, radiusKm);
 
@@ -167,7 +173,7 @@ public class TripRepository : ITripRepository
             .Take(pageSize);
     }
 
-    /// <summary>How far off a trip's road a pickup can be (the driver picks up at a stop on it).</summary>
+    /// <summary>How far off a trip's road a pickup or drop-off can be (the passenger meets the driver at a stop on it).</summary>
     private const double PickupCorridorKm = 2.5;
 
     /// <summary>Distance (km) from a point to the trip's route (stored road line, else the straight line).</summary>
