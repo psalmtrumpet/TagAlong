@@ -75,8 +75,8 @@ public class TripRepository : ITripRepository
 
         if (departureDate.HasValue)
         {
-            var startOfDay = departureDate.Value.Date;
-            var endOfDay = startOfDay.AddDays(1);
+            // The day the rider picked, in Lagos time
+            var (startOfDay, endOfDay) = TagAlong.Trip.Domain.TripTime.LagosDayUtc(departureDate.Value);
             query = query.Where(t => t.DepartureTime >= startOfDay && t.DepartureTime < endOfDay);
         }
 

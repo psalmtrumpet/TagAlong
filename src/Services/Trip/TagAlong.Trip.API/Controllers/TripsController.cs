@@ -145,14 +145,15 @@ public class TripsController : ControllerBase
             request.Destination,
             request.DestinationLatitude,
             request.DestinationLongitude,
-            request.DepartureTime,
-            request.EstimatedArrivalTime,
+            // Stored in UTC; older app builds send plain Lagos time
+            TagAlong.Trip.Domain.TripTime.ToUtc(request.DepartureTime),
+            TagAlong.Trip.Domain.TripTime.ToUtc(request.EstimatedArrivalTime),
             request.AvailableCapacity,
             request.VehicleType,
             request.VehiclePlateNumber,
             request.Notes,
             request.MaxPackages,
-            request.Stops,
+            request.Stops?.Select(s => s with { EstimatedTime = TagAlong.Trip.Domain.TripTime.ToUtc(s.EstimatedTime) }).ToList(),
             request.PassengerCapacity,
             request.TripType,
             RoutePolyline: request.RoutePolyline,
@@ -200,7 +201,7 @@ public class TripsController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
-        var command = new UpdateDepartureTimeCommand(id, userId.Value, request.DepartureTime);
+        var command = new UpdateDepartureTimeCommand(id, userId.Value, TagAlong.Trip.Domain.TripTime.ToUtc(request.DepartureTime));
         var result = await _mediator.Send(command, cancellationToken);
 
         if (result.IsFailure)
