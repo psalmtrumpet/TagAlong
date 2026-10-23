@@ -61,8 +61,13 @@ public class DetourVerifier : IDetourVerifier
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Detour check failed for trip {TripId}; including unverified", trip.Id);
-                unverified.Add(trip);
+                // Directions timed out or failed: estimate from straight-line distances rather
+                // than letting the trip through unchecked — otherwise it appears and vanishes
+                // on each refresh as Google answers or doesn't.
+                var estimate = EstimateDetourSeconds(trip, pickupLat, pickupLon, dropoffLat, dropoffLon);
+                _logger.LogWarning(ex, "Detour check failed for trip {TripId}; estimated {Detour}s", trip.Id, estimate);
+                if (estimate <= maxDetourSeconds)
+                    ranked.Add((trip, estimate));
             }
         }
 
@@ -71,6 +76,28 @@ public class DetourVerifier : IDetourVerifier
             .Select(x => new DetourResult(x.Trip, x.DetourSeconds))
             .Concat(unverified.Select(t => new DetourResult(t, null)))
             .ToList();
+    }
+
+    /// <summary>
+    /// Rough detour when Directions can't answer: extra straight-line distance via the
+    /// pickup and drop-off, ×1.3 for roads, at 25 km/h Lagos traffic.
+    /// </summary>
+    private static int EstimateDetourSeconds(TripEntity trip, double pLat, double pLon, double dLat, double dLon)
+    {
+        static double Km(double lat1, double lon1, double lat2, double lon2)
+        {
+            const double r = 6371;
+            var dLatR = (lat2 - lat1) * Math.PI / 180;
+            var dLonR = (lon2 - lon1) * Math.PI / 180;
+            var a = Math.Sin(dLatR / 2) * Math.Sin(dLatR / 2) +
+                    Math.Cos(lat1 * Math.PI / 180) * Math.Cos(lat2 * Math.PI / 180) * Math.Sin(dLonR / 2) * Math.Sin(dLonR / 2);
+            return 2 * r * Math.Asin(Math.Sqrt(a));
+        }
+        var via = Km(trip.OriginLatitude, trip.OriginLongitude, pLat, pLon) + Km(pLat, pLon, dLat, dLon) +
+                  Km(dLat, dLon, trip.DestinationLatitude, trip.DestinationLongitude);
+        var direct = Km(trip.OriginLatitude, trip.OriginLongitude, trip.DestinationLatitude, trip.DestinationLongitude);
+        var extraKm = Math.Max(0, via - direct) * 1.3;
+        return (int)Math.Round(extraKm / 25.0 * 3600);
     }
 
     private async Task<int> GetDetourSecondsAsync(
