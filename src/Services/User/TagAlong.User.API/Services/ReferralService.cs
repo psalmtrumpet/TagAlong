@@ -115,10 +115,17 @@ public class ReferralService
     /// Called when a ride completes: if this user was referred, their referrer
     /// is rewarded for this ride (once per ride).
     /// </summary>
-    public async Task RewardRideAsync(Guid userId, Guid conversationId, CancellationToken ct)
+    public async Task RewardRideAsync(Guid userId, Guid otherPartyId, Guid conversationId, CancellationToken ct)
     {
         var referral = await _db.Referrals.FirstOrDefaultAsync(r => r.ReferredUserId == userId, ct);
         if (referral == null) return;
+        // Riding with the person who referred you earns them nothing — otherwise a driver
+        // could keep driving a friend they referred and never pay the TagAlong fee
+        if (referral.ReferrerUserId == otherPartyId)
+        {
+            _logger.LogInformation("No referral reward for ride {ConversationId}: {UserId} rode with their referrer", conversationId, userId);
+            return;
+        }
         if (await _db.ReferralEarnings.AnyAsync(e => e.ConversationId == conversationId && e.ReferredUserId == userId, ct))
             return; // already rewarded for this ride
 

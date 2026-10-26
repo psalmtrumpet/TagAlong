@@ -46,9 +46,9 @@ public class ConversationCompletedIntegrationEventHandler : IIntegrationEventHan
         await _userProfileRepository.SaveChangesAsync(cancellationToken);
 
         // Every ride a referred person completes rewards whoever referred them
-        foreach (var userId in new[] { @event.TravelerId, @event.SenderId })
+        foreach (var (userId, otherId) in new[] { (@event.TravelerId, @event.SenderId), (@event.SenderId, @event.TravelerId) })
         {
-            try { await _referrals.RewardRideAsync(userId, @event.ConversationId, cancellationToken); }
+            try { await _referrals.RewardRideAsync(userId, otherId, @event.ConversationId, cancellationToken); }
             catch (Exception ex) { _logger.LogError(ex, "Referral check failed for {UserId}", userId); }
         }
 

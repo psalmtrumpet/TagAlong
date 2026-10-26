@@ -42,9 +42,14 @@ public class ReferralsController : ControllerBase
             .Select(t => new { t.Amount, t.Description, t.CreatedAt })
             .ToListAsync(ct);
 
+        // Approved drivers earn fee-free rides; everyone else earns wallet credit
+        var isDriver = await _db.DriverProfiles.AsNoTracking().AnyAsync(d =>
+            d.AuthUserId == userId.Value && d.Status == DriverProfileStatus.Approved, ct);
+
         return Ok(new
         {
             code = account.Code,
+            isDriver,
             successfulReferrals = mine.Count(r => r.QualifiedAt != null),
             pendingReferrals = mine.Count(r => r.QualifiedAt == null),
             // Every ride by people you referred
