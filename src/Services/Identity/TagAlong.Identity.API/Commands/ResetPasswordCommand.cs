@@ -31,7 +31,7 @@ public class ResetPasswordCommandHandler : ICommandHandler<ResetPasswordCommand,
             return Result.Failure<bool>(Error.Validation("Reset code has expired"));
 
         if (user.PasswordResetOtp != request.Code.Trim())
-            return Result.Failure<bool>(Error.Validation("Invalid reset code"));
+            return Result.Failure<bool>(Error.Validation("That code doesn't match. If you asked for more than one, use the code in the newest email."));
 
         var problem = TagAlong.Identity.API.Validators.PasswordRules.Problem(request.NewPassword);
         if (problem != null)
