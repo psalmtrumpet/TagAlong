@@ -120,9 +120,13 @@ public class HailService
     /// <summary>The passenger's latest request that's still waiting (or just finished), to restore the screen.</summary>
     public async Task<HailDto?> GetMineAsync(Guid passengerId, CancellationToken ct)
     {
-        var since = DateTime.UtcNow.AddMinutes(-10);
+        // Still open, or settled in the last 10 min — a request can run longer than 10 min
+        // (raised offers), and the passenger's screen must still see it get matched
+        var now = DateTime.UtcNow;
+        var since = now.AddMinutes(-10);
         var hail = await _db.HailRequests.AsNoTracking()
-            .Where(h => h.PassengerId == passengerId && h.CreatedAt > since && h.Status != HailStatus.Cancelled)
+            .Where(h => h.PassengerId == passengerId && h.Status != HailStatus.Cancelled &&
+                        (h.ExpiresAt > now || h.UpdatedAt > since || h.CreatedAt > since))
             .OrderByDescending(h => h.CreatedAt)
             .FirstOrDefaultAsync(ct);
         if (hail == null) return null;
