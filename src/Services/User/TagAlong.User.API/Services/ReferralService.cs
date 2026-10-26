@@ -115,7 +115,7 @@ public class ReferralService
     /// Called when a ride completes: if this user was referred, their referrer
     /// is rewarded for this ride (once per ride).
     /// </summary>
-    public async Task RewardRideAsync(Guid userId, Guid otherPartyId, Guid conversationId, CancellationToken ct)
+    public async Task RewardRideAsync(Guid userId, Guid otherPartyId, bool userDrove, Guid conversationId, CancellationToken ct)
     {
         var referral = await _db.Referrals.FirstOrDefaultAsync(r => r.ReferredUserId == userId, ct);
         if (referral == null) return;
@@ -129,9 +129,12 @@ public class ReferralService
         if (await _db.ReferralEarnings.AnyAsync(e => e.ConversationId == conversationId && e.ReferredUserId == userId, ct))
             return; // already rewarded for this ride
 
-        var account = await GetOrCreateAccountAsync(referral.ReferrerUserId, ct);
         var isDriver = await _db.DriverProfiles.AnyAsync(d =>
             d.AuthUserId == referral.ReferrerUserId && d.Status == DriverProfileStatus.Approved, ct);
+        // Drivers refer drivers, passengers refer passengers: a driver earns from the rides
+        // the driver they referred gives; a passenger from the rides their friend takes
+        if (isDriver != userDrove) return;
+        var account = await GetOrCreateAccountAsync(referral.ReferrerUserId, ct);
         var referredName = await _db.UserProfiles.AsNoTracking().IgnoreQueryFilters()
             .Where(p => p.AuthUserId == userId).Select(p => p.FirstName).FirstOrDefaultAsync(ct);
 

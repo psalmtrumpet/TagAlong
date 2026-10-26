@@ -45,12 +45,15 @@ public class ConversationCompletedIntegrationEventHandler : IIntegrationEventHan
         }
         await _userProfileRepository.SaveChangesAsync(cancellationToken);
 
-        // Referrals are for passengers: every ride a referred passenger takes rewards whoever
-        // referred them (a passenger or a driver). Rides they drive don't count.
+        // Like refers like: a passenger's rides reward the passenger who referred them,
+        // a driver's rides reward the driver who referred them
         if (!@event.IsDelivery)
         {
-            try { await _referrals.RewardRideAsync(@event.SenderId, @event.TravelerId, @event.ConversationId, cancellationToken); }
-            catch (Exception ex) { _logger.LogError(ex, "Referral check failed for {UserId}", @event.SenderId); }
+            foreach (var (userId, otherId, drove) in new[] { (@event.SenderId, @event.TravelerId, false), (@event.TravelerId, @event.SenderId, true) })
+            {
+                try { await _referrals.RewardRideAsync(userId, otherId, drove, @event.ConversationId, cancellationToken); }
+                catch (Exception ex) { _logger.LogError(ex, "Referral check failed for {UserId}", userId); }
+            }
         }
 
         _logger.LogInformation("Counted completed {Kind} for conversation {ConversationId}",
