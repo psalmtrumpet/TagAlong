@@ -291,6 +291,8 @@ public class HailService
         await _hub.Clients.Group($"user_{hail.PassengerId}").ConversationUpdated(dto);
         await _hub.Clients.Group($"user_{driverId}").ConversationUpdated(dto);
         await _hub.Clients.Group($"user_{hail.PassengerId}").HailMatched(hailId, dto);
+        // The driver too: their request sheet is waiting on the passenger (older apps ignore it)
+        await _hub.Clients.Group($"user_{driverId}").HailMatched(hailId, dto);
         await NotifyClosedAsync(hailId, "taken", ct, except: driverId);
 
         var eta = Minutes(candidate.EtaSeconds);
