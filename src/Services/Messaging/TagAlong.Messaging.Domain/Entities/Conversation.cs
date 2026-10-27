@@ -227,9 +227,25 @@ public class Conversation : AggregateRoot
         SetUpdated();
     }
 
+    /// <summary>A new fare the driver asked after the destination changed, waiting for the passenger.</summary>
+    public decimal? FareChangeAsked { get; private set; }
+
+    public void AskFareChange(decimal price) { FareChangeAsked = price; SetUpdated(); }
+
+    public void AcceptFareChange()
+    {
+        if (FareChangeAsked is null) return;
+        AgreedPrice = FareChangeAsked;
+        FareChangeAsked = null;
+        SetUpdated();
+    }
+
+    public void DeclineFareChange() { FareChangeAsked = null; SetUpdated(); }
+
     /// <summary>The passenger on a private ride now wants to go somewhere else.</summary>
     public void ChangeDestination(double lat, double lng, string? name)
     {
+        FareChangeAsked = null; // any ask was for the old destination
         DropLat = lat;
         DropLng = lng;
         DropName = name;

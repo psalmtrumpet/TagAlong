@@ -39,7 +39,8 @@ internal static class ConversationDtoMapper
         PlatformFee: c.PlatformFee,
         DriverEarning: c.DriverEarning,
         FeeWaived: c.FeeWaived,
-        IsOnDemand: c.IsOnDemand);
+        IsOnDemand: c.IsOnDemand,
+        FareChangeAsked: c.FareChangeAsked);
 }
 
 internal static class MessageDtoMapper

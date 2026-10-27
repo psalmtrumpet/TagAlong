@@ -371,6 +371,18 @@ public class ConversationsController : ControllerBase
         return Ok(result.Value);
     }
 
+    /// <summary>New fare after a destination change: the driver asks, the passenger accepts or declines.</summary>
+    [HttpPost("{id:guid}/fare-change")]
+    [ProducesResponseType(typeof(ConversationDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> FareChange(Guid id, [FromBody] FareChangeRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+        var result = await _mediator.Send(new FareChangeCommand(id, userId.Value, request.Action, request.Price), cancellationToken);
+        if (result.IsFailure) return BadRequest(new { error = result.Error.Message });
+        return Ok(result.Value);
+    }
+
     [HttpPost("{id:guid}/start-delivery")]
     [ProducesResponseType(typeof(ConversationDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> StartDelivery(Guid id, CancellationToken cancellationToken)

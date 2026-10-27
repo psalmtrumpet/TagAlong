@@ -36,7 +36,8 @@ public record ConversationDto(
     decimal? PlatformFee = null,
     decimal? DriverEarning = null,
     bool FeeWaived = false,
-    bool IsOnDemand = false);
+    bool IsOnDemand = false,
+    decimal? FareChangeAsked = null);
 
 public record MessageDto(
     Guid Id,
@@ -120,6 +121,9 @@ public record RejectPriceRequest(
 
 public record ProposeLockInRequest(
     decimal AgreedPrice);
+
+/// <summary>"ask" (driver, with Price), "accept" or "decline" (passenger).</summary>
+public record FareChangeRequest(string Action, decimal? Price = null);
 
 /// <summary>Where the passenger now wants to go.</summary>
 public record ChangeDestinationRequest(double Latitude, double Longitude, string? Name);

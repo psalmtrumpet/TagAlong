@@ -97,7 +97,8 @@ public class GetConversationByIdQueryHandler : IQueryHandler<GetConversationById
             conversation.PlatformFee,
             conversation.DriverEarning,
             FeeWaived: conversation.FeeWaived,
-            IsOnDemand: conversation.IsOnDemand);
+            IsOnDemand: conversation.IsOnDemand,
+            FareChangeAsked: conversation.FareChangeAsked);
     }
 }
 
@@ -199,7 +200,8 @@ public class GetUserConversationsQueryHandler : IQueryHandler<GetUserConversatio
             conversation.PlatformFee,
             conversation.DriverEarning,
             FeeWaived: conversation.FeeWaived,
-            IsOnDemand: conversation.IsOnDemand);
+            IsOnDemand: conversation.IsOnDemand,
+            FareChangeAsked: conversation.FareChangeAsked);
     }
 }
 
