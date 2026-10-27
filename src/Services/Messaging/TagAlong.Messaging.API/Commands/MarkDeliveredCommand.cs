@@ -10,8 +10,7 @@ using TagAlong.Messaging.Domain.Repositories;
 
 namespace TagAlong.Messaging.API.Commands;
 
-/// <param name="BySystem">Ended by the server (trip over, or the passenger never tapped End ride).</param>
-public record MarkDeliveredCommand(Guid ConversationId, Guid UserId, bool BySystem = false) : ICommand<ConversationDto>;
+public record MarkDeliveredCommand(Guid ConversationId, Guid UserId) : ICommand<ConversationDto>;
 
 public class MarkDeliveredCommandHandler : ICommandHandler<MarkDeliveredCommand, ConversationDto>
 {
@@ -103,13 +102,8 @@ public class MarkDeliveredCommandHandler : ICommandHandler<MarkDeliveredCommand,
         if (conversation == null)
             return Result.Failure<ConversationDto>(Error.NotFound("Conversation not found"));
 
-        // A ride is ended by the passenger once they're out of the car; a delivery by the carrier
-        var allowed = request.BySystem ||
-            (conversation.IsDelivery ? conversation.TravelerId == request.UserId : conversation.SenderId == request.UserId);
-        if (!allowed)
-            return Result.Failure<ConversationDto>(Error.Unauthorized(conversation.IsDelivery
-                ? "Only the carrier can mark this as delivered"
-                : "Your passenger ends the ride when they get out."));
+        if (conversation.TravelerId != request.UserId)
+            return Result.Failure<ConversationDto>(Error.Unauthorized("Only the traveler can mark as delivered"));
 
         var (fee, waived) = await FeeForAsync(conversation, cancellationToken);
         conversation.MarkDelivered(fee, waived);
@@ -133,10 +127,8 @@ public class MarkDeliveredCommandHandler : ICommandHandler<MarkDeliveredCommand,
         await _hubContext.Clients.Group($"user_{otherUserId}").ReceiveMessage(msgDto);
         await _hubContext.Clients.Group($"user_{otherUserId}").DeliveryCompleted(dto);
 
-        // A private ride has one passenger — once they're dropped off, the journey's over.
-        // A shared one ends with its last passenger, as the driver's app used to do.
-        if (conversation.TripId is { } tripId && !conversation.IsDelivery &&
-            (_isPrivate || await _conversationRepository.CountActiveBookingsByTripIdAsync(tripId, cancellationToken) == 0))
+        // A private ride has one passenger — once they're dropped off, the journey's over
+        if (_isPrivate && conversation.TripId is { } tripId)
         {
             try
             {

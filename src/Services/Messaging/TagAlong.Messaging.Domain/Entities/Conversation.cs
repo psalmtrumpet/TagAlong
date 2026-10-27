@@ -243,11 +243,6 @@ public class Conversation : AggregateRoot
         SetUpdated();
     }
 
-    /// <summary>When the car first reached the passenger's drop-off (the ride ends itself 10 min later if they don't).</summary>
-    public DateTime? DropArrivedAt { get; private set; }
-
-    public void MarkNearDrop() => DropArrivedAt ??= DateTime.UtcNow;
-
     public void UpdateHelperLocation(double lat, double lng)
     {
         HelperLastLat = lat;

@@ -56,7 +56,6 @@ public class MessagingDbContext : DbContext
             entity.Property(c => c.HelperLastLat).HasColumnName("helper_last_lat");
             entity.Property(c => c.HelperLastLng).HasColumnName("helper_last_lng");
             entity.Property(c => c.HelperLastSeenAt).HasColumnName("helper_last_seen_at");
-            entity.Property(c => c.DropArrivedAt).HasColumnName("drop_arrived_at");
             entity.Property(c => c.CreatedAt).HasColumnName("created_at").IsRequired();
             entity.Property(c => c.UpdatedAt).HasColumnName("updated_at");
 

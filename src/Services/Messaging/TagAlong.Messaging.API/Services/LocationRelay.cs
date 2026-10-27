@@ -48,12 +48,6 @@ public class LocationRelay
         if (conversation.TravelerId == userId)
         {
             conversation.UpdateHelperLocation(latitude, longitude);
-            // Reached the passenger's stop: they end the ride; if they don't, it ends itself later
-            if (conversation.Status == ConversationStatus.InProgress && !conversation.IsDelivery &&
-                (conversation.DropLat ?? conversation.PassengerDestLat) is double dLat &&
-                (conversation.DropLng ?? conversation.PassengerDestLng) is double dLng &&
-                DistanceMeters(latitude, longitude, dLat, dLng) <= 150)
-                conversation.MarkNearDrop();
             _conversations.Update(conversation);
             await _conversations.SaveChangesAsync();
 
