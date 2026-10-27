@@ -77,7 +77,7 @@ public class TripStatusChangedIntegrationEventHandler
             foreach (var onBoard in await _conversationRepository.GetInProgressByTripIdAsync(@event.TripId, cancellationToken))
             {
                 var result = await _mediator.Send(
-                    new TagAlong.Messaging.API.Commands.MarkDeliveredCommand(onBoard.Id, onBoard.TravelerId), cancellationToken);
+                    new TagAlong.Messaging.API.Commands.MarkDeliveredCommand(onBoard.Id, onBoard.TravelerId, BySystem: true), cancellationToken);
                 if (result.IsFailure)
                     _logger.LogWarning("Couldn't complete ride {ConversationId} when its trip ended: {Error}", onBoard.Id, result.Error.Message);
                 else

@@ -13,7 +13,9 @@ namespace TagAlong.Messaging.API.BackgroundJobs;
 /// </summary>
 public class StuckRideSweeper : BackgroundService
 {
-    private static readonly TimeSpan Interval = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan Interval = TimeSpan.FromMinutes(2);
+    // The passenger ends their own ride; if they haven't this long after reaching their stop, it ends itself
+    private static readonly TimeSpan EndAfterDrop = TimeSpan.FromMinutes(10);
     // Give the normal trip-ended handling time to run first
     private static readonly TimeSpan Grace = TimeSpan.FromMinutes(5);
 
@@ -48,6 +50,16 @@ public class StuckRideSweeper : BackgroundService
         var conversations = scope.ServiceProvider.GetRequiredService<IConversationRepository>();
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
 
+        // At their stop for 10 min and still "on board": the passenger forgot (or their phone died)
+        foreach (var ride in await conversations.GetRidesAtDropSinceAsync(DateTime.UtcNow - EndAfterDrop, ct))
+        {
+            var ended = await mediator.Send(new MarkDeliveredCommand(ride.Id, ride.TravelerId, BySystem: true), ct);
+            if (ended.IsFailure)
+                _logger.LogWarning("Couldn't end ride {ConversationId} at its drop-off: {Error}", ride.Id, ended.Error.Message);
+            else
+                _logger.LogInformation("Ended ride {ConversationId}: at the drop-off for {Minutes} min without the passenger ending it", ride.Id, EndAfterDrop.TotalMinutes);
+        }
+
         var onBoard = (await conversations.GetInProgressRidesUnchangedSinceAsync(DateTime.UtcNow - Grace, ct)).ToList();
         if (onBoard.Count == 0) return;
 
@@ -56,7 +68,7 @@ public class StuckRideSweeper : BackgroundService
             if (await TripStatusAsync(trip.Key, ct) is not "completed") continue;
             foreach (var ride in trip)
             {
-                var result = await mediator.Send(new MarkDeliveredCommand(ride.Id, ride.TravelerId), ct);
+                var result = await mediator.Send(new MarkDeliveredCommand(ride.Id, ride.TravelerId, BySystem: true), ct);
                 if (result.IsFailure)
                     _logger.LogWarning("Couldn't complete stuck ride {ConversationId} (trip {TripId} ended): {Error}", ride.Id, trip.Key, result.Error.Message);
                 else

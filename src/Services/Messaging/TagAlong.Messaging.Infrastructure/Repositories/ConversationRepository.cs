@@ -75,6 +75,14 @@ public class ConversationRepository : IConversationRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IEnumerable<Conversation>> GetRidesAtDropSinceAsync(DateTime before, CancellationToken cancellationToken = default)
+    {
+        return await _context.Conversations
+            .Where(c => c.Status == ConversationStatus.InProgress && !c.IsDelivery &&
+                        c.DropArrivedAt != null && c.DropArrivedAt < before)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IEnumerable<Conversation>> GetInProgressByTripIdAsync(Guid tripId, CancellationToken cancellationToken = default)
     {
         return await _context.Conversations
