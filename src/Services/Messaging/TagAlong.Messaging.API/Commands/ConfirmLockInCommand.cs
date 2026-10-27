@@ -18,13 +18,16 @@ public class ConfirmLockInCommandHandler : ICommandHandler<ConfirmLockInCommand,
     private readonly IMessageRepository _messageRepository;
     private readonly IHubContext<MessagingHub, IMessagingClient> _hubContext;
     private readonly IEventBus _eventBus;
+    private readonly TagAlong.Messaging.API.Services.TripSeats _seats;
 
     public ConfirmLockInCommandHandler(
         IConversationRepository conversationRepository,
         IMessageRepository messageRepository,
         IHubContext<MessagingHub, IMessagingClient> hubContext,
-        IEventBus eventBus)
+        IEventBus eventBus,
+        TagAlong.Messaging.API.Services.TripSeats seats)
     {
+        _seats = seats;
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
         _hubContext = hubContext;
@@ -39,6 +42,11 @@ public class ConfirmLockInCommandHandler : ICommandHandler<ConfirmLockInCommand,
 
         if (!conversation.IsParticipant(request.UserId))
             return Result.Failure<ConversationDto>(Error.Unauthorized("Not a participant in this conversation"));
+
+        // Booking now: the seats might have gone since they asked
+        if (!conversation.IsDelivery && !conversation.IsOnDemand && conversation.TripId is { } seatTrip &&
+            await _seats.LeftAsync(seatTrip, cancellationToken) is int left && left < conversation.Seats)
+            return Result.Failure<ConversationDto>(Error.Validation(TagAlong.Messaging.API.Services.TripSeats.NotEnough(left)));
 
         var price = conversation.AgreedPrice ?? 0;
         conversation.ConfirmLockIn();

@@ -40,7 +40,8 @@ internal static class ConversationDtoMapper
         DriverEarning: c.DriverEarning,
         FeeWaived: c.FeeWaived,
         IsOnDemand: c.IsOnDemand,
-        FareChangeAsked: c.FareChangeAsked);
+        FareChangeAsked: c.FareChangeAsked,
+        Seats: c.Seats);
 }
 
 internal static class MessageDtoMapper

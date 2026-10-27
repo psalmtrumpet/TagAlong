@@ -35,14 +35,17 @@ public class AcceptPriceCommandHandler : ICommandHandler<AcceptPriceCommand, Mes
     private readonly IHubContext<MessagingHub, IMessagingClient> _hubContext;
     private readonly IEventBus _eventBus;
     private readonly ILogger<AcceptPriceCommandHandler> _logger;
+    private readonly TagAlong.Messaging.API.Services.TripSeats _seats;
 
     public AcceptPriceCommandHandler(
         IConversationRepository conversationRepository,
         IMessageRepository messageRepository,
         IHubContext<MessagingHub, IMessagingClient> hubContext,
         IEventBus eventBus,
-        ILogger<AcceptPriceCommandHandler> logger)
+        ILogger<AcceptPriceCommandHandler> logger,
+        TagAlong.Messaging.API.Services.TripSeats seats)
     {
+        _seats = seats;
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
         _hubContext = hubContext;
@@ -77,6 +80,11 @@ public class AcceptPriceCommandHandler : ICommandHandler<AcceptPriceCommand, Mes
                 $"That offer was replaced by a newer one (₦{latest.ProposedPrice:N0}). Accept or counter the latest price."));
 
         // Transition conversation to Active — chat is now unlocked
+        // Booking now: the seats might have gone since they asked
+        if (!conversation.IsDelivery && !conversation.IsOnDemand && conversation.TripId is { } seatTrip &&
+            await _seats.LeftAsync(seatTrip, cancellationToken) is int left && left < conversation.Seats)
+            return Result.Failure<MessageDto>(Error.Validation(TagAlong.Messaging.API.Services.TripSeats.NotEnough(left)));
+
         conversation.ConfirmPriceAgreement(request.AcceptedPrice);
         _conversationRepository.Update(conversation);
 

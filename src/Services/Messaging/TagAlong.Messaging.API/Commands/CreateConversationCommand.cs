@@ -31,7 +31,8 @@ public record CreateConversationCommand(
     string? MeetName = null,
     double? DropLat = null,
     double? DropLng = null,
-    string? DropName = null) : ICommand<ConversationDto>;
+    string? DropName = null,
+    int Seats = 1) : ICommand<ConversationDto>;
 
 public class CreateConversationCommandValidator : AbstractValidator<CreateConversationCommand>
 {
@@ -52,6 +53,7 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
     private readonly IEventBus _eventBus;
     private readonly ILogger<CreateConversationCommandHandler> _logger;
     private readonly TagAlong.Messaging.API.Services.IUserLookupService _users;
+    private readonly TagAlong.Messaging.API.Services.TripSeats _seats;
 
     public CreateConversationCommandHandler(
         IConversationRepository conversationRepository,
@@ -59,9 +61,11 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
         IHubContext<MessagingHub, IMessagingClient> hubContext,
         IEventBus eventBus,
         ILogger<CreateConversationCommandHandler> logger,
-        TagAlong.Messaging.API.Services.IUserLookupService users)
+        TagAlong.Messaging.API.Services.IUserLookupService users,
+        TagAlong.Messaging.API.Services.TripSeats seats)
     {
         _users = users;
+        _seats = seats;
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
         _hubContext = hubContext;
@@ -76,6 +80,14 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
         {
             _logger.LogInformation("Ride request refused: user {UserId} is not verified", request.SenderId);
             return Result.Failure<ConversationDto>(Error.Validation(TagAlong.Messaging.API.Services.RideRules.VerifyBeforeRequesting));
+        }
+
+        // Enough seats for everyone in this request?
+        if (request.TripId is { } seatTrip && !request.IsDelivery && request.PackageRequestId == null)
+        {
+            if (request.Seats < 1) return Result.Failure<ConversationDto>(Error.Validation("Choose how many passengers."));
+            if (await _seats.LeftAsync(seatTrip, cancellationToken) is int left && left < request.Seats)
+                return Result.Failure<ConversationDto>(Error.Validation(TagAlong.Messaging.API.Services.TripSeats.NotEnough(left)));
         }
 
         // A seat on someone's trip needs to know where the passenger gets off
@@ -110,7 +122,8 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
             meetName: Trim(request.MeetName),
             dropLat: request.DropLat,
             dropLng: request.DropLng,
-            dropName: Trim(request.DropName));
+            dropName: Trim(request.DropName),
+            seats: request.Seats);
         await _conversationRepository.AddAsync(conversation, cancellationToken);
         await _conversationRepository.SaveChangesAsync(cancellationToken);
 

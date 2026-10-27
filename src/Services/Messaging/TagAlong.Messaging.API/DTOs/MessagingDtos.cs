@@ -37,7 +37,8 @@ public record ConversationDto(
     decimal? DriverEarning = null,
     bool FeeWaived = false,
     bool IsOnDemand = false,
-    decimal? FareChangeAsked = null);
+    decimal? FareChangeAsked = null,
+    int Seats = 1);
 
 public record MessageDto(
     Guid Id,
@@ -68,7 +69,8 @@ public record CreateConversationRequest(
     string? MeetName = null,
     double? DropLat = null,
     double? DropLng = null,
-    string? DropName = null);
+    string? DropName = null,
+    int Seats = 1);
 
 /// <summary>Driver moves the pickup (meet) and/or drop-off point. Omit a pair to leave it.</summary>
 public record SetMeetPointsRequest(

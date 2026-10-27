@@ -189,7 +189,8 @@ public class ConversationsController : ControllerBase
             request.MeetName,
             request.DropLat,
             request.DropLng,
-            request.DropName);
+            request.DropName,
+            request.Seats);
 
         var result = await _mediator.Send(command, cancellationToken);
         if (result.IsFailure)

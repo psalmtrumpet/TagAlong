@@ -44,6 +44,7 @@ public class MessagingDbContext : DbContext
             entity.Property(c => c.RecipientName).HasColumnName("recipient_name").HasMaxLength(200);
             entity.Property(c => c.AgreedPrice).HasColumnName("agreed_price").HasColumnType("decimal(18,2)");
             entity.Property(c => c.FareChangeAsked).HasColumnName("fare_change_asked").HasColumnType("decimal(18,2)");
+            entity.Property(c => c.Seats).HasColumnName("seats").HasDefaultValue(1);
             entity.Property(c => c.PlatformFee).HasColumnName("platform_fee").HasColumnType("decimal(18,2)");
             entity.Property(c => c.DriverEarning).HasColumnName("driver_earning").HasColumnType("decimal(18,2)");
             entity.Property(c => c.FeeWaived).HasColumnName("fee_waived").HasDefaultValue(false);

@@ -27,6 +27,8 @@ public class Conversation : AggregateRoot
     public bool FeeWaived { get; private set; }
     /// <summary>Booked on demand ("Ride now"): one passenger, no offered trip, private fee.</summary>
     public bool IsOnDemand { get; private set; }
+    /// <summary>How many passengers this request is for (seats on a shared trip).</summary>
+    public int Seats { get; private set; } = 1;
     public Guid SenderId { get; private set; }
     public Guid TravelerId { get; private set; }
     public Guid? RecipientUserId { get; private set; }
@@ -69,7 +71,8 @@ public class Conversation : AggregateRoot
         double? dropLat = null,
         double? dropLng = null,
         string? dropName = null,
-        bool isOnDemand = false)
+        bool isOnDemand = false,
+        int seats = 1)
     {
         return new Conversation
         {
@@ -94,6 +97,7 @@ public class Conversation : AggregateRoot
             DropLng = dropLng,
             DropName = dropName,
             IsOnDemand = isOnDemand,
+            Seats = Math.Clamp(seats, 1, 10),
         };
     }
 

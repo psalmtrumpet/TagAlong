@@ -44,9 +44,11 @@ public class ConversationRepository : IConversationRepository
     // Bookings currently holding a seat / package slot on a trip.
     public async Task<int> CountActiveBookingsByTripIdAsync(Guid tripId, CancellationToken cancellationToken = default)
     {
+        // Seats taken: a booking can be for several passengers
         return await _context.Conversations
-            .CountAsync(c => c.TripId == tripId &&
-                (c.Status == ConversationStatus.LockedIn || c.Status == ConversationStatus.InProgress), cancellationToken);
+            .Where(c => c.TripId == tripId &&
+                (c.Status == ConversationStatus.LockedIn || c.Status == ConversationStatus.InProgress))
+            .SumAsync(c => c.Seats, cancellationToken);
     }
 
     public async Task<Conversation?> GetByPackageRequestIdAsync(Guid packageRequestId, CancellationToken cancellationToken = default)
