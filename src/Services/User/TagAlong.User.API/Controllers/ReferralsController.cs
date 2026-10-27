@@ -56,6 +56,8 @@ public class ReferralsController : ControllerBase
             referralRides = earned.Count,
             freeRidesEarned = earned.Count(e => e.Reward == ReferralReward.FreeTrip),
             walletEarned = earned.Where(e => e.Reward == ReferralReward.WalletCredit).Sum(e => e.Amount),
+            points = account.Points,
+            pointsPerReferral = ReferralService.PointsPerReferral,
             freeTripCredits = account.FreeTripCredits,
             walletBalance = account.WalletBalance,
             riderCredit = _referrals.RiderCredit,

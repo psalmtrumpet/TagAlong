@@ -199,6 +199,7 @@ public class UserDbContext : DbContext
             entity.HasIndex(e => e.Code).IsUnique();
             entity.Property(e => e.Code).HasMaxLength(20).IsRequired();
             entity.Property(e => e.WalletBalance).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Points).HasDefaultValue(0);
         });
 
         modelBuilder.Entity<Referral>(entity =>

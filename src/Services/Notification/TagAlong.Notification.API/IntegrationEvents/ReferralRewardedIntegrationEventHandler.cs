@@ -28,9 +28,12 @@ public class ReferralRewardedIntegrationEventHandler : IIntegrationEventHandler<
     {
         _logger.LogInformation("Referral reward ({Reward}) for user {UserId}", @event.Reward, @event.UserId);
         var who = string.IsNullOrWhiteSpace(@event.ReferredName) ? "Someone you referred" : @event.ReferredName;
-        var message = @event.Reward == "FreeTrip"
-            ? $"{who} completed a ride. You've earned a ride free of the TagAlong fee."
-            : $"{who} completed a ride. ₦{@event.Amount:N0} has been added to your wallet.";
+        var message = @event.Reward switch
+        {
+            "Points" => $"{who} completed their first ride. You've earned {@event.Amount:N0} points.",
+            "FreeTrip" => $"{who} completed a ride. You've earned a ride free of the TagAlong fee.",
+            _ => $"{who} completed a ride. ₦{@event.Amount:N0} has been added to your wallet.",
+        };
 
         await _notificationService.SendNotificationAsync(
             @event.UserId,

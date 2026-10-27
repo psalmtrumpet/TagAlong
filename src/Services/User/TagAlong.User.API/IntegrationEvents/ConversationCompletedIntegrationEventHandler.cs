@@ -45,13 +45,13 @@ public class ConversationCompletedIntegrationEventHandler : IIntegrationEventHan
         }
         await _userProfileRepository.SaveChangesAsync(cancellationToken);
 
-        // Like refers like: a passenger's rides reward the passenger who referred them,
-        // a driver's rides reward the driver who referred them
+        // Anyone can refer anyone: a referred person's first ride (driving or riding)
+        // gives whoever referred them 2 points
         if (!@event.IsDelivery)
         {
-            foreach (var (userId, otherId, drove) in new[] { (@event.SenderId, @event.TravelerId, false), (@event.TravelerId, @event.SenderId, true) })
+            foreach (var userId in new[] { @event.SenderId, @event.TravelerId })
             {
-                try { await _referrals.RewardRideAsync(userId, otherId, drove, @event.ConversationId, cancellationToken); }
+                try { await _referrals.RewardRideAsync(userId, @event.ConversationId, cancellationToken); }
                 catch (Exception ex) { _logger.LogError(ex, "Referral check failed for {UserId}", userId); }
             }
         }

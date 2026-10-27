@@ -12,6 +12,8 @@ public class ReferralAccount
     /// <summary>Completed rides that won't be charged TagAlong's fee.</summary>
     public int FreeTripCredits { get; private set; }
     public decimal WalletBalance { get; private set; }
+    /// <summary>Referral points: 2 for each person who joins with this code and completes a ride.</summary>
+    public int Points { get; private set; }
     public DateTime CreatedAt { get; private set; }
 
     private ReferralAccount() { }
@@ -35,6 +37,8 @@ public class ReferralAccount
     }
 
     public void Credit(decimal amount) => WalletBalance += amount;
+
+    public void AddPoints(int points) => Points += points;
 }
 
 public enum ReferralReward
@@ -42,6 +46,7 @@ public enum ReferralReward
     None,
     FreeTrip,
     WalletCredit,
+    Points,
 }
 
 /// <summary>
