@@ -16,6 +16,8 @@ public class TripExpiryService : BackgroundService
 {
     private static readonly TimeSpan ScheduledGrace = TimeSpan.FromHours(6);
     private static readonly TimeSpan InProgressGrace = TimeSpan.FromHours(24);
+    private static readonly TimeSpan EmptyTripAfterArrival = TimeSpan.FromHours(2);
+    private static readonly TimeSpan EmptyTripGrace = TimeSpan.FromHours(6);
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<TripExpiryService> _logger;
@@ -54,10 +56,22 @@ public class TripExpiryService : BackgroundService
         var scheduledCutoff = now - ScheduledGrace;
         var inProgressCutoff = now - InProgressGrace;
 
-        var stale = await db.Trips
+        // A trip under way with nobody booked is done once its drive should be over
+        // (expected drive time + 2 h, or 6 h after departure when we don't know it);
+        // otherwise the driver shows as busy for a day after arriving.
+        var emptyAfterArrival = now - EmptyTripAfterArrival;
+        var emptyCutoff = now - EmptyTripGrace;
+        var candidates = await db.Trips
             .Where(t => (t.Status == TripStatus.Scheduled && t.DepartureTime < scheduledCutoff) ||
-                        (t.Status == TripStatus.InProgress && t.DepartureTime < inProgressCutoff))
+                        (t.Status == TripStatus.InProgress && t.DepartureTime < inProgressCutoff) ||
+                        (t.Status == TripStatus.InProgress && t.CurrentPassengerCount == 0 && t.DepartureTime < emptyAfterArrival))
             .ToListAsync(ct);
+        var stale = candidates
+            .Where(t => t.Status != TripStatus.InProgress || t.DepartureTime < inProgressCutoff ||
+                        (t.OriginalDurationSeconds is int secs
+                            ? t.DepartureTime.AddSeconds(secs) < emptyAfterArrival
+                            : t.DepartureTime < emptyCutoff))
+            .ToList();
 
         if (stale.Count == 0) return;
 
