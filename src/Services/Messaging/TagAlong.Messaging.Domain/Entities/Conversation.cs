@@ -227,6 +227,18 @@ public class Conversation : AggregateRoot
         SetUpdated();
     }
 
+    /// <summary>The passenger on a private ride now wants to go somewhere else.</summary>
+    public void ChangeDestination(double lat, double lng, string? name)
+    {
+        DropLat = lat;
+        DropLng = lng;
+        DropName = name;
+        PassengerDestLat = lat;
+        PassengerDestLng = lng;
+        PassengerDestAddress = name;
+        SetUpdated();
+    }
+
     public bool IsParticipant(Guid userId)
     {
         return SenderId == userId || TravelerId == userId;

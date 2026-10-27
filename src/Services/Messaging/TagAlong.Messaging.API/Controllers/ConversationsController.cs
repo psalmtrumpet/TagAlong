@@ -359,6 +359,18 @@ public class ConversationsController : ControllerBase
         return Ok(result.Value);
     }
 
+    /// <summary>Private ride: the passenger changes where they're going (before or during the journey).</summary>
+    [HttpPut("{id:guid}/destination")]
+    [ProducesResponseType(typeof(ConversationDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ChangeDestination(Guid id, [FromBody] ChangeDestinationRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+        var result = await _mediator.Send(new ChangeDestinationCommand(id, userId.Value, request.Latitude, request.Longitude, request.Name), cancellationToken);
+        if (result.IsFailure) return BadRequest(new { error = result.Error.Message });
+        return Ok(result.Value);
+    }
+
     [HttpPost("{id:guid}/start-delivery")]
     [ProducesResponseType(typeof(ConversationDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> StartDelivery(Guid id, CancellationToken cancellationToken)

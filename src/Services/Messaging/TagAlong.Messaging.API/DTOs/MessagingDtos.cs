@@ -120,3 +120,6 @@ public record RejectPriceRequest(
 
 public record ProposeLockInRequest(
     decimal AgreedPrice);
+
+/// <summary>Where the passenger now wants to go.</summary>
+public record ChangeDestinationRequest(double Latitude, double Longitude, string? Name);
