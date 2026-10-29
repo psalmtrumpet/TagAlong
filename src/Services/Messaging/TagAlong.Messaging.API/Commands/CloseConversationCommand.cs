@@ -10,7 +10,8 @@ using TagAlong.Messaging.Domain.Repositories;
 
 namespace TagAlong.Messaging.API.Commands;
 
-public record CloseConversationCommand(Guid ConversationId, Guid UserId) : ICommand<ConversationDto>;
+/// <param name="Reason">Why they cancelled (picked from a list, or typed). Older apps send none.</param>
+public record CloseConversationCommand(Guid ConversationId, Guid UserId, string? Reason = null) : ICommand<ConversationDto>;
 
 public class CloseConversationCommandHandler : ICommandHandler<CloseConversationCommand, ConversationDto>
 {
@@ -42,10 +43,18 @@ public class CloseConversationCommandHandler : ICommandHandler<CloseConversation
 
         var wasInProgress = conversation.Status == ConversationStatus.InProgress;
         var heldBooking = wasInProgress || conversation.Status == ConversationStatus.LockedIn;
+        var reason = string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim();
+        if (reason != null) conversation.RecordCancellation(request.UserId, reason);
         conversation.Close();
         _conversationRepository.Update(conversation);
 
-        var systemMsg = Message.CreateSystemMessage(conversation.Id, "The chat has been ended.");
+        // With a reason, say who cancelled and why (both sides and the admin portal see it)
+        var who = conversation.TravelerId == request.UserId
+            ? (conversation.IsDelivery ? "The carrier" : "The driver")
+            : (conversation.IsDelivery ? "The sender" : "The passenger");
+        var systemMsg = Message.CreateSystemMessage(conversation.Id, reason == null
+            ? "The chat has been ended."
+            : $"{who} cancelled the ride: {reason}");
         await _messageRepository.AddAsync(systemMsg, cancellationToken);
 
         await _conversationRepository.SaveChangesAsync(cancellationToken);

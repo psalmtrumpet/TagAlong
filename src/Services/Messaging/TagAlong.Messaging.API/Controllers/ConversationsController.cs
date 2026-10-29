@@ -288,12 +288,14 @@ public class ConversationsController : ControllerBase
     [HttpPost("{id:guid}/close")]
     [ProducesResponseType(typeof(ConversationDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> CloseConversation(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> CloseConversation(Guid id,
+        [FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] CancelReasonRequest? request,
+        CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
-        var result = await _mediator.Send(new CloseConversationCommand(id, userId.Value), cancellationToken);
+        var result = await _mediator.Send(new CloseConversationCommand(id, userId.Value, request?.Reason), cancellationToken);
         if (result.IsFailure)
             return result.Error.Code.Contains("NotFound")
                 ? NotFound(new { error = result.Error.Message })

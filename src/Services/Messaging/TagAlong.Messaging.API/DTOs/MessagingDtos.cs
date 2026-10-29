@@ -130,3 +130,6 @@ public record FareChangeRequest(string Action, decimal? Price = null);
 
 /// <summary>Where the passenger now wants to go.</summary>
 public record ChangeDestinationRequest(double Latitude, double Longitude, string? Name);
+
+/// <summary>Why someone is cancelling (optional).</summary>
+public record CancelReasonRequest(string? Reason);

@@ -45,6 +45,8 @@ public class MessagingDbContext : DbContext
             entity.Property(c => c.AgreedPrice).HasColumnName("agreed_price").HasColumnType("decimal(18,2)");
             entity.Property(c => c.FareChangeAsked).HasColumnName("fare_change_asked").HasColumnType("decimal(18,2)");
             entity.Property(c => c.Seats).HasColumnName("seats").HasDefaultValue(1);
+            entity.Property(c => c.CancelReason).HasColumnName("cancel_reason").HasMaxLength(300);
+            entity.Property(c => c.CancelledBy).HasColumnName("cancelled_by");
             entity.Property(c => c.PlatformFee).HasColumnName("platform_fee").HasColumnType("decimal(18,2)");
             entity.Property(c => c.DriverEarning).HasColumnName("driver_earning").HasColumnType("decimal(18,2)");
             entity.Property(c => c.FeeWaived).HasColumnName("fee_waived").HasDefaultValue(false);
@@ -108,6 +110,7 @@ public class MessagingDbContext : DbContext
             entity.Property(h => h.DestName).HasColumnName("dest_name").HasMaxLength(300);
             entity.Property(h => h.OfferedPrice).HasColumnName("offered_price").HasColumnType("decimal(18,2)");
             entity.Property(h => h.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(20).IsRequired();
+            entity.Property(h => h.CancelReason).HasColumnName("cancel_reason").HasMaxLength(300);
             entity.Property(h => h.MatchedDriverId).HasColumnName("matched_driver_id");
             entity.Property(h => h.ConversationId).HasColumnName("conversation_id");
             entity.Property(h => h.ExpiresAt).HasColumnName("expires_at");

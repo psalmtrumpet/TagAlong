@@ -259,6 +259,16 @@ public class Conversation : AggregateRoot
         SetUpdated();
     }
 
+    /// <summary>Why the ride was cancelled, and by whom (null if it ended normally).</summary>
+    public string? CancelReason { get; private set; }
+    public Guid? CancelledBy { get; private set; }
+
+    public void RecordCancellation(Guid by, string reason)
+    {
+        CancelledBy = by;
+        CancelReason = reason.Length > 300 ? reason[..300] : reason;
+    }
+
     public bool IsParticipant(Guid userId)
     {
         return SenderId == userId || TravelerId == userId;

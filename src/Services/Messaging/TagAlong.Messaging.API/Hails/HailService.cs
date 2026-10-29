@@ -106,12 +106,12 @@ public class HailService
         return Result.Success(await ToDtoAsync(hail, notified, ct));
     }
 
-    public async Task<Result> CancelAsync(Guid passengerId, Guid hailId, CancellationToken ct)
+    public async Task<Result> CancelAsync(Guid passengerId, Guid hailId, string? reason, CancellationToken ct)
     {
         var hail = await _db.HailRequests.FirstOrDefaultAsync(h => h.Id == hailId && h.PassengerId == passengerId, ct);
         if (hail == null) return Result.Failure(Error.NotFound("Ride request not found"));
         if (hail.Status != HailStatus.Open && hail.Status != HailStatus.Expired) return Result.Success();
-        hail.Cancel();
+        hail.Cancel(reason);
         await _db.SaveChangesAsync(ct);
         await NotifyClosedAsync(hail.Id, "cancelled", ct);
         return Result.Success();

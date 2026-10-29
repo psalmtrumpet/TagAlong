@@ -59,9 +59,13 @@ public class HailRequest : Entity
         SetUpdated();
     }
 
-    public void Cancel()
+    /// <summary>Why the passenger cancelled (null if they didn't say).</summary>
+    public string? CancelReason { get; private set; }
+
+    public void Cancel(string? reason = null)
     {
         Status = HailStatus.Cancelled;
+        if (!string.IsNullOrWhiteSpace(reason)) CancelReason = reason.Trim().Length > 300 ? reason.Trim()[..300] : reason.Trim();
         SetUpdated();
     }
 

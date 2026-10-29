@@ -33,8 +33,10 @@ public class HailsController : ControllerBase
         Respond(await _hails.RaiseAsync(Me, id, body.Price, ct));
 
     [HttpPost("{id:guid}/cancel")]
-    public async Task<IActionResult> Cancel(Guid id, CancellationToken ct) =>
-        Respond(await _hails.CancelAsync(Me, id, ct));
+    public async Task<IActionResult> Cancel(Guid id,
+        [FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] TagAlong.Messaging.API.DTOs.CancelReasonRequest? body,
+        CancellationToken ct) =>
+        Respond(await _hails.CancelAsync(Me, id, body?.Reason, ct));
 
     /// <summary>Don't wait for these drivers (too far).</summary>
     [HttpPost("{id:guid}/skip")]
