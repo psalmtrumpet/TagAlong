@@ -93,7 +93,8 @@ public class SetAvailabilityCommandHandler : ICommandHandler<SetAvailabilityComm
                 profile.LocationUpdatedAt,
                 profile.MaxTravelRadiusKm,
                 profile.AllowLocationSharing,
-                profile.HasOngoingTrip));
+                profile.HasOngoingTrip,
+                RideFeature.ParseIds(profile.RideFeatures)));
         }
         catch (InvalidOperationException ex)
         {

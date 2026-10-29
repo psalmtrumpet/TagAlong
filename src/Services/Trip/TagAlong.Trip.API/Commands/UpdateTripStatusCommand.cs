@@ -120,7 +120,7 @@ public class UpdateTripStatusCommandHandler : ICommandHandler<UpdateTripStatusCo
                 s.EstimatedTime,
                 s.ActualArrivalTime)).ToList(),
             trip.CreatedAt,
-            IsPrivate: trip.IsPrivate);
+            IsPrivate: trip.IsPrivate, RideFeatureIds: trip.RideFeatureIds);
     }
 }
 

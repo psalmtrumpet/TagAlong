@@ -395,3 +395,32 @@ export async function fetchRecording(id: string): Promise<string | null> {
 export async function getAllRecordings(): Promise<SafetyRecording[]> {
   return request('/api/admin/users/recordings')
 }
+
+// ── Ride features (air conditioning, music…) ──────────────────────────────────
+
+export interface RideFeature {
+  id: number
+  name: string
+  /** Which picture the app shows; unknown ones get a tick. */
+  icon: string
+  sortOrder: number
+  isActive: boolean
+}
+
+export type RideFeatureInput = Partial<Omit<RideFeature, 'id'>>
+
+export async function getRideFeatures(): Promise<RideFeature[]> {
+  return request('/api/admin/users/ride-features')
+}
+
+export async function createRideFeature(input: RideFeatureInput): Promise<RideFeature> {
+  return request('/api/admin/users/ride-features', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export async function updateRideFeature(id: number, input: RideFeatureInput): Promise<RideFeature> {
+  return request(`/api/admin/users/ride-features/${id}`, { method: 'PUT', body: JSON.stringify(input) })
+}
+
+export async function deleteRideFeature(id: number): Promise<void> {
+  await request(`/api/admin/users/ride-features/${id}`, { method: 'DELETE' })
+}

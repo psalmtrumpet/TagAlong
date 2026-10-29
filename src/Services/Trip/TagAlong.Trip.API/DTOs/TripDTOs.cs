@@ -21,7 +21,9 @@ public record CreateTripRequest(
     string? RoutePolyline = null,
     int? RouteDurationSeconds = null,
     // Private (premium) ride: one passenger only
-    bool IsPrivate = false);
+    bool IsPrivate = false,
+    // What the car offers (ride feature ids from the admin's list). Optional.
+    List<int>? RideFeatureIds = null);
 
 public record TripStopRequest(
     string Location,
@@ -70,7 +72,8 @@ public record TripResponse(
     List<TripStopResponse> Stops,
     DateTime CreatedAt,
     int? DetourSeconds = null,
-    bool IsPrivate = false);
+    bool IsPrivate = false,
+    List<int>? RideFeatureIds = null);
 
 public record TripStopResponse(
     Guid Id,

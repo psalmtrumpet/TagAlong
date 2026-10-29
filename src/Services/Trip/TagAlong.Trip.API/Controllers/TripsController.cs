@@ -177,7 +177,8 @@ public class TripsController : ControllerBase
             request.TripType,
             RoutePolyline: request.RoutePolyline,
             RouteDurationSeconds: request.RouteDurationSeconds,
-            IsPrivate: request.IsPrivate);
+            IsPrivate: request.IsPrivate,
+            RideFeatureIds: request.RideFeatureIds);
 
         var result = await _mediator.Send(command, cancellationToken);
 

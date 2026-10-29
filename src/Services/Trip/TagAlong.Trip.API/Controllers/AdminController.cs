@@ -53,7 +53,7 @@ public class AdminController : ControllerBase
             t.Stops.Select(s => new TripStopResponse(
                 s.Id, s.Location, s.Latitude, s.Longitude, s.Order, s.EstimatedTime, s.ActualArrivalTime)).ToList(),
             t.CreatedAt,
-            IsPrivate: t.IsPrivate));
+            IsPrivate: t.IsPrivate, RideFeatureIds: t.RideFeatureIds));
 
         return Ok(new { trips = dtos, total, page, pageSize });
     }
@@ -81,7 +81,7 @@ public class AdminController : ControllerBase
             trip.Stops.Select(s => new TripStopResponse(
                 s.Id, s.Location, s.Latitude, s.Longitude, s.Order, s.EstimatedTime, s.ActualArrivalTime)).ToList(),
             trip.CreatedAt,
-            IsPrivate: trip.IsPrivate));
+            IsPrivate: trip.IsPrivate, RideFeatureIds: trip.RideFeatureIds));
     }
 
     [HttpGet("stats")]

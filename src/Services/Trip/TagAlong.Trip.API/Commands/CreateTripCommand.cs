@@ -28,7 +28,8 @@ public record CreateTripCommand(
     string TripType = "Passenger",
     string? RoutePolyline = null,
     int? RouteDurationSeconds = null,
-    bool IsPrivate = false) : ICommand<TripResponse>;
+    bool IsPrivate = false,
+    List<int>? RideFeatureIds = null) : ICommand<TripResponse>;
 
 public class CreateTripCommandHandler : ICommandHandler<CreateTripCommand, TripResponse>
 {
@@ -92,6 +93,9 @@ public class CreateTripCommandHandler : ICommandHandler<CreateTripCommand, TripR
         // Private (premium) ride: one passenger only, not shared
         if (request.IsPrivate && parsedTripType == Domain.Entities.TripType.Passenger)
             trip.MakePrivate();
+
+        // What the car offers (air conditioning, music…), if the driver ticked any
+        trip.SetRideFeatures(request.RideFeatureIds);
 
         // The route the driver picked — the roads they'll actually drive
         var hasChosenRoute = false;
@@ -173,7 +177,7 @@ public class CreateTripCommandHandler : ICommandHandler<CreateTripCommand, TripR
                 s.EstimatedTime,
                 s.ActualArrivalTime)).ToList(),
             trip.CreatedAt,
-            IsPrivate: trip.IsPrivate);
+            IsPrivate: trip.IsPrivate, RideFeatureIds: trip.RideFeatureIds);
     }
 }
 

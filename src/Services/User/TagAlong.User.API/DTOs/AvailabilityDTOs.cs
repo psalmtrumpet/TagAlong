@@ -38,7 +38,9 @@ public record AvailabilityResponse(
     DateTime? LocationUpdatedAt,
     double MaxTravelRadiusKm,
     bool AllowLocationSharing,
-    bool HasOngoingTrip = false);
+    bool HasOngoingTrip = false,
+    // What the driver's car offers (ride feature ids), to tick again next time
+    List<int>? RideFeatureIds = null);
 
 public record LocationUpdateResponse(
     double Latitude,

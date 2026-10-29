@@ -10,6 +10,7 @@ const nav = [
   { label: 'Drivers',        path: '/drivers',       icon: '◑' },
   { label: 'Reports',        path: '/reports',       icon: '◬' },
   { label: 'Recordings',     path: '/recordings',    icon: '◉' },
+  { label: 'Ride features',  path: '/ride-features', icon: '✦' },
   { label: 'Waitlist',       path: '/waitlist',      icon: '◫' },
 ]
 

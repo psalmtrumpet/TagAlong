@@ -20,6 +20,7 @@ public class UserDbContext : DbContext
     public DbSet<ReferralEarning> ReferralEarnings => Set<ReferralEarning>();
     public DbSet<EmergencyContact> EmergencyContacts => Set<EmergencyContact>();
     public DbSet<SafetyRecording> SafetyRecordings => Set<SafetyRecording>();
+    public DbSet<RideFeature> RideFeatures => Set<RideFeature>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -97,6 +98,9 @@ public class UserDbContext : DbContext
             entity.Property(e => e.HasOngoingTrip)
                 .IsRequired()
                 .HasDefaultValue(false);
+
+            entity.Property(e => e.RideFeatures)
+                .HasMaxLength(200);
 
             // Location Preferences
             entity.Property(e => e.MaxTravelRadiusKm)
@@ -231,6 +235,14 @@ public class UserDbContext : DbContext
             entity.HasIndex(e => e.AuthUserId);
             entity.HasIndex(e => e.ConversationId);
             entity.Property(e => e.FilePath).HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<RideFeature>(entity =>
+        {
+            entity.ToTable("ride_features");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(60).IsRequired();
+            entity.Property(e => e.Icon).HasMaxLength(30).IsRequired();
         });
 
         modelBuilder.Entity<ReferralEarning>(entity =>

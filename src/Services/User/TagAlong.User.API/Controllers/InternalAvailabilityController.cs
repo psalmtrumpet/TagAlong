@@ -16,7 +16,8 @@ public record AvailableDriverDto(
     double Longitude,
     bool HasOngoingTrip,
     string Vehicle,
-    string VehiclePlate);
+    string VehiclePlate,
+    List<int>? RideFeatureIds = null);
 
 /// <summary>
 /// Service-to-service calls on the internal network only (the gateway and nginx
@@ -88,7 +89,8 @@ public class InternalAvailabilityController : ControllerBase
                 var car = string.Join(" ", new[] { v.VehicleColor, v.VehicleMake, v.VehicleModel }.Where(x => !string.IsNullOrWhiteSpace(x)));
                 return new AvailableDriverDto(
                     p.AuthUserId, $"{p.FirstName} {p.LastName}".Trim(), p.AverageRating, p.TotalRatings,
-                    p.CurrentLatitude!.Value, p.CurrentLongitude!.Value, p.HasOngoingTrip, car, v.VehiclePlate);
+                    p.CurrentLatitude!.Value, p.CurrentLongitude!.Value, p.HasOngoingTrip, car, v.VehiclePlate,
+                    RideFeature.ParseIds(p.RideFeatures));
             })
             .ToList();
         return Ok(drivers);

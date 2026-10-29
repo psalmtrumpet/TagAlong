@@ -138,6 +138,7 @@ public class MessagingDbContext : DbContext
             entity.Property(c => c.DriverTotalRatings).HasColumnName("driver_total_ratings");
             entity.Property(c => c.Vehicle).HasColumnName("vehicle").HasMaxLength(200);
             entity.Property(c => c.VehiclePlate).HasColumnName("vehicle_plate").HasMaxLength(30);
+            entity.Property(c => c.RideFeatures).HasColumnName("ride_features").HasMaxLength(200);
             entity.Property(c => c.EtaSeconds).HasColumnName("eta_seconds");
             entity.Property(c => c.FinishingCurrentRide).HasColumnName("finishing_current_ride");
             entity.Property(c => c.DriverLat).HasColumnName("driver_lat");

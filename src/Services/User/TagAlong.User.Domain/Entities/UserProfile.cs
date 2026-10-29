@@ -42,6 +42,9 @@ public class UserProfile : AggregateRoot
     // True while the traveler has an InProgress trip — blocks manual go-offline and time expiry
     public bool HasOngoingTrip { get; private set; }
 
+    /// <summary>What the driver's car offers (ride feature ids, "1,3"); kept between sessions.</summary>
+    public string? RideFeatures { get; private set; }
+
     // Location Preferences
     public double MaxTravelRadiusKm { get; private set; } = 10.0;
     public bool AllowLocationSharing { get; private set; } = true;
@@ -226,6 +229,12 @@ public class UserProfile : AggregateRoot
         LocationUpdatedAt = null;
         AvailabilityStartedAt = null;
         AvailabilityExpiresAt = null;
+        SetUpdated();
+    }
+
+    public void SetRideFeatures(IEnumerable<int>? featureIds)
+    {
+        RideFeatures = RideFeature.FormatIds(featureIds);
         SetUpdated();
     }
 

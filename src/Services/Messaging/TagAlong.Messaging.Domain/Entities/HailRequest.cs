@@ -105,14 +105,17 @@ public class HailCandidate : Entity
     public int DistanceMeters { get; private set; }
     public decimal? CounterPrice { get; private set; }
     public HailCandidateStatus Status { get; private set; } = HailCandidateStatus.Notified;
+    /// <summary>What the driver's car offers (ride feature ids, "1,3"), when asked.</summary>
+    public string? RideFeatures { get; private set; }
 
     private HailCandidate() { }
 
     public static HailCandidate Create(
         Guid hailId, Guid driverId, string driverName, decimal rating, int totalRatings,
         string vehicle, string plate, int etaSeconds, bool finishingCurrentRide,
-        double driverLat, double driverLng, int distanceMeters) => new()
+        double driverLat, double driverLng, int distanceMeters, string? rideFeatures = null) => new()
     {
+        RideFeatures = rideFeatures,
         DriverLat = driverLat,
         DriverLng = driverLng,
         DistanceMeters = distanceMeters,
@@ -148,8 +151,10 @@ public class HailCandidate : Entity
         SetUpdated();
     }
 
-    public void Renotify(int etaSeconds, bool finishingCurrentRide, double driverLat, double driverLng, int distanceMeters)
+    public void Renotify(int etaSeconds, bool finishingCurrentRide, double driverLat, double driverLng, int distanceMeters,
+        string? rideFeatures = null)
     {
+        RideFeatures = rideFeatures;
         DriverLat = driverLat;
         DriverLng = driverLng;
         DistanceMeters = distanceMeters;

@@ -1,6 +1,7 @@
 using TagAlong.Common.CQRS;
 using TagAlong.Common.Results;
 using TagAlong.User.API.DTOs;
+using TagAlong.User.Domain.Entities;
 using TagAlong.User.Domain.Repositories;
 
 namespace TagAlong.User.API.Queries;
@@ -44,7 +45,8 @@ public class GetAvailabilityStatusQueryHandler : IQueryHandler<GetAvailabilitySt
             profile.LocationUpdatedAt,
             profile.MaxTravelRadiusKm,
             profile.AllowLocationSharing,
-            profile.HasOngoingTrip));
+            profile.HasOngoingTrip,
+            RideFeature.ParseIds(profile.RideFeatures)));
     }
 }
 

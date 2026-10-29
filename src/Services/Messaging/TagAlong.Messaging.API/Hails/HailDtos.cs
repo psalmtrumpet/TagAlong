@@ -27,7 +27,9 @@ public record HailDriverDto(
     double Lng,
     bool FinishingCurrentRide,
     string Status,
-    decimal? CounterPrice);
+    decimal? CounterPrice,
+    // What the driver's car offers (ride feature ids; the app has the names)
+    List<int>? RideFeatureIds = null);
 
 /// <summary>Suggested fare and how many drivers are around, before the passenger asks.</summary>
 public record HailQuoteDto(int DistanceMeters, int? DurationSeconds, decimal SuggestedPrice, int DriversNearby);
@@ -43,7 +45,8 @@ public record HailCounterDto(
     string VehiclePlate,
     int EtaSeconds,
     bool FinishingCurrentRide,
-    decimal Price);
+    decimal Price,
+    List<int>? RideFeatureIds = null);
 
 /// <summary>The passenger's request and its progress.</summary>
 public record HailDto(

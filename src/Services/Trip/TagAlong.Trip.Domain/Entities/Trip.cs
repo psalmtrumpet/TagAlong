@@ -33,6 +33,12 @@ public class Trip : AggregateRoot
     public LineString? RouteLine { get; private set; }
     public TripRouteStatus RouteStatus { get; private set; } = TripRouteStatus.None;
     public int? OriginalDurationSeconds { get; private set; }
+    /// <summary>What the driver's car offers on this trip (ride feature ids, "1,3"). Optional.</summary>
+    public string? RideFeatures { get; private set; }
+
+    public List<int> RideFeatureIds =>
+        (RideFeatures ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => int.TryParse(x, out var id) ? id : 0).Where(id => id > 0).ToList();
 
     private readonly List<TripStop> _stops = new();
     public IReadOnlyCollection<TripStop> Stops => _stops.AsReadOnly();
@@ -158,6 +164,13 @@ public class Trip : AggregateRoot
         RouteLine = routeLine;
         OriginalDurationSeconds = originalDurationSeconds;
         RouteStatus = TripRouteStatus.Stored;
+        SetUpdated();
+    }
+
+    public void SetRideFeatures(IEnumerable<int>? featureIds)
+    {
+        var ids = (featureIds ?? Enumerable.Empty<int>()).Where(id => id > 0).Distinct().Take(20).ToList();
+        RideFeatures = ids.Count == 0 ? null : string.Join(',', ids);
         SetUpdated();
     }
 

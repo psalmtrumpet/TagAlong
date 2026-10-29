@@ -321,7 +321,11 @@ public class HailService
     // ── Finding drivers ──
 
     private record NearDriver(Guid UserId, string Name, decimal AverageRating, int TotalRatings,
-        double Latitude, double Longitude, bool HasOngoingTrip, string Vehicle, string VehiclePlate);
+        double Latitude, double Longitude, bool HasOngoingTrip, string Vehicle, string VehiclePlate,
+        List<int>? RideFeatureIds = null)
+    {
+        public string? RideFeatures => RideFeatureIds is { Count: > 0 } ids ? string.Join(',', ids.Take(20)) : null;
+    }
     private record BusyTrip(Guid DriverId, Guid TripId, bool IsPrivate, string Status);
     private record Found(NearDriver Driver, int EtaSeconds, bool Finishing, double Lat, double Lng);
 
@@ -348,12 +352,12 @@ public class HailService
             {
                 // Skipped by the passenger: don't ask them again when the offer is raised
                 if (c.Status == HailCandidateStatus.Skipped) continue;
-                c.Renotify(f.EtaSeconds, f.Finishing, f.Lat, f.Lng, meters);
+                c.Renotify(f.EtaSeconds, f.Finishing, f.Lat, f.Lng, meters, f.Driver.RideFeatures);
             }
             else
             {
                 c = HailCandidate.Create(hail.Id, f.Driver.UserId, f.Driver.Name, f.Driver.AverageRating, f.Driver.TotalRatings,
-                    f.Driver.Vehicle, f.Driver.VehiclePlate, f.EtaSeconds, f.Finishing, f.Lat, f.Lng, meters);
+                    f.Driver.Vehicle, f.Driver.VehiclePlate, f.EtaSeconds, f.Finishing, f.Lat, f.Lng, meters, f.Driver.RideFeatures);
                 _db.HailCandidates.Add(c);
             }
             candidates.Add(c);
@@ -553,14 +557,18 @@ public class HailService
         var drivers = all.Select(c => new HailDriverDto(
             c.DriverId, c.DriverName, c.DriverRating, c.DriverTotalRatings, c.Vehicle, c.VehiclePlate,
             c.EtaSeconds, c.DistanceMeters, c.DriverLat, c.DriverLng, c.FinishingCurrentRide,
-            c.Status.ToString(), c.CounterPrice)).ToList();
+            c.Status.ToString(), c.CounterPrice, FeatureIds(c))).ToList();
         return new HailDto(h.Id, h.Status.ToString(), h.PickupLat, h.PickupLng, h.PickupName, h.DestLat, h.DestLng, h.DestName,
             h.OfferedPrice, h.ExpiresAt, notified, h.ConversationId, counters.Select(ToCounterDto).ToList(), drivers);
     }
 
     private static HailCounterDto ToCounterDto(HailCandidate c) => new(
         c.HailId, c.DriverId, c.DriverName, c.DriverRating, c.DriverTotalRatings, c.Vehicle, c.VehiclePlate,
-        c.EtaSeconds, c.FinishingCurrentRide, c.CounterPrice ?? 0);
+        c.EtaSeconds, c.FinishingCurrentRide, c.CounterPrice ?? 0, FeatureIds(c));
+
+    private static List<int> FeatureIds(HailCandidate c) =>
+        (c.RideFeatures ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => int.TryParse(x, out var id) ? id : 0).Where(id => id > 0).ToList();
 
     private static HailOfferDto ToOfferDto(HailRequest h, HailCandidate c, string? passengerName) => new(
         h.Id, h.PassengerId, passengerName,
