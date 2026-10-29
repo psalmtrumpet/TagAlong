@@ -390,13 +390,30 @@ public class ConversationsController : ControllerBase
 
     [HttpPost("{id:guid}/start-delivery")]
     [ProducesResponseType(typeof(ConversationDto), StatusCodes.Status200OK)]
-    public async Task<IActionResult> StartDelivery(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> StartDelivery(Guid id,
+        [FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] StartRideRequest? request,
+        CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
-        var result = await _mediator.Send(new StartDeliveryCommand(id, userId.Value), cancellationToken);
+        var result = await _mediator.Send(new StartDeliveryCommand(id, userId.Value, request?.Pin), cancellationToken);
         if (result.IsFailure) return BadRequest(new { error = result.Error.Message });
         return Ok(result.Value);
+    }
+
+    /// <summary>The passenger's pickup PIN. Only the passenger can see it — never the driver.</summary>
+    [HttpGet("{id:guid}/pickup-pin")]
+    public async Task<IActionResult> GetPickupPin(Guid id,
+        [FromServices] TagAlong.Messaging.Infrastructure.Persistence.MessagingDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+        var c = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+            db.Conversations.Where(x => x.Id == id).Select(x => new { x.SenderId, x.PickupPin, x.Status }),
+            cancellationToken);
+        if (c == null || c.SenderId != userId.Value) return NotFound();
+        return Ok(new { pin = c.Status == Domain.Entities.ConversationStatus.LockedIn ? c.PickupPin : null });
     }
 
     [HttpPost("{id:guid}/mark-delivered")]

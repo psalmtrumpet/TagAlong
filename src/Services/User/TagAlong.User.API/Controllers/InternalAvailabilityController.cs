@@ -41,7 +41,9 @@ public class InternalAvailabilityController : ControllerBase
     /// they are (Messaging knows they're nearby from their live ride position).
     /// </summary>
     [HttpGet("drivers-near")]
-    public async Task<IActionResult> DriversNear(double lat, double lng, double radiusKm = 15, string? alsoIds = null, CancellationToken ct = default)
+    public async Task<IActionResult> DriversNear(double lat, double lng,
+        [FromServices] TagAlong.User.API.Services.DriverGeoIndex geo,
+        double radiusKm = 15, string? alsoIds = null, CancellationToken ct = default)
     {
         var also = (alsoIds ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries)
             .Select(x => Guid.TryParse(x, out var g) ? g : Guid.Empty).Where(g => g != Guid.Empty).ToList();
@@ -50,12 +52,21 @@ public class InternalAvailabilityController : ControllerBase
         var dLat = radiusKm / 111.0;
         var dLng = radiusKm / (111.0 * Math.Cos(lat * Math.PI / 180));
 
-        var profiles = await _db.UserProfiles.AsNoTracking()
+        // Who's nearby comes from Redis (available drivers' live positions); the
+        // database then applies the rules (verified, not suspended…). Without
+        // Redis, the database does the area search itself.
+        var near = await geo.NearAsync(lat, lng, radiusKm);
+        var nearIds = near?.Select(n => n.DriverId).ToList();
+
+        var query = _db.UserProfiles.AsNoTracking()
             .Where(u => u.IsAvailable && !u.IsSuspended && u.IsVerified)
-            .Where(u => u.CurrentLatitude.HasValue && u.CurrentLongitude.HasValue)
-            .Where(u => also.Contains(u.AuthUserId) ||
-                        (u.CurrentLatitude >= lat - dLat && u.CurrentLatitude <= lat + dLat &&
-                         u.CurrentLongitude >= lng - dLng && u.CurrentLongitude <= lng + dLng))
+            .Where(u => u.CurrentLatitude.HasValue && u.CurrentLongitude.HasValue);
+        query = nearIds != null
+            ? query.Where(u => also.Contains(u.AuthUserId) || nearIds.Contains(u.AuthUserId))
+            : query.Where(u => also.Contains(u.AuthUserId) ||
+                               (u.CurrentLatitude >= lat - dLat && u.CurrentLatitude <= lat + dLat &&
+                                u.CurrentLongitude >= lng - dLng && u.CurrentLongitude <= lng + dLng));
+        var profiles = await query
             .Where(u => u.HasOngoingTrip || !u.AvailabilityExpiresAt.HasValue || u.AvailabilityExpiresAt > now)
             .Where(u => u.HasOngoingTrip || (u.LocationUpdatedAt.HasValue && u.LocationUpdatedAt > fresh))
             .ToListAsync(ct);

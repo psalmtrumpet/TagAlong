@@ -28,6 +28,19 @@ public class AvailabilityExpiryService : BackgroundService
                 using var scope = _scopes.CreateScope();
                 var repo = scope.ServiceProvider.GetRequiredService<IUserProfileRepository>();
                 await repo.ExpireStaleAvailabilityAsync(stoppingToken);
+
+                // Redis matches the database: drivers heard from recently are in,
+                // everyone else (offline, gone quiet, Redis restarted) is corrected
+                var db = scope.ServiceProvider.GetRequiredService<TagAlong.User.Infrastructure.Persistence.UserDbContext>();
+                var freshSince = DateTime.UtcNow - DriverGeoIndex.Fresh;
+                var live = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+                    db.UserProfiles
+                        .Where(u => u.IsAvailable && u.CurrentLatitude != null && u.CurrentLongitude != null &&
+                                    u.LocationUpdatedAt != null && u.LocationUpdatedAt > freshSince)
+                        .Select(u => new { u.AuthUserId, u.CurrentLatitude, u.CurrentLongitude, u.LocationUpdatedAt }),
+                    stoppingToken);
+                await scope.ServiceProvider.GetRequiredService<DriverGeoIndex>().ReconcileAsync(
+                    live.Select(u => (u.AuthUserId, u.CurrentLatitude!.Value, u.CurrentLongitude!.Value, u.LocationUpdatedAt!.Value)).ToList());
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

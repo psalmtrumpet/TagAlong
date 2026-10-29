@@ -98,6 +98,7 @@ public class AcceptPriceCommandHandler : ICommandHandler<AcceptPriceCommand, Mes
         {
             conversation.ProposeLockIn(request.UserId, request.AcceptedPrice);
             conversation.ConfirmLockIn();
+            await TagAlong.Messaging.API.Services.PickupPins.MakeUniqueOnTripAsync(_conversationRepository, conversation, cancellationToken);
             lockedMsg = Message.CreateLockInConfirmed(request.ConversationId, request.UserId, request.AcceptedPrice);
             await _messageRepository.AddAsync(lockedMsg, cancellationToken);
         }

@@ -133,3 +133,6 @@ public record ChangeDestinationRequest(double Latitude, double Longitude, string
 
 /// <summary>Why someone is cancelling (optional).</summary>
 public record CancelReasonRequest(string? Reason);
+
+/// <summary>Starting a ride: the PIN the passenger read out to the driver.</summary>
+public record StartRideRequest(string? Pin);

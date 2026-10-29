@@ -58,8 +58,27 @@ public class TripsController : ControllerBase
         [FromQuery] double? viaLat, [FromQuery] double? viaLng, [FromQuery] DateTime? departure,
         [FromServices] RouteOptionsService routes, CancellationToken cancellationToken)
     {
-        var options = await routes.GetAsync(originLat, originLng, destLat, destLng, viaLat, viaLng, departure, cancellationToken);
+        Guid? me = Guid.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var u) ? u : null;
+        var options = await routes.GetAsync(originLat, originLng, destLat, destLng, viaLat, viaLng, departure, cancellationToken, me);
         return Ok(options);
+    }
+
+    /// <summary>
+    /// The road a live map follows right now, with today's traffic (Google). The
+    /// trip/ride ids are only for counting Google calls per trip. 204 when no
+    /// route could be found — the app then draws a marked straight line.
+    /// </summary>
+    [HttpGet("live-route")]
+    [Authorize]
+    public async Task<IActionResult> GetLiveRoute(
+        [FromQuery] double originLat, [FromQuery] double originLng,
+        [FromQuery] double destLat, [FromQuery] double destLng,
+        [FromQuery] Guid? tripId, [FromQuery] Guid? conversationId,
+        [FromServices] RouteOptionsService routes, CancellationToken cancellationToken)
+    {
+        Guid? me = Guid.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var u) ? u : null;
+        var route = await routes.LiveAsync(originLat, originLng, destLat, destLng, me, tripId, conversationId, cancellationToken);
+        return route == null ? NoContent() : Ok(route);
     }
 
     /// <summary>

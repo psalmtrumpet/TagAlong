@@ -74,8 +74,22 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-builder.Services.AddDbContext<UserDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("UserDb")));
+// Available drivers' positions are mirrored into Redis after every save (fast "nearby" lookups)
+builder.Services.AddSingleton<TagAlong.User.API.Services.DriverGeoIndex>();
+builder.Services.AddSingleton<TagAlong.User.API.Services.DriverGeoInterceptor>();
+var geoRedis = builder.Configuration.GetConnectionString("Redis");
+if (!string.IsNullOrEmpty(geoRedis))
+{
+    builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+    {
+        var o = ConfigurationOptions.Parse(geoRedis);
+        o.AbortOnConnectFail = false; // start even if Redis is down; it reconnects by itself
+        return ConnectionMultiplexer.Connect(o);
+    });
+}
+builder.Services.AddDbContext<UserDbContext>((sp, options) =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("UserDb"))
+        .AddInterceptors(sp.GetRequiredService<TagAlong.User.API.Services.DriverGeoInterceptor>()));
 
 builder.Services.AddScoped<IUserProfileRepository, UserProfileRepository>();
 builder.Services.AddHostedService<AvailabilityExpiryService>();

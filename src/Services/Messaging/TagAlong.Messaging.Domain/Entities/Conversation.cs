@@ -107,6 +107,7 @@ public class Conversation : AggregateRoot
         AgreedPrice = price;
         LockInProposedBy = null;
         Status = ConversationStatus.LockedIn;
+        IssuePickupPin();
         SetUpdated();
     }
 
@@ -146,7 +147,51 @@ public class Conversation : AggregateRoot
 
         Status = ConversationStatus.LockedIn;
         LockInProposedBy = null;
+        IssuePickupPin();
         SetUpdated();
+    }
+
+    /// <summary>
+    /// The passenger's 4-digit pickup PIN: only they see it, and the driver
+    /// must enter it to start their ride. Null on deliveries and on rides
+    /// booked before PINs existed (those start without one).
+    /// </summary>
+    public string? PickupPin { get; private set; }
+    public int PinFailures { get; private set; }
+    public DateTime? PinLockedUntil { get; private set; }
+
+    public const int MaxPinFailures = 5;
+
+    /// <summary>A new random PIN (also used to avoid two passengers on one trip sharing a PIN).</summary>
+    public void IssuePickupPin()
+    {
+        if (IsDelivery) return;
+        PickupPin = System.Security.Cryptography.RandomNumberGenerator.GetInt32(0, 10000).ToString("D4");
+        PinFailures = 0;
+        PinLockedUntil = null;
+    }
+
+    /// <summary>
+    /// Checks the PIN the driver typed. After <see cref="MaxPinFailures"/> wrong
+    /// tries entry locks for 5 minutes, so the PIN can't be guessed.
+    /// </summary>
+    public PinCheck CheckPickupPin(string? pin, DateTime now)
+    {
+        if (PickupPin is null) return PinCheck.Ok;
+        if (PinLockedUntil > now) return PinCheck.Locked;
+        if (pin?.Trim() == PickupPin)
+        {
+            PinFailures = 0;
+            return PinCheck.Ok;
+        }
+        PinFailures++;
+        if (PinFailures >= MaxPinFailures)
+        {
+            PinFailures = 0;
+            PinLockedUntil = now.AddMinutes(5);
+        }
+        SetUpdated();
+        return PinLockedUntil > now ? PinCheck.Locked : PinCheck.Wrong;
     }
 
     public void RejectLockIn()
@@ -293,6 +338,8 @@ public class Conversation : AggregateRoot
         SetUpdated();
     }
 }
+
+public enum PinCheck { Ok, Wrong, Locked }
 
 public enum ConversationStatus
 {

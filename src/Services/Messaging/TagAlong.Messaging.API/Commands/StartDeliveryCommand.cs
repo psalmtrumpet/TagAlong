@@ -10,7 +10,8 @@ using TagAlong.Messaging.Domain.Repositories;
 
 namespace TagAlong.Messaging.API.Commands;
 
-public record StartDeliveryCommand(Guid ConversationId, Guid UserId) : ICommand<ConversationDto>;
+/// <param name="Pin">The passenger's pickup PIN, typed by the driver (rides only).</param>
+public record StartDeliveryCommand(Guid ConversationId, Guid UserId, string? Pin = null) : ICommand<ConversationDto>;
 
 public class StartDeliveryCommandHandler : ICommandHandler<StartDeliveryCommand, ConversationDto>
 {
@@ -43,6 +44,26 @@ public class StartDeliveryCommandHandler : ICommandHandler<StartDeliveryCommand,
         if (conversation.IsOnDemand && conversation.Status == ConversationStatus.LockedIn &&
             await _conversationRepository.CountInProgressByTravelerIdAsync(conversation.TravelerId, cancellationToken) > 0)
             return Result.Failure<ConversationDto>(Error.Validation("Drop off your current passenger before starting this ride."));
+
+        if (conversation.Status != ConversationStatus.LockedIn)
+            return Result.Failure<ConversationDto>(Error.Validation("This ride can't be started right now."));
+
+        // The passenger's PIN proves the right person is getting in
+        if (conversation.PickupPin != null)
+        {
+            var now = DateTime.UtcNow;
+            if (string.IsNullOrWhiteSpace(request.Pin) && !(conversation.PinLockedUntil > now))
+                return Result.Failure<ConversationDto>(Error.Validation(
+                    "Enter your passenger's 4-digit PIN to start the ride. Update TagAlong if you don't see where to type it."));
+            var check = conversation.CheckPickupPin(request.Pin, now);
+            if (check != PinCheck.Ok)
+            {
+                _conversationRepository.Update(conversation);
+                await _conversationRepository.SaveChangesAsync(cancellationToken); // count the wrong try
+                return Result.Failure<ConversationDto>(Error.Validation(
+                    TagAlong.Messaging.API.Services.PickupPins.Problem(check, conversation, now)));
+            }
+        }
 
         conversation.StartTrip();
         _conversationRepository.Update(conversation);

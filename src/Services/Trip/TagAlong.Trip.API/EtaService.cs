@@ -13,7 +13,8 @@ public record EtaResponse(List<int?> Seconds);
 
 /// <summary>
 /// Drive times for on-demand ride requests: Google Distance Matrix with live
-/// traffic, or the free OSRM table (no traffic) when Google isn't available.
+/// traffic. When Google isn't available every time is null and the caller
+/// estimates from distance.
 /// </summary>
 public class EtaService
 {
@@ -22,20 +23,22 @@ public class EtaService
     private readonly IHttpClientFactory _http;
     private readonly IConfiguration _config;
     private readonly ILogger<EtaService> _logger;
+    private readonly GoogleCallLog _calls;
 
-    public EtaService(IHttpClientFactory http, IConfiguration config, ILogger<EtaService> logger)
+    public EtaService(IHttpClientFactory http, IConfiguration config, ILogger<EtaService> logger, GoogleCallLog calls)
     {
         _http = http;
         _config = config;
         _logger = logger;
+        _calls = calls;
     }
 
     public async Task<List<int?>> GetAsync(List<EtaPoint> origins, double destLat, double destLng, CancellationToken ct)
     {
         if (origins.Count == 0) return new List<int?>();
-        return await GoogleAsync(origins, destLat, destLng, ct)
-               ?? await OsrmAsync(origins, destLat, destLng, ct)
-               ?? origins.Select(_ => (int?)null).ToList();
+        var google = await GoogleAsync(origins, destLat, destLng, ct);
+        await _calls.RecordAsync("eta", google != null);
+        return google ?? origins.Select(_ => (int?)null).ToList();
     }
 
     private async Task<List<int?>?> GoogleAsync(List<EtaPoint> origins, double destLat, double destLng, CancellationToken ct)
@@ -72,32 +75,7 @@ public class EtaService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning(ex, "Distance Matrix failed — using OSRM");
-            return null;
-        }
-    }
-
-    private async Task<List<int?>?> OsrmAsync(List<EtaPoint> origins, double destLat, double destLng, CancellationToken ct)
-    {
-        var c = CultureInfo.InvariantCulture;
-        try
-        {
-            var coords = string.Join(";", origins.Select(o => $"{o.Lng.ToString(c)},{o.Lat.ToString(c)}")) +
-                         $";{destLng.ToString(c)},{destLat.ToString(c)}";
-            var sources = string.Join(";", Enumerable.Range(0, origins.Count));
-            var url = $"https://router.project-osrm.org/table/v1/driving/{coords}" +
-                      $"?sources={sources}&destinations={origins.Count}&annotations=duration";
-            using var res = await _http.CreateClient("osrm").GetAsync(url, ct);
-            if (!res.IsSuccessStatusCode) return null;
-            using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct));
-            if (doc.RootElement.GetProperty("code").GetString() != "Ok") return null;
-            return doc.RootElement.GetProperty("durations").EnumerateArray()
-                .Select(row => row[0].ValueKind == JsonValueKind.Number ? (int?)(int)Math.Round(row[0].GetDouble()) : null)
-                .ToList();
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning(ex, "OSRM table failed");
+            _logger.LogWarning(ex, "Distance Matrix failed");
             return null;
         }
     }

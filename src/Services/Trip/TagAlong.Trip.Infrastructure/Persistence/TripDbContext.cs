@@ -13,10 +13,20 @@ public class TripDbContext : DbContext
     public DbSet<Domain.Entities.Trip> Trips => Set<Domain.Entities.Trip>();
     public DbSet<TripStop> TripStops => Set<TripStop>();
     public DbSet<ArrivalLog> ArrivalLogs => Set<ArrivalLog>();
+    public DbSet<GoogleApiCall> GoogleApiCalls => Set<GoogleApiCall>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<GoogleApiCall>(entity =>
+        {
+            entity.ToTable("google_api_calls");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Kind).HasMaxLength(20).IsRequired();
+            entity.HasIndex(e => e.TripId);
+            entity.HasIndex(e => e.CreatedAt);
+        });
 
         modelBuilder.Entity<ArrivalLog>(entity =>
         {

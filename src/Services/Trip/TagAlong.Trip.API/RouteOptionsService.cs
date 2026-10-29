@@ -18,29 +18,32 @@ public record RouteOptionDto(
     bool LeastTraffic);
 
 /// <summary>
-/// Route choices for a new trip so the driver can pick the road they'll
-/// actually take: Google with live traffic, or OSRM (no traffic) as a fallback.
+/// Road routes from Google Directions with live traffic: the choices for a new
+/// trip, and the live route a map follows during a ride. Every call is counted
+/// per trip (<see cref="GoogleCallLog"/>). There is no free fallback: when Google
+/// fails the caller gets nothing and the app shows a marked straight line.
 /// </summary>
 public class RouteOptionsService
 {
     private readonly IHttpClientFactory _http;
     private readonly IConfiguration _config;
     private readonly ILogger<RouteOptionsService> _logger;
+    private readonly GoogleCallLog _calls;
 
-    public RouteOptionsService(IHttpClientFactory http, IConfiguration config, ILogger<RouteOptionsService> logger)
+    public RouteOptionsService(IHttpClientFactory http, IConfiguration config, ILogger<RouteOptionsService> logger, GoogleCallLog calls)
     {
         _http = http;
         _config = config;
         _logger = logger;
+        _calls = calls;
     }
 
     public async Task<List<RouteOptionDto>> GetAsync(double oLat, double oLng, double dLat, double dLng,
-        double? viaLat, double? viaLng, DateTime? departure, CancellationToken ct)
+        double? viaLat, double? viaLng, DateTime? departure, CancellationToken ct, Guid? userId = null)
     {
-        var raw = await GoogleAsync(oLat, oLng, dLat, dLng, viaLat, viaLng, departure, ct)
-                  ?? await OsrmAsync(oLat, oLng, dLat, dLng, viaLat, viaLng, ct)
-                  ?? new List<RouteOptionDto>();
-        if (raw.Count == 0) return raw;
+        var raw = await GoogleAsync(oLat, oLng, dLat, dLng, viaLat, viaLng, departure, alternatives: true, ct);
+        await _calls.RecordAsync("route-options", raw != null, userId);
+        if (raw == null || raw.Count == 0) return new List<RouteOptionDto>();
 
         var fastest = raw.MinBy(r => r.DurationInTrafficSeconds)!;
         var hasTraffic = raw.Any(r => r.DurationInTrafficSeconds != r.DurationSeconds);
@@ -54,8 +57,17 @@ public class RouteOptionsService
             .ToList();
     }
 
+    /// <summary>The one route a live map follows right now (traffic as of now), or null.</summary>
+    public async Task<RouteOptionDto?> LiveAsync(double oLat, double oLng, double dLat, double dLng,
+        Guid? userId, Guid? tripId, Guid? conversationId, CancellationToken ct)
+    {
+        var raw = await GoogleAsync(oLat, oLng, dLat, dLng, null, null, null, alternatives: false, ct);
+        await _calls.RecordAsync("live-route", raw != null, userId, tripId, conversationId);
+        return raw?.FirstOrDefault();
+    }
+
     private async Task<List<RouteOptionDto>?> GoogleAsync(double oLat, double oLng, double dLat, double dLng,
-        double? viaLat, double? viaLng, DateTime? departure, CancellationToken ct)
+        double? viaLat, double? viaLng, DateTime? departure, bool alternatives, CancellationToken ct)
     {
         var key = _config["GoogleMaps:ApiKey"];
         if (string.IsNullOrWhiteSpace(key)) return null;
@@ -70,9 +82,10 @@ public class RouteOptionsService
                       $"?origin={oLat.ToString(c)},{oLng.ToString(c)}&destination={dLat.ToString(c)},{dLng.ToString(c)}" +
                       $"&departure_time={when}&traffic_model=best_guess&key={key}";
             // Google only offers alternatives when there's no stop in between
-            url += viaLat is { } vl && viaLng is { } vg
-                ? $"&waypoints=via:{vl.ToString(c)},{vg.ToString(c)}"
-                : "&alternatives=true";
+            if (viaLat is { } vl && viaLng is { } vg)
+                url += $"&waypoints=via:{vl.ToString(c)},{vg.ToString(c)}";
+            else if (alternatives)
+                url += "&alternatives=true";
 
             using var res = await _http.CreateClient("osrm").GetAsync(url, ct);
             if (!res.IsSuccessStatusCode) return null;
@@ -80,7 +93,7 @@ public class RouteOptionsService
             var status = doc.RootElement.GetProperty("status").GetString();
             if (status != "OK")
             {
-                _logger.LogWarning("Route options: Google said {Status}", status);
+                _logger.LogWarning("Directions: Google said {Status}", status);
                 return null;
             }
 
@@ -101,45 +114,9 @@ public class RouteOptionsService
             }
             return list.Count > 0 ? list : null;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning(ex, "Route options: Google lookup failed");
-            return null;
-        }
-    }
-
-    private async Task<List<RouteOptionDto>?> OsrmAsync(double oLat, double oLng, double dLat, double dLng,
-        double? viaLat, double? viaLng, CancellationToken ct)
-    {
-        try
-        {
-            var c = CultureInfo.InvariantCulture;
-            var coords = $"{oLng.ToString(c)},{oLat.ToString(c)}";
-            if (viaLat is { } vl && viaLng is { } vg) coords += $";{vg.ToString(c)},{vl.ToString(c)}";
-            coords += $";{dLng.ToString(c)},{dLat.ToString(c)}";
-            var url = $"https://router.project-osrm.org/route/v1/driving/{coords}?overview=full&geometries=polyline" +
-                      (viaLat == null ? "&alternatives=3" : "");
-            using var res = await _http.CreateClient("osrm").GetAsync(url, ct);
-            if (!res.IsSuccessStatusCode) return null;
-            using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct));
-            if (doc.RootElement.GetProperty("code").GetString() != "Ok") return null;
-
-            var list = new List<RouteOptionDto>();
-            foreach (var r in doc.RootElement.GetProperty("routes").EnumerateArray())
-            {
-                var summary = string.Join(" and ", r.GetProperty("legs").EnumerateArray()
-                    .Select(l => l.TryGetProperty("summary", out var s) ? s.GetString() : null)
-                    .Where(s => !string.IsNullOrWhiteSpace(s)));
-                var dur = (int)r.GetProperty("duration").GetDouble();
-                list.Add(new RouteOptionDto(string.IsNullOrWhiteSpace(summary) ? "Suggested route" : summary,
-                    (int)r.GetProperty("distance").GetDouble(), dur, dur,
-                    r.GetProperty("geometry").GetString() ?? "", false, false));
-            }
-            return list.Count > 0 ? list : null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Route options: OSRM lookup failed");
+            _logger.LogWarning(ex, "Directions: Google lookup failed");
             return null;
         }
     }

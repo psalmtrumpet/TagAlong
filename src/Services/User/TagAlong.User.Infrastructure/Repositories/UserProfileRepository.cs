@@ -126,12 +126,20 @@ public class UserProfileRepository : IUserProfileRepository
         return candidates.Where(u => u.IsRouteAlignedWith(pickupLat, pickupLng, dropoffLat, dropoffLng));
     }
 
+    // Available has no time limit, but an app that has gone quiet this long (phone
+    // off, app uninstalled) is no longer really there. A running app checks in
+    // every few minutes.
+    private static readonly TimeSpan SilentFor = TimeSpan.FromHours(2);
+
     public async Task ExpireStaleAvailabilityAsync(CancellationToken cancellationToken = default)
     {
+        var now = DateTime.UtcNow;
+        var silentSince = now - SilentFor;
         var expiredUsers = await _context.UserProfiles
             .Where(u => u.IsAvailable)
             .Where(u => !u.HasOngoingTrip) // never expire users currently on a trip
-            .Where(u => u.AvailabilityExpiresAt.HasValue && u.AvailabilityExpiresAt <= DateTime.UtcNow)
+            .Where(u => (u.AvailabilityExpiresAt.HasValue && u.AvailabilityExpiresAt <= now) ||
+                        (u.LocationUpdatedAt.HasValue && u.LocationUpdatedAt < silentSince))
             .ToListAsync(cancellationToken);
 
         foreach (var user in expiredUsers)

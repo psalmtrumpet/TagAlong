@@ -47,6 +47,9 @@ public class MessagingDbContext : DbContext
             entity.Property(c => c.Seats).HasColumnName("seats").HasDefaultValue(1);
             entity.Property(c => c.CancelReason).HasColumnName("cancel_reason").HasMaxLength(300);
             entity.Property(c => c.CancelledBy).HasColumnName("cancelled_by");
+            entity.Property(c => c.PickupPin).HasColumnName("pickup_pin").HasMaxLength(4);
+            entity.Property(c => c.PinFailures).HasColumnName("pin_failures").HasDefaultValue(0);
+            entity.Property(c => c.PinLockedUntil).HasColumnName("pin_locked_until");
             entity.Property(c => c.PlatformFee).HasColumnName("platform_fee").HasColumnType("decimal(18,2)");
             entity.Property(c => c.DriverEarning).HasColumnName("driver_earning").HasColumnType("decimal(18,2)");
             entity.Property(c => c.FeeWaived).HasColumnName("fee_waived").HasDefaultValue(false);

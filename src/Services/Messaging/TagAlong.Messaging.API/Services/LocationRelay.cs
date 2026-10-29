@@ -25,10 +25,13 @@ public class LocationRelay
     private readonly IMemoryCache _cache;
     private readonly IEventBus _eventBus;
     private readonly ILogger<LocationRelay> _logger;
+    private readonly LocationWriteQueue _queue;
 
     public LocationRelay(IConversationRepository conversations, IMessageRepository messages,
-        IHubContext<MessagingHub, IMessagingClient> hub, IMemoryCache cache, IEventBus eventBus, ILogger<LocationRelay> logger)
+        IHubContext<MessagingHub, IMessagingClient> hub, IMemoryCache cache, IEventBus eventBus, ILogger<LocationRelay> logger,
+        LocationWriteQueue queue)
     {
+        _queue = queue;
         _conversations = conversations;
         _messages = messages;
         _hub = hub;
@@ -37,28 +40,49 @@ public class LocationRelay
         _logger = logger;
     }
 
-    /// <summary>Returns false when the user isn't on this ride.</summary>
+    private record Riders(Guid SenderId, Guid TravelerId);
+
+    /// <summary>
+    /// Returns false when the user isn't on this ride. The position goes to the
+    /// other person first; saving the driver's last-known position happens
+    /// afterwards in the background (<see cref="LocationWriteQueue"/>), so a slow
+    /// database never delays what the passenger sees.
+    /// </summary>
     public async Task<bool> ShareAsync(Guid userId, Guid conversationId, double latitude, double longitude, LocationReading? reading = null)
     {
-        var conversation = await _conversations.GetByIdAsync(conversationId);
-        if (conversation == null || !conversation.IsParticipant(userId)) return false;
-
-        // Persist the carrier's last-known position (the public tracking page and
-        // the passenger's map read it). Only the traveler's position is the carrier's.
-        if (conversation.TravelerId == userId)
+        // Who's on the ride, remembered briefly (positions arrive every couple of seconds)
+        var riders = await _cache.GetOrCreateAsync($"riders:{conversationId}", async e =>
         {
-            conversation.UpdateHelperLocation(latitude, longitude);
-            _conversations.Update(conversation);
-            await _conversations.SaveChangesAsync();
+            e.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30);
+            var c = await _conversations.GetByIdAsync(conversationId);
+            return c == null ? null : new Riders(c.SenderId, c.TravelerId);
+        });
+        if (riders == null || (riders.SenderId != userId && riders.TravelerId != userId)) return false;
 
-            if (conversation.Status == ConversationStatus.InProgress)
-                await AnnounceNextStopAsync(conversation, latitude, longitude);
-        }
-
-        var other = conversation.GetOtherParticipant(userId);
+        var other = riders.SenderId == userId ? riders.TravelerId : riders.SenderId;
         await _hub.Clients.Group($"user_{other}").ReceiveHelperLocation(conversationId.ToString(), latitude, longitude,
             reading?.Accuracy, reading?.Speed, reading?.Heading, reading?.TimestampMs);
+
+        // Only the traveler's position is the carrier's (the tracking page and passenger's map read it)
+        if (riders.TravelerId == userId)
+            _queue.Enqueue(conversationId, latitude, longitude, reading?.TimestampMs);
         return true;
+    }
+
+    /// <summary>
+    /// The background half of <see cref="ShareAsync"/>: save the driver's
+    /// last-known position and, near the passenger's stop, announce it.
+    /// </summary>
+    public async Task PersistAsync(Guid conversationId, double latitude, double longitude)
+    {
+        var conversation = await _conversations.GetByIdAsync(conversationId);
+        if (conversation == null) return;
+        conversation.UpdateHelperLocation(latitude, longitude);
+        _conversations.Update(conversation);
+        await _conversations.SaveChangesAsync();
+
+        if (conversation.Status == ConversationStatus.InProgress)
+            await AnnounceNextStopAsync(conversation, latitude, longitude);
     }
 
     /// <summary>

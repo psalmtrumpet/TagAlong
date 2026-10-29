@@ -50,6 +50,7 @@ public class ConfirmLockInCommandHandler : ICommandHandler<ConfirmLockInCommand,
 
         var price = conversation.AgreedPrice ?? 0;
         conversation.ConfirmLockIn();
+        await TagAlong.Messaging.API.Services.PickupPins.MakeUniqueOnTripAsync(_conversationRepository, conversation, cancellationToken);
         _conversationRepository.Update(conversation);
 
         var msg = Message.CreateLockInConfirmed(request.ConversationId, request.UserId, price);
