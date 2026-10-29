@@ -345,7 +345,9 @@ public class ConversationsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
-        return await locations.ShareAsync(userId.Value, id, request.Latitude, request.Longitude) ? Ok() : NotFound();
+        return await locations.ShareAsync(userId.Value, id, request.Latitude, request.Longitude,
+            new TagAlong.Messaging.API.Services.LocationReading(request.Accuracy, request.Speed, request.Heading, request.TimestampMs))
+            ? Ok() : NotFound();
     }
 
     /// <summary>The driver moves the pickup and/or drop-off point (to another spot on their route).</summary>

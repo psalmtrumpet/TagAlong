@@ -136,6 +136,16 @@ public class MessagingHub : Hub<IMessagingClient>
         await _locations.ShareAsync(userId.Value, conversationId, latitude, longitude);
     }
 
+    /// <summary>A position with its accuracy (m), speed (m/s), heading (°) and the phone's time (ms since 1970).</summary>
+    public async Task SendLocationFix(Guid conversationId, double latitude, double longitude,
+        double? accuracy, double? speed, double? heading, long? timestampMs)
+    {
+        var userId = GetUserId();
+        if (!userId.HasValue) return;
+        await _locations.ShareAsync(userId.Value, conversationId, latitude, longitude,
+            new TagAlong.Messaging.API.Services.LocationReading(accuracy, speed, heading, timestampMs));
+    }
+
     public async Task MarkAsRead(Guid messageId)
     {
         var userId = GetUserId();

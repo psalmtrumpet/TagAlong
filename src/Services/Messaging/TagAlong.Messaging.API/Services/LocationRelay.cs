@@ -38,7 +38,7 @@ public class LocationRelay
     }
 
     /// <summary>Returns false when the user isn't on this ride.</summary>
-    public async Task<bool> ShareAsync(Guid userId, Guid conversationId, double latitude, double longitude)
+    public async Task<bool> ShareAsync(Guid userId, Guid conversationId, double latitude, double longitude, LocationReading? reading = null)
     {
         var conversation = await _conversations.GetByIdAsync(conversationId);
         if (conversation == null || !conversation.IsParticipant(userId)) return false;
@@ -56,7 +56,8 @@ public class LocationRelay
         }
 
         var other = conversation.GetOtherParticipant(userId);
-        await _hub.Clients.Group($"user_{other}").ReceiveHelperLocation(conversationId.ToString(), latitude, longitude);
+        await _hub.Clients.Group($"user_{other}").ReceiveHelperLocation(conversationId.ToString(), latitude, longitude,
+            reading?.Accuracy, reading?.Speed, reading?.Heading, reading?.TimestampMs);
         return true;
     }
 
@@ -106,3 +107,6 @@ public class LocationRelay
         return 2 * R * Math.Asin(Math.Sqrt(a));
     }
 }
+
+/// <summary>How good a GPS reading is, and when the phone took it.</summary>
+public record LocationReading(double? Accuracy, double? Speed, double? Heading, long? TimestampMs);

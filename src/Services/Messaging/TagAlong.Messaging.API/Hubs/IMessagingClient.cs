@@ -8,7 +8,10 @@ public interface IMessagingClient
     Task MessageRead(Guid messageId, DateTime readAt);
     Task ConversationUpdated(ConversationDto conversation);
     Task PriceAccepted(Guid conversationId, decimal acceptedPrice);
-    Task ReceiveHelperLocation(string conversationId, double latitude, double longitude);
+    /// <summary>The other person's live position. The reading details come last so older apps
+    /// (which read only the first three) still work.</summary>
+    Task ReceiveHelperLocation(string conversationId, double latitude, double longitude,
+        double? accuracy, double? speed, double? heading, long? timestampMs);
     Task LockInProposed(ConversationDto conversation);
     Task LockInConfirmed(ConversationDto conversation);
     Task LockInRejected(ConversationDto conversation);
