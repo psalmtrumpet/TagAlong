@@ -12,10 +12,21 @@ public class TripDbContext : DbContext
 
     public DbSet<Domain.Entities.Trip> Trips => Set<Domain.Entities.Trip>();
     public DbSet<TripStop> TripStops => Set<TripStop>();
+    public DbSet<ArrivalLog> ArrivalLogs => Set<ArrivalLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<ArrivalLog>(entity =>
+        {
+            entity.ToTable("arrival_logs");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Kind).HasMaxLength(10).IsRequired();
+            entity.Property(e => e.Target).HasMaxLength(20).IsRequired();
+            entity.HasIndex(e => e.TripId);
+            entity.HasIndex(e => e.ConversationId);
+        });
 
         modelBuilder.Entity<Domain.Entities.Trip>(entity =>
         {
