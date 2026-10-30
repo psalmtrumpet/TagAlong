@@ -559,6 +559,9 @@ services:
       - -n
       - --listening-port=${TURN_PORT:-3478}
       - --external-ip=${TURN_EXTERNAL_IP:-72.62.119.176}
+      # Only on the public address, not Docker's internal networks
+      - --listening-ip=${TURN_EXTERNAL_IP:-72.62.119.176}
+      - --relay-ip=${TURN_EXTERNAL_IP:-72.62.119.176}
       - --realm=tlimc.net
       - --use-auth-secret
       - --static-auth-secret=${TURN_SECRET}
