@@ -412,9 +412,10 @@ services:
       - Hail__ExpirySeconds=${HAIL_EXPIRY_SECONDS:-180}
       - Hail__SuggestedBase=${HAIL_SUGGESTED_BASE:-500}
       - Hail__SuggestedPerKm=${HAIL_SUGGESTED_PER_KM:-150}
-      # In-app calls (Agora): the certificate signs each call pass and stays on the server
-      - Agora__AppId=${AGORA_APP_ID:-}
-      - Agora__AppCertificate=${AGORA_APP_CERTIFICATE:-}
+      # In-app calls: our TURN relay (coturn below); the secret makes short-lived passwords
+      - Turn__Host=${TURN_HOST:-tlimc.net}
+      - Turn__Port=${TURN_PORT:-3478}
+      - Turn__Secret=${TURN_SECRET:-}
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__DefaultConnection=${MESSAGING_DB_CONNECTION}
@@ -546,6 +547,44 @@ services:
         limits:
           cpus: '0.5'
           memory: 256M
+
+  # In-app calls: relays the voice when two phones can't reach each other directly.
+  # Host network so the relay ports work; passwords come from messaging-api (TURN_SECRET).
+  coturn:
+    image: coturn/coturn:4.6.3
+    container_name: tagalong-coturn
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - -n
+      - --listening-port=${TURN_PORT:-3478}
+      - --external-ip=${TURN_EXTERNAL_IP:-72.62.119.176}
+      - --realm=tlimc.net
+      - --use-auth-secret
+      - --static-auth-secret=${TURN_SECRET}
+      - --min-port=49160
+      - --max-port=49360
+      - --fingerprint
+      - --no-cli
+      - --no-tls
+      - --no-dtls
+      - --no-multicast-peers
+      # Never relay into the server's own or private networks
+      - --denied-peer-ip=0.0.0.0-0.255.255.255
+      - --denied-peer-ip=10.0.0.0-10.255.255.255
+      - --denied-peer-ip=127.0.0.0-127.255.255.255
+      - --denied-peer-ip=169.254.0.0-169.254.255.255
+      - --denied-peer-ip=172.16.0.0-172.31.255.255
+      - --denied-peer-ip=192.168.0.0-192.168.255.255
+      - --denied-peer-ip=72.62.119.176
+      - --user-quota=4
+      - --total-quota=400
+      - --log-file=stdout
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
 
   admin-portal:
     image: ${DOCKER_REGISTRY:-tagalong}/admin-portal:${TAG:-latest}

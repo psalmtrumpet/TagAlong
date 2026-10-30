@@ -165,6 +165,19 @@ public class MessagingHub : Hub<IMessagingClient>
         await Clients.Group($"conversation_{message.ConversationId}").MessageRead(messageId, message.ReadAt!.Value);
     }
 
+    /// <summary>
+    /// In-app call setup between the two people on a ride (offer, answer and
+    /// network candidates), passed straight to the other person.
+    /// </summary>
+    public async Task SendCallSignal(Guid conversationId, Guid callId, string type, string payload)
+    {
+        var userId = GetUserId();
+        if (!userId.HasValue || type is not ("offer" or "answer" or "candidate") || payload.Length > 20_000) return;
+        var conversation = await _conversationRepository.GetByIdAsync(conversationId);
+        if (conversation == null || !conversation.IsParticipant(userId.Value)) return;
+        await Clients.Group($"user_{conversation.GetOtherParticipant(userId.Value)}").CallSignal(callId, type, payload);
+    }
+
     private Guid? GetUserId()
     {
         var userIdClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;

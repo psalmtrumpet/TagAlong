@@ -1,5 +1,7 @@
 using System.Net.Http.Json;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
@@ -13,8 +15,11 @@ using TagAlong.Messaging.Infrastructure.Persistence;
 
 namespace TagAlong.Messaging.API.Calls;
 
-/// <summary>What a phone needs to join an in-app call.</summary>
-public record CallJoinDto(Guid CallId, Guid ConversationId, string AppId, string Channel, string Token, uint Uid);
+/// <summary>A server that helps two phones reach each other (STUN) or relays the call (TURN).</summary>
+public record IceServerDto(List<string> Urls, string? Username = null, string? Credential = null);
+
+/// <summary>What a phone needs for an in-app call: the servers to connect through.</summary>
+public record CallJoinDto(Guid CallId, Guid ConversationId, List<IceServerDto> IceServers);
 
 /// <summary>A call ringing on the other phone.</summary>
 public record IncomingCallDto(Guid CallId, Guid ConversationId, Guid CallerId, string CallerName);
@@ -23,16 +28,18 @@ public record EndCallRequest(string? Reason);
 
 /// <summary>
 /// Calls between a driver and their passenger while a ride is booked or under
-/// way: an in-app voice call (Agora), or the phone dialler with the other
-/// person's number (never shown in the app). Nobody else can call either.
+/// way: an in-app voice call (WebRTC, set up over the messaging hub, relayed by
+/// our own TURN server when the phones can't reach each other directly), or
+/// the phone dialler with the other person's number (never shown in the app).
+/// Nobody else can call either.
 /// </summary>
 [ApiController]
 [Authorize]
 [Route("api/conversations/{conversationId:guid}")]
 public class CallsController : ControllerBase
 {
-    /// <summary>How long a call pass lasts (longer than any ride's call).</summary>
-    private const uint TokenSeconds = 3 * 60 * 60;
+    /// <summary>How long the relay password lasts (longer than any ride's call).</summary>
+    private static readonly TimeSpan RelayFor = TimeSpan.FromHours(3);
 
     private readonly MessagingDbContext _db;
     private readonly IHubContext<MessagingHub, IMessagingClient> _hub;
@@ -83,7 +90,7 @@ public class CallsController : ControllerBase
     {
         var (ride, me, error) = await RideAsync(conversationId, ct);
         if (error != null) return error;
-        if (!Configured(out var appId, out var cert))
+        if (!Configured(out var relay))
             return StatusCode(503, new { error = "In-app calls aren't available yet. Use a phone call." });
 
         var callId = Guid.NewGuid();
@@ -96,7 +103,7 @@ public class CallsController : ControllerBase
         await PushAsync(other, "incoming", incoming, ct);
 
         _logger.LogInformation("Call {CallId} started on ride {ConversationId}", callId, conversationId);
-        return Ok(Join(callId, conversationId, appId, cert, UidOf(ride, me)));
+        return Ok(Join(callId, conversationId, relay, me));
     }
 
     /// <summary>Pick up: the pass to join, and tells the caller.</summary>
@@ -105,10 +112,10 @@ public class CallsController : ControllerBase
     {
         var (ride, me, error) = await RideAsync(conversationId, ct);
         if (error != null) return error;
-        if (!Configured(out var appId, out var cert))
+        if (!Configured(out var relay))
             return StatusCode(503, new { error = "In-app calls aren't available yet." });
         await _hub.Clients.Group($"user_{ride!.GetOtherParticipant(me)}").CallAnswered(callId);
-        return Ok(Join(callId, conversationId, appId, cert, UidOf(ride, me)));
+        return Ok(Join(callId, conversationId, relay, me));
     }
 
     /// <summary>Hang up, decline, cancel before it's answered, or no answer.</summary>
@@ -156,22 +163,30 @@ public class CallsController : ControllerBase
         return (ride, me, null);
     }
 
-    private bool Configured(out string appId, out string cert)
+    private record Relay(string Host, string Secret);
+
+    private bool Configured(out Relay relay)
     {
-        appId = _config["Agora:AppId"] ?? "";
-        cert = _config["Agora:AppCertificate"] ?? "";
-        return appId.Length > 0 && cert.Length > 0;
+        relay = new Relay(_config["Turn:Host"] ?? "", _config["Turn:Secret"] ?? "");
+        return relay.Host.Length > 0 && relay.Secret.Length > 0;
     }
 
-    /// <summary>Each call has its own channel; the passenger is 1, the driver 2.</summary>
-    private static CallJoinDto Join(Guid callId, Guid conversationId, string appId, string cert, uint uid)
+    /// <summary>
+    /// Our TURN server, with a password only good for a few hours (coturn's
+    /// shared-secret scheme: user "expiry:id", password HMAC-SHA1 of it).
+    /// </summary>
+    private CallJoinDto Join(Guid callId, Guid conversationId, Relay relay, Guid me)
     {
-        var channel = "call_" + callId.ToString("N");
-        return new CallJoinDto(callId, conversationId, appId, channel,
-            AgoraToken.BuildRtc(appId, cert, channel, uid, TokenSeconds), uid);
+        var expires = DateTimeOffset.UtcNow.Add(RelayFor).ToUnixTimeSeconds();
+        var username = $"{expires}:{me:N}";
+        var password = Convert.ToBase64String(HMACSHA1.HashData(Encoding.UTF8.GetBytes(relay.Secret), Encoding.UTF8.GetBytes(username)));
+        var port = _config["Turn:Port"] ?? "3478";
+        return new CallJoinDto(callId, conversationId, new List<IceServerDto>
+        {
+            new(new List<string> { $"stun:{relay.Host}:{port}" }),
+            new(new List<string> { $"turn:{relay.Host}:{port}?transport=udp", $"turn:{relay.Host}:{port}?transport=tcp" }, username, password),
+        });
     }
-
-    private static uint UidOf(Conversation ride, Guid me) => ride.SenderId == me ? 1u : 2u;
 
     private async Task PushAsync(Guid userId, string kind, IncomingCallDto call, CancellationToken ct)
     {
