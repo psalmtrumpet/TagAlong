@@ -72,19 +72,38 @@ public class NotifyApproachingCommandHandler : ICommandHandler<NotifyApproaching
             await _eventBus.PublishAsync(new RidePushIntegrationEvent(
                 conversation.SenderId,
                 "Your driver has arrived",
-                $"{name} is waiting for you at {where}. Check the plate before you get in.",
+                $"{name} is waiting for you at {where}. Check the plate before you get in.{PinLine(conversation)}",
                 request.ConversationId,
                 "Conversation"), cancellationToken);
             _logger.LogInformation("Driver arrived for conversation {ConversationId}", request.ConversationId);
             return Result.Success(true);
         }
 
-        await _eventBus.PublishAsync(new DriverApproachingIntegrationEvent(
-            request.ConversationId,
-            conversation.SenderId,
-            string.Empty));
+        if (PinLine(conversation) is { Length: > 0 } pinLine)
+        {
+            // With the PIN, so the passenger has it even if their app can't show it
+            await _eventBus.PublishAsync(new RidePushIntegrationEvent(
+                conversation.SenderId,
+                "Driver is almost here!",
+                $"Your driver is close by — get ready to board.{pinLine}",
+                request.ConversationId,
+                "Conversation"), cancellationToken);
+        }
+        else
+        {
+            await _eventBus.PublishAsync(new DriverApproachingIntegrationEvent(
+                request.ConversationId,
+                conversation.SenderId,
+                string.Empty));
+        }
 
         _logger.LogInformation("Driver approaching event published for conversation {ConversationId}", request.ConversationId);
         return Result.Success(true);
     }
+
+    /// <summary>The pickup PIN for the passenger's notification (only they get it), while not yet picked up.</summary>
+    private static string PinLine(Conversation c) =>
+        c.Status == ConversationStatus.LockedIn && c.PickupPin is { } pin
+            ? $" Your pickup PIN is {pin} — give it to the driver when you get in."
+            : string.Empty;
 }
