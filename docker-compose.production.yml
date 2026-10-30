@@ -412,6 +412,9 @@ services:
       - Hail__ExpirySeconds=${HAIL_EXPIRY_SECONDS:-180}
       - Hail__SuggestedBase=${HAIL_SUGGESTED_BASE:-500}
       - Hail__SuggestedPerKm=${HAIL_SUGGESTED_PER_KM:-150}
+      # In-app calls (Agora): the certificate signs each call pass and stays on the server
+      - Agora__AppId=${AGORA_APP_ID:-}
+      - Agora__AppCertificate=${AGORA_APP_CERTIFICATE:-}
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__DefaultConnection=${MESSAGING_DB_CONNECTION}

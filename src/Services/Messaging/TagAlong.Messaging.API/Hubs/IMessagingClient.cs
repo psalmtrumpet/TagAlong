@@ -24,4 +24,9 @@ public interface IMessagingClient
     Task HailCounterOffer(TagAlong.Messaging.API.Hails.HailCounterDto counter);
     Task HailMatched(Guid hailId, ConversationDto conversation);
     Task HailExpired(Guid hailId);
+
+    // In-app calls between a driver and passenger
+    Task IncomingCall(TagAlong.Messaging.API.Calls.IncomingCallDto call);
+    Task CallAnswered(Guid callId);
+    Task CallEnded(Guid callId, string reason);
 }

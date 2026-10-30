@@ -35,6 +35,15 @@ public record RidePushIntegrationEvent(
     Guid ReferenceId,
     string ReferenceType) : IntegrationEvent;
 
+/// <summary>Rings a phone for an in-app call ("incoming"), or stops it ringing ("ended").</summary>
+public record CallPushIntegrationEvent(
+    Guid UserId,
+    string Kind,
+    Guid CallId,
+    Guid ConversationId,
+    Guid CallerId,
+    string CallerName) : IntegrationEvent;
+
 public record PassengerStopNextIntegrationEvent(
     Guid ConversationId,
     Guid PassengerId,
