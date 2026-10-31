@@ -1,8 +1,11 @@
 using Microsoft.AspNetCore.SignalR;
 using TagAlong.Common.CQRS;
 using TagAlong.Common.Results;
+using TagAlong.EventBus;
 using TagAlong.Messaging.API.DTOs;
 using TagAlong.Messaging.API.Hubs;
+using TagAlong.Messaging.API.IntegrationEvents;
+using TagAlong.Messaging.API.Services;
 using TagAlong.Messaging.Domain.Entities;
 using TagAlong.Messaging.Domain.Repositories;
 
@@ -15,15 +18,24 @@ public class AcceptConversationCommandHandler : ICommandHandler<AcceptConversati
     private readonly IConversationRepository _conversationRepository;
     private readonly IMessageRepository _messageRepository;
     private readonly IHubContext<MessagingHub, IMessagingClient> _hubContext;
+    private readonly IEventBus _eventBus;
+    private readonly IUserLookupService _users;
+    private readonly ILogger<AcceptConversationCommandHandler> _logger;
 
     public AcceptConversationCommandHandler(
         IConversationRepository conversationRepository,
         IMessageRepository messageRepository,
-        IHubContext<MessagingHub, IMessagingClient> hubContext)
+        IHubContext<MessagingHub, IMessagingClient> hubContext,
+        IEventBus eventBus,
+        IUserLookupService users,
+        ILogger<AcceptConversationCommandHandler> logger)
     {
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
         _hubContext = hubContext;
+        _eventBus = eventBus;
+        _users = users;
+        _logger = logger;
     }
 
     public async Task<Result<ConversationDto>> Handle(AcceptConversationCommand request, CancellationToken cancellationToken)
@@ -49,6 +61,24 @@ public class AcceptConversationCommandHandler : ICommandHandler<AcceptConversati
 
         // Notify the sender (requester) in real-time that their request was accepted
         await _hubContext.Clients.Group($"user_{conversation.SenderId}").ConversationUpdated(dto);
+
+        // And with a push, in case their app is closed (tapping it opens the chat)
+        try
+        {
+            var name = (await _users.GetDisplayNameAsync(conversation.TravelerId, cancellationToken))?.Split(' ')[0];
+            await _eventBus.PublishAsync(new RidePushIntegrationEvent(
+                conversation.SenderId,
+                "Request accepted!",
+                conversation.IsDelivery
+                    ? $"{name ?? "Your carrier"} accepted your delivery request. Suggest a price to continue."
+                    : $"{name ?? "Your driver"} accepted your ride request. Suggest a price to continue.",
+                conversation.Id,
+                "Conversation"), cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Couldn't send the request-accepted push for {ConversationId}", conversation.Id);
+        }
 
         return Result.Success(dto);
     }
