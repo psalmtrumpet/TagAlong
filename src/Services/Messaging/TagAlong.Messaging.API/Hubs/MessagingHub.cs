@@ -172,7 +172,7 @@ public class MessagingHub : Hub<IMessagingClient>
     public async Task SendCallSignal(Guid conversationId, Guid callId, string type, string payload)
     {
         var userId = GetUserId();
-        if (!userId.HasValue || type is not ("offer" or "answer" or "candidate") || payload.Length > 20_000) return;
+        if (!userId.HasValue || type is not ("offer" or "answer" or "candidate" or "taken") || payload.Length > 20_000) return;
         var conversation = await _conversationRepository.GetByIdAsync(conversationId);
         if (conversation == null || !conversation.IsParticipant(userId.Value)) return;
         await Clients.Group($"user_{conversation.GetOtherParticipant(userId.Value)}").CallSignal(callId, type, payload);

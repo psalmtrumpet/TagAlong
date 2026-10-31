@@ -56,6 +56,11 @@ public class MessagingDbContext : DbContext
             entity.Property(c => c.IsOnDemand).HasColumnName("is_on_demand").HasDefaultValue(false);
             entity.Property(c => c.LockInProposedBy).HasColumnName("lock_in_proposed_by");
             entity.Property(c => c.StartedAt).HasColumnName("started_at");
+            entity.Property(c => c.RideDistanceMetres).HasColumnName("ride_distance_m");
+            entity.Property(c => c.DistanceMarkLat).HasColumnName("distance_mark_lat");
+            entity.Property(c => c.DistanceMarkLng).HasColumnName("distance_mark_lng");
+            entity.Property(c => c.HiddenBySender).HasColumnName("hidden_by_sender").HasDefaultValue(false);
+            entity.Property(c => c.HiddenByTraveler).HasColumnName("hidden_by_traveler").HasDefaultValue(false);
             entity.Property(c => c.DeliveredAt).HasColumnName("delivered_at");
             entity.Property(c => c.PassengerDestLat).HasColumnName("passenger_dest_lat");
             entity.Property(c => c.PassengerDestLng).HasColumnName("passenger_dest_lng");

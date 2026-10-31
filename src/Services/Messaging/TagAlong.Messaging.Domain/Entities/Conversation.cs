@@ -210,6 +210,10 @@ public class Conversation : AggregateRoot
 
         Status = ConversationStatus.InProgress;
         StartedAt = DateTime.UtcNow;
+        // Distance counts from the pickup
+        RideDistanceMetres = 0;
+        DistanceMarkLat = HelperLastLat;
+        DistanceMarkLng = HelperLastLng;
         SetUpdated();
     }
 
@@ -335,7 +339,58 @@ public class Conversation : AggregateRoot
         HelperLastLat = lat;
         HelperLastLng = lng;
         HelperLastSeenAt = DateTime.UtcNow;
+        if (Status == ConversationStatus.InProgress) CountDistance(lat, lng);
         SetUpdated();
+    }
+
+    // ── Distance driven with the passenger on board ──
+
+    /// <summary>How far the car went between pickup and drop-off, from the driver's live position.</summary>
+    public double? RideDistanceMetres { get; private set; }
+    /// <summary>The last point counted: moves on in steps, so GPS wobble while parked isn't counted as driving.</summary>
+    public double? DistanceMarkLat { get; private set; }
+    public double? DistanceMarkLng { get; private set; }
+
+    private const double DistanceStepMetres = 25;
+    /// <summary>A bigger jump is a GPS glitch or a long gap, not driving.</summary>
+    private const double DistanceJumpMetres = 5000;
+
+    private void CountDistance(double lat, double lng)
+    {
+        if (DistanceMarkLat is not { } markLat || DistanceMarkLng is not { } markLng)
+        {
+            DistanceMarkLat = lat;
+            DistanceMarkLng = lng;
+            RideDistanceMetres ??= 0;
+            return;
+        }
+        var d = DistanceMetres(markLat, markLng, lat, lng);
+        if (d < DistanceStepMetres) return;
+        if (d <= DistanceJumpMetres) RideDistanceMetres = (RideDistanceMetres ?? 0) + d;
+        DistanceMarkLat = lat;
+        DistanceMarkLng = lng;
+    }
+
+    private static double DistanceMetres(double lat1, double lng1, double lat2, double lng2)
+    {
+        const double R = 6371000;
+        var dLat = (lat2 - lat1) * Math.PI / 180;
+        var dLng = (lng2 - lng1) * Math.PI / 180;
+        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                Math.Cos(lat1 * Math.PI / 180) * Math.Cos(lat2 * Math.PI / 180) * Math.Sin(dLng / 2) * Math.Sin(dLng / 2);
+        return 2 * R * Math.Asin(Math.Sqrt(a));
+    }
+
+    // ── Ride history ──
+
+    /// <summary>Removed from the passenger's / driver's ride history (only their own list).</summary>
+    public bool HiddenBySender { get; private set; }
+    public bool HiddenByTraveler { get; private set; }
+
+    public void HideFromHistory(Guid userId)
+    {
+        if (userId == SenderId) HiddenBySender = true;
+        if (userId == TravelerId) HiddenByTraveler = true;
     }
 }
 

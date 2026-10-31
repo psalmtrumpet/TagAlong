@@ -29,6 +29,6 @@ public interface IMessagingClient
     Task IncomingCall(TagAlong.Messaging.API.Calls.IncomingCallDto call);
     Task CallAnswered(Guid callId);
     Task CallEnded(Guid callId, string reason);
-    /// <summary>Call setup from the other phone: "offer", "answer" or "candidate" (JSON).</summary>
+    /// <summary>Call setup from the other phone: "offer", "answer", "candidate" or "taken" (JSON).</summary>
     Task CallSignal(Guid callId, string type, string payload);
 }

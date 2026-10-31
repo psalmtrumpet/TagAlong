@@ -21,10 +21,15 @@ public class ConversationsController : ControllerBase
         _mediator = mediator;
     }
 
-    /// <summary>Rides the signed-in user completed, as passenger or driver: where from, where to, when.</summary>
+    /// <summary>
+    /// Rides the signed-in user completed, as passenger or driver, newest first:
+    /// where from and to, when it started and ended, how far, the fare, and who
+    /// the other person was. Rides they removed from their history are left out.
+    /// </summary>
     [HttpGet("history")]
     public async Task<IActionResult> GetRideHistory(
         [FromServices] TagAlong.Messaging.Infrastructure.Persistence.MessagingDbContext db,
+        [FromServices] TagAlong.Messaging.API.Services.IUserLookupService users,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
         CancellationToken cancellationToken = default)
@@ -34,19 +39,77 @@ public class ConversationsController : ControllerBase
         var me = userId.Value;
         var rides = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
             db.Conversations
-                .Where(c => (c.SenderId == me || c.TravelerId == me) && c.DeliveredAt != null && !c.IsDelivery)
+                .Where(c => ((c.SenderId == me && !c.HiddenBySender) || (c.TravelerId == me && !c.HiddenByTraveler))
+                            && c.DeliveredAt != null && !c.IsDelivery)
                 .OrderByDescending(c => c.DeliveredAt)
                 .Skip((Math.Max(1, page) - 1) * Math.Clamp(pageSize, 1, 100))
                 .Take(Math.Clamp(pageSize, 1, 100))
                 .Select(c => new
                 {
                     c.Id,
+                    c.SenderId,
+                    c.TravelerId,
                     From = c.MeetName ?? c.PickupAddress,
+                    FromLat = c.MeetLat ?? c.PickupLat,
+                    FromLng = c.MeetLng ?? c.PickupLng,
                     To = c.DropName ?? c.PassengerDestAddress,
+                    ToLat = c.DropLat ?? c.PassengerDestLat,
+                    ToLng = c.DropLng ?? c.PassengerDestLng,
+                    c.StartedAt,
                     CompletedAt = c.DeliveredAt,
+                    DistanceMetres = c.RideDistanceMetres,
+                    Fare = c.AgreedPrice,
+                    c.PlatformFee,
+                    c.DriverEarning,
+                    c.IsOnDemand,
+                    c.Seats,
                 }),
             cancellationToken);
-        return Ok(rides);
+
+        var names = new Dictionary<Guid, string?>();
+        foreach (var id in rides.Select(r => r.SenderId == me ? r.TravelerId : r.SenderId).Distinct())
+            names[id] = await users.GetDisplayNameAsync(id, cancellationToken);
+
+        return Ok(rides.Select(r =>
+        {
+            var other = r.SenderId == me ? r.TravelerId : r.SenderId;
+            var driver = r.TravelerId == me;
+            return new
+            {
+                r.Id,
+                r.From, r.FromLat, r.FromLng,
+                r.To, r.ToLat, r.ToLng,
+                r.StartedAt,
+                r.CompletedAt,
+                r.DistanceMetres,
+                r.Fare,
+                // The driver also sees TagAlong's fee and what they kept
+                PlatformFee = driver ? r.PlatformFee : null,
+                DriverEarning = driver ? r.DriverEarning : null,
+                IAmDriver = driver,
+                OtherUserId = other,
+                OtherName = names.GetValueOrDefault(other),
+                r.IsOnDemand,
+                r.Seats,
+            };
+        }));
+    }
+
+    /// <summary>Remove a finished ride from the signed-in user's history (the other person still sees it).</summary>
+    [HttpDelete("history/{id:guid}")]
+    public async Task<IActionResult> HideFromHistory(
+        Guid id,
+        [FromServices] TagAlong.Messaging.Infrastructure.Persistence.MessagingDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+        var ride = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+            db.Conversations, c => c.Id == id, cancellationToken);
+        if (ride == null || !ride.IsParticipant(userId.Value)) return NotFound(new { error = "Ride not found" });
+        ride.HideFromHistory(userId.Value);
+        await db.SaveChangesAsync(cancellationToken);
+        return NoContent();
     }
 
     /// <summary>The signed-in driver's earnings from completed rides, with a per-ride breakdown.</summary>
