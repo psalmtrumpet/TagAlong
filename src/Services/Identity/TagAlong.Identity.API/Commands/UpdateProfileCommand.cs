@@ -73,6 +73,7 @@ public class UpdateProfileCommandHandler : ICommandHandler<UpdateProfileCommand,
             user.RefreshToken ?? string.Empty,
             DateTime.UtcNow.AddMinutes(int.Parse(_configuration["JwtSettings:ExpirationInMinutes"] ?? "60")),
             user.PhoneNumber,
-            user.Gender));
+            user.Gender,
+            user.IsEmailVerified));
     }
 }

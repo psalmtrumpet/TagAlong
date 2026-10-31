@@ -83,6 +83,23 @@ public class ApplicationUser : AggregateRoot
         SetUpdated();
     }
 
+    /// <summary>
+    /// Signed up again with the form before ever confirming the email: the new
+    /// details replace the old ones (whoever can read the inbox will confirm it),
+    /// and any session from the first attempt ends.
+    /// </summary>
+    public void RestartSignUp(string passwordHash, string firstName, string lastName, string phoneNumber)
+    {
+        if (IsEmailVerified || !string.IsNullOrEmpty(GoogleId))
+            throw new InvalidOperationException("Only an unconfirmed form sign-up can be restarted");
+        PasswordHash = passwordHash;
+        FirstName = firstName;
+        LastName = lastName;
+        if (phoneNumber != PhoneNumber) UpdatePhoneNumber(phoneNumber);
+        RevokeRefreshToken();
+        SetUpdated();
+    }
+
     public void VerifyEmail()
     {
         IsEmailVerified = true;

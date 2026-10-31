@@ -44,10 +44,18 @@ public class GoogleLoginCommandHandler : ICommandHandler<GoogleLoginCommand, Aut
             return Result.Failure<AuthResponse>(Error.Unauthorized("Invalid Google token"));
         }
 
+        // An existing account with the same email is only taken over when Google
+        // has confirmed the address belongs to this person
         var user = await _userRepository.GetByGoogleIdAsync(googleUser.GoogleId, cancellationToken)
-                   ?? await _userRepository.GetByEmailAsync(googleUser.Email, cancellationToken);
+                   ?? (googleUser.EmailVerified
+                       ? await _userRepository.GetByEmailAsync(googleUser.Email, cancellationToken)
+                       : null);
 
         bool isNewUser = false;
+
+        if (user == null && !googleUser.EmailVerified &&
+            await _userRepository.ExistsAsync(googleUser.Email, cancellationToken))
+            return Result.Failure<AuthResponse>(Error.Unauthorized("Sign in with your email and password for this account."));
 
         if (user == null)
         {
@@ -65,6 +73,12 @@ public class GoogleLoginCommandHandler : ICommandHandler<GoogleLoginCommand, Aut
         {
             user.LinkGoogleAccount(googleUser.GoogleId);
         }
+
+        // Signed up with the form but never entered the emailed code: Google has
+        // just proved the address, so no code is needed any more
+        if (!user.IsEmailVerified && googleUser.EmailVerified &&
+            string.Equals(user.Email, googleUser.Email, StringComparison.OrdinalIgnoreCase))
+            user.VerifyEmail();
 
         if (!user.IsActive)
         {
@@ -111,6 +125,7 @@ public class GoogleLoginCommandHandler : ICommandHandler<GoogleLoginCommand, Aut
             refreshToken,
             DateTime.UtcNow.AddMinutes(int.Parse(_configuration["JwtSettings:ExpirationInMinutes"] ?? "60")),
             user.PhoneNumber,
-            user.Gender));
+            user.Gender,
+            user.IsEmailVerified));
     }
 }

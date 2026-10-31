@@ -69,6 +69,7 @@ public class LoginCommandHandler : ICommandHandler<LoginCommand, AuthResponse>
             refreshToken,
             DateTime.UtcNow.AddMinutes(int.Parse(_configuration["JwtSettings:ExpirationInMinutes"] ?? "60")),
             user.PhoneNumber,
-            user.Gender));
+            user.Gender,
+            user.IsEmailVerified));
     }
 }

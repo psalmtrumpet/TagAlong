@@ -13,6 +13,8 @@ public class GoogleUserInfo
 {
     public string GoogleId { get; set; } = null!;
     public string Email { get; set; } = null!;
+    /// <summary>Google has confirmed this person owns the address.</summary>
+    public bool EmailVerified { get; set; }
     public string FirstName { get; set; } = null!;
     public string LastName { get; set; } = null!;
     public string? ProfileImageUrl { get; set; }
@@ -46,6 +48,7 @@ public class GoogleAuthService : IGoogleAuthService
             {
                 GoogleId = payload.Subject,
                 Email = payload.Email,
+                EmailVerified = payload.EmailVerified,
                 FirstName = payload.GivenName ?? payload.Name?.Split(' ').FirstOrDefault() ?? "User",
                 LastName = payload.FamilyName ?? payload.Name?.Split(' ').LastOrDefault() ?? string.Empty,
                 ProfileImageUrl = payload.Picture

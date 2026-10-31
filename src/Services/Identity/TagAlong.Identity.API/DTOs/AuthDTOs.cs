@@ -51,7 +51,9 @@ public record AuthResponse(
     string RefreshToken,
     DateTime ExpiresAt,
     string? PhoneNumber = null,
-    string? Gender = null);
+    string? Gender = null,
+    // False until a form sign-up enters the code emailed to them (Google: always true)
+    bool EmailVerified = true);
 
 public record UserInfoResponse(
     Guid UserId,

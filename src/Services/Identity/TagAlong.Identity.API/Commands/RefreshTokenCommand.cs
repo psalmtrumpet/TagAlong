@@ -78,6 +78,7 @@ public class RefreshTokenCommandHandler : ICommandHandler<RefreshTokenCommand, A
             newRefreshToken,
             DateTime.UtcNow.AddMinutes(int.Parse(_configuration["JwtSettings:ExpirationInMinutes"] ?? "60")),
             user.PhoneNumber,
-            user.Gender));
+            user.Gender,
+            user.IsEmailVerified));
     }
 }

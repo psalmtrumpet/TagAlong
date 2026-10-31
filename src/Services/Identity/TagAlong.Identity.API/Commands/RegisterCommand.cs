@@ -6,6 +6,7 @@ using TagAlong.Identity.Domain.Entities;
 using TagAlong.Identity.Domain.Repositories;
 using TagAlong.Identity.Infrastructure.Services;
 using TagAlong.Common.Contracts.Events;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace TagAlong.Identity.API.Commands;
 
@@ -16,7 +17,7 @@ public record RegisterCommand(
     string LastName,
     string PhoneNumber) : ICommand<AuthResponse>;
 
-public class RegisterCommandHandler : ICommandHandler<RegisterCommand, AuthResponse>
+public partial class RegisterCommandHandler : ICommandHandler<RegisterCommand, AuthResponse>
 {
     private readonly IUserRepository _userRepository;
     private readonly IPasswordService _passwordService;
@@ -24,6 +25,8 @@ public class RegisterCommandHandler : ICommandHandler<RegisterCommand, AuthRespo
     private readonly IEventBus _eventBus;
     private readonly IConfiguration _configuration;
     private readonly IEmailService _email;
+    private readonly IVerificationCodeRepository _codes;
+    private readonly IMemoryCache _cache;
 
     public RegisterCommandHandler(
         IUserRepository userRepository,
@@ -31,9 +34,13 @@ public class RegisterCommandHandler : ICommandHandler<RegisterCommand, AuthRespo
         IJwtService jwtService,
         IEventBus eventBus,
         IConfiguration configuration,
-        IEmailService email)
+        IEmailService email,
+        IVerificationCodeRepository codes,
+        IMemoryCache cache)
     {
         _email = email;
+        _codes = codes;
+        _cache = cache;
         _userRepository = userRepository;
         _passwordService = passwordService;
         _jwtService = jwtService;
@@ -56,13 +63,18 @@ public class RegisterCommandHandler : ICommandHandler<RegisterCommand, AuthRespo
         if (passwordProblem != null)
             return Result.Failure<AuthResponse>(Error.Validation(passwordProblem));
 
-        if (await _userRepository.ExistsAsync(request.Email, cancellationToken))
-        {
-            // Generic message — do not confirm whether the email is registered
-            return Result.Failure<AuthResponse>(Error.Validation("Unable to complete registration with the provided details"));
-        }
-
         var passwordHash = _passwordService.HashPassword(request.Password);
+
+        var existing = await _userRepository.GetByEmailAsync(request.Email.Trim().ToLowerInvariant(), cancellationToken);
+        if (existing != null)
+        {
+            // A confirmed account (or a Google one) is someone's: generic message —
+            // do not confirm whether the email is registered
+            if (existing.IsEmailVerified || !string.IsNullOrEmpty(existing.GoogleId))
+                return Result.Failure<AuthResponse>(Error.Validation("Unable to complete registration with the provided details"));
+            // Never confirmed: start again with these details and a new code
+            return await RestartAsync(existing, request, passwordHash, cancellationToken);
+        }
 
         var user = ApplicationUser.Create(
             request.Email,
@@ -89,7 +101,9 @@ public class RegisterCommandHandler : ICommandHandler<RegisterCommand, AuthRespo
             user.PhoneNumber,
             DateTime.UtcNow), cancellationToken);
 
-        WelcomeEmail.Send(_email, user.Email, user.FirstName);
+        // Confirm the address first; the welcome email follows once they do
+        EmailCode.MaySend(_cache, user.Id);
+        await EmailCode.SendAsync(user, _codes, _email, cancellationToken);
 
         return Result.Success(new AuthResponse(
             user.Id,
@@ -100,7 +114,48 @@ public class RegisterCommandHandler : ICommandHandler<RegisterCommand, AuthRespo
             refreshToken,
             DateTime.UtcNow.AddMinutes(int.Parse(_configuration["JwtSettings:ExpirationInMinutes"] ?? "60")),
             user.PhoneNumber,
-            user.Gender));
+            user.Gender,
+            user.IsEmailVerified));
+    }
+}
+
+public partial class RegisterCommandHandler
+{
+    /// <summary>The same email signed up again before confirming: new details, new code.</summary>
+    private async Task<Result<AuthResponse>> RestartAsync(ApplicationUser user, RegisterCommand request, string passwordHash,
+        CancellationToken ct)
+    {
+        var phone = request.PhoneNumber.Trim();
+        var phoneChanged = phone != user.PhoneNumber;
+        user.RestartSignUp(passwordHash, request.FirstName.Trim(), request.LastName.Trim(), phone);
+
+        var accessToken = _jwtService.GenerateAccessToken(user);
+        var refreshToken = _jwtService.GenerateRefreshToken();
+        user.UpdateRefreshToken(refreshToken,
+            DateTime.UtcNow.AddDays(int.Parse(_configuration["JwtSettings:RefreshTokenExpirationInDays"] ?? "7")));
+        user.UpdateLastLogin();
+        _userRepository.Update(user);
+        await _userRepository.SaveChangesAsync(ct);
+
+        // The user profile keeps its own copy of the phone number
+        if (phoneChanged)
+            await _eventBus.PublishAsync(new UserPhoneChangedIntegrationEvent(user.Id, phone), ct);
+
+        // Tapped Register again within a minute: the code just sent still works
+        if (EmailCode.MaySend(_cache, user.Id))
+            await EmailCode.SendAsync(user, _codes, _email, ct);
+
+        return Result.Success(new AuthResponse(
+            user.Id,
+            user.Email,
+            user.FirstName,
+            user.LastName,
+            accessToken,
+            refreshToken,
+            DateTime.UtcNow.AddMinutes(int.Parse(_configuration["JwtSettings:ExpirationInMinutes"] ?? "60")),
+            user.PhoneNumber,
+            user.Gender,
+            user.IsEmailVerified));
     }
 }
 

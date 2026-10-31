@@ -125,6 +125,33 @@ public class AuthController : ControllerBase
         return Ok(result.Value);
     }
 
+    /// <summary>Email the signed-in user a new code to confirm their address.</summary>
+    [Authorize]
+    [HttpPost("email/send-code")]
+    [EnableRateLimiting("auth")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> SendEmailCode(CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new SendEmailCodeCommand(), cancellationToken);
+        if (result.IsFailure)
+            return ToActionResult(result.Error);
+        return Ok(new { message = "Code sent" });
+    }
+
+    /// <summary>Confirm the email address with the code; returns fresh tokens.</summary>
+    [Authorize]
+    [HttpPost("email/verify")]
+    [EnableRateLimiting("auth")]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new VerifyEmailCommand(request.Code), cancellationToken);
+        if (result.IsFailure)
+            return ToActionResult(result.Error);
+        return Ok(result.Value);
+    }
+
     [HttpPost("forgot-password")]
     [EnableRateLimiting("auth")]
     [ProducesResponseType(StatusCodes.Status200OK)]
