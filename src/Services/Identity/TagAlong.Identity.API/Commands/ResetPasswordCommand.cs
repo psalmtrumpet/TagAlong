@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using TagAlong.Common.CQRS;
 using TagAlong.Common.Results;
 using TagAlong.Identity.Domain.Repositories;
@@ -12,8 +13,15 @@ public class ResetPasswordCommandHandler : ICommandHandler<ResetPasswordCommand,
     private readonly IUserRepository _userRepository;
     private readonly IPasswordService _passwordService;
 
-    public ResetPasswordCommandHandler(IUserRepository userRepository, IPasswordService passwordService)
+    private readonly Microsoft.Extensions.Caching.Memory.IMemoryCache _cache;
+
+    /// <summary>Wrong codes allowed before the reset code stops working.</summary>
+    private const int MaxTries = 5;
+
+    public ResetPasswordCommandHandler(IUserRepository userRepository, IPasswordService passwordService,
+        Microsoft.Extensions.Caching.Memory.IMemoryCache cache)
     {
+        _cache = cache;
         _userRepository = userRepository;
         _passwordService = passwordService;
     }
@@ -31,7 +39,22 @@ public class ResetPasswordCommandHandler : ICommandHandler<ResetPasswordCommand,
             return Result.Failure<bool>(Error.Validation("Reset code has expired"));
 
         if (user.PasswordResetOtp != request.Code.Trim())
+        {
+            var tries = $"reset-tries:{user.Id}";
+            var n = (_cache.TryGetValue(tries, out int t) ? t : 0) + 1;
+            if (n >= MaxTries)
+            {
+                // Too many guesses: this code is finished
+                _cache.Remove(tries);
+                user.ClearPasswordResetOtp();
+                _userRepository.Update(user);
+                await _userRepository.SaveChangesAsync(cancellationToken);
+                return Result.Failure<bool>(Error.Validation("Too many wrong codes. Ask for a new reset code."));
+            }
+            _cache.Set(tries, n, TimeSpan.FromMinutes(15));
             return Result.Failure<bool>(Error.Validation("That code doesn't match. If you asked for more than one, use the code in the newest email."));
+        }
+        _cache.Remove($"reset-tries:{user.Id}");
 
         var problem = TagAlong.Identity.API.Validators.PasswordRules.Problem(request.NewPassword);
         if (problem != null)

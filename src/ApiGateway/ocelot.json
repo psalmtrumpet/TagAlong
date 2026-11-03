@@ -91,22 +91,6 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/api/payments/{everything}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "payment-api",
-          "Port": 80
-        }
-      ],
-      "UpstreamPathTemplate": "/api/payments/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "PATCH", "DELETE" ],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
-      }
-    },
-    {
       "DownstreamPathTemplate": "/api/public/tracking/{conversationId}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -117,6 +101,13 @@
       ],
       "UpstreamPathTemplate": "/api/public/tracking/{conversationId}",
       "UpstreamHttpMethod": [ "GET" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/public/paystack/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "messaging-api", "Port": 80 }],
+      "UpstreamPathTemplate": "/api/public/paystack/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST" ]
     },
     {
       "DownstreamPathTemplate": "/api/conversations",

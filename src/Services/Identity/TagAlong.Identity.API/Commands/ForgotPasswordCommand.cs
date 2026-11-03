@@ -40,8 +40,7 @@ public class ForgotPasswordCommandHandler : ICommandHandler<ForgotPasswordComman
 
     private static string GenerateOtp()
     {
-        var rng = new Random();
-        return rng.Next(100000, 999999).ToString();
+        return System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
     }
 
     private static string BuildResetEmail(string firstName, string otp)
@@ -80,7 +79,7 @@ body{margin:0;padding:0;background:#F5F3EE;font-family:'Metropolis',-apple-syste
 </div>
 </body></html>";
         return t
-            .Replace("__FNAME__", firstName)
+            .Replace("__FNAME__", System.Net.WebUtility.HtmlEncode(firstName?.Trim() ?? string.Empty))
             .Replace("__OTP__", otp)
             .Replace("__YEAR__", DateTime.UtcNow.Year.ToString());
     }

@@ -20,8 +20,13 @@ public class WaitlistController : ControllerBase
 
     [HttpPost("api/waitlist")]
     [AllowAnonymous]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("waitlist")]
     public async Task<IActionResult> Join([FromBody] JoinWaitlistRequest request, CancellationToken ct)
     {
+        // A hidden field people never see: only bots fill it in. Look successful, do nothing.
+        if (!string.IsNullOrWhiteSpace(request.Website))
+            return Ok(new { message = "You're on the list!" });
+
         // WhatsApp number is required; email is optional
         var digits = new string((request.Phone ?? string.Empty).Where(char.IsDigit).ToArray());
         if (digits.Length < 10)
@@ -59,4 +64,4 @@ public class WaitlistController : ControllerBase
 
 // Name is optional (the form now collects email, phone and Lagos area).
 public record JoinWaitlistRequest(string? Email = null, string? Phone = null, string? Area = null, string? Name = null,
-    string? Role = null, string? FromArea = null, string? ToArea = null);
+    string? Role = null, string? FromArea = null, string? ToArea = null, string? Website = null);

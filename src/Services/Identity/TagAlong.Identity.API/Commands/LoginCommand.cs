@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using TagAlong.Common.CQRS;
 using TagAlong.Common.Results;
 using TagAlong.Identity.API.DTOs;
@@ -14,13 +15,20 @@ public class LoginCommandHandler : ICommandHandler<LoginCommand, AuthResponse>
     private readonly IPasswordService _passwordService;
     private readonly IJwtService _jwtService;
     private readonly IConfiguration _configuration;
+    private readonly Microsoft.Extensions.Caching.Memory.IMemoryCache _cache;
+
+    /// <summary>Wrong passwords allowed per account in <see cref="LockFor"/> before sign-in pauses.</summary>
+    private const int MaxWrong = 8;
+    private static readonly TimeSpan LockFor = TimeSpan.FromMinutes(15);
 
     public LoginCommandHandler(
         IUserRepository userRepository,
         IPasswordService passwordService,
         IJwtService jwtService,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        Microsoft.Extensions.Caching.Memory.IMemoryCache cache)
     {
+        _cache = cache;
         _userRepository = userRepository;
         _passwordService = passwordService;
         _jwtService = jwtService;
@@ -41,10 +49,17 @@ public class LoginCommandHandler : ICommandHandler<LoginCommand, AuthResponse>
             return Result.Failure<AuthResponse>(Error.Unauthorized("Account is deactivated"));
         }
 
+        var wrongKey = $"login-wrong:{user.Id}";
+        if (_cache.TryGetValue(wrongKey, out int wrong) && wrong >= MaxWrong)
+            return Result.Failure<AuthResponse>(Error.Unauthorized(
+                "Too many wrong passwords. Wait 15 minutes, or reset your password."));
+
         if (!_passwordService.VerifyPassword(request.Password, user.PasswordHash))
         {
+            _cache.Set(wrongKey, wrong + 1, LockFor);
             return Result.Failure<AuthResponse>(Error.Unauthorized("Invalid email or password"));
         }
+        _cache.Remove(wrongKey);
 
         var accessToken = _jwtService.GenerateAccessToken(user);
         // Reuse a still-valid refresh token: signing in on a second phone (or two

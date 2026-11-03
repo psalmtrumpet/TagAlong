@@ -132,17 +132,29 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddMemoryCache();
 
-// Rate limiting — 10 requests per minute per IP on auth endpoints
+// Rate limiting per client IP. nginx sets X-Real-IP to the caller's address
+// (it overwrites anything the caller sends); the gateway passes it through.
+// Generous per IP because many phones share one mobile-network address —
+// guessing is also capped per account in the commands.
+static string ClientIp(HttpContext c) =>
+    c.Request.Headers["X-Real-IP"].FirstOrDefault() is { Length: > 0 } ip ? ip
+    : c.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+static RateLimitPartition<string> PerIp(HttpContext c, int perMinute) =>
+    RateLimitPartition.GetSlidingWindowLimiter(ClientIp(c), _ => new SlidingWindowRateLimiterOptions
+    {
+        PermitLimit = perMinute,
+        Window = TimeSpan.FromMinutes(1),
+        SegmentsPerWindow = 6,
+        QueueLimit = 0,
+    });
 builder.Services.AddRateLimiter(options =>
 {
-    options.AddSlidingWindowLimiter("auth", limiterOptions =>
-    {
-        limiterOptions.PermitLimit = 10;
-        limiterOptions.Window = TimeSpan.FromMinutes(1);
-        limiterOptions.SegmentsPerWindow = 6;
-        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        limiterOptions.QueueLimit = 0;
-    });
+    // Sign in, sign up, codes, password reset
+    options.AddPolicy("auth", c => PerIp(c, 30));
+    // Keeping a session alive (needs a valid refresh token anyway)
+    options.AddPolicy("refresh", c => PerIp(c, 120));
+    // Website waitlist (sends an email)
+    options.AddPolicy("waitlist", c => PerIp(c, 5));
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
