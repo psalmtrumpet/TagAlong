@@ -51,7 +51,7 @@ services:
       resources:
         limits:
           cpus: '0.5'
-          memory: 256M
+          memory: 512M
 
   redis:
     image: redis:7-alpine
@@ -452,8 +452,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 512M
+          cpus: '1.5'
+          memory: 1024M
 
   review-api:
     image: ${DOCKER_REGISTRY:-tagalong}/review-api:${TAG:-latest}
