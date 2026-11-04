@@ -108,6 +108,13 @@ builder.Services.AddHostedService<TagAlong.User.API.Services.RecordingCleanupJob
 builder.Services.AddSingleton<TagAlong.User.API.Services.DriverDocumentReader>();
 builder.Services.AddSingleton<TagAlong.User.API.Services.KycPhotoService>();
 builder.Services.AddHttpClient();
+// Who may see a verification selfie (people who share a ride or request)
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient("messaging-api", c =>
+{
+    c.BaseAddress = new Uri(builder.Configuration["ServiceUrls:MessagingApi"] ?? "http://messaging-api/");
+    c.Timeout = TimeSpan.FromSeconds(5);
+});
 
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<GetUserProfileQuery>());
 builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));

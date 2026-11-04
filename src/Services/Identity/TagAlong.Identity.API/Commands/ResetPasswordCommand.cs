@@ -14,13 +14,16 @@ public class ResetPasswordCommandHandler : ICommandHandler<ResetPasswordCommand,
     private readonly IPasswordService _passwordService;
 
     private readonly Microsoft.Extensions.Caching.Memory.IMemoryCache _cache;
+    private readonly TagAlong.Identity.API.Services.RefreshSessions _sessions;
 
     /// <summary>Wrong codes allowed before the reset code stops working.</summary>
     private const int MaxTries = 5;
 
     public ResetPasswordCommandHandler(IUserRepository userRepository, IPasswordService passwordService,
-        Microsoft.Extensions.Caching.Memory.IMemoryCache cache)
+        Microsoft.Extensions.Caching.Memory.IMemoryCache cache,
+        TagAlong.Identity.API.Services.RefreshSessions sessions)
     {
+        _sessions = sessions;
         _cache = cache;
         _userRepository = userRepository;
         _passwordService = passwordService;
@@ -64,6 +67,7 @@ public class ResetPasswordCommandHandler : ICommandHandler<ResetPasswordCommand,
         user.UpdatePassword(hash);
         user.ClearPasswordResetOtp();
         user.RevokeRefreshToken();
+        await _sessions.RevokeAllAsync(user.Id, "password reset", cancellationToken);
 
         _userRepository.Update(user);
         await _userRepository.SaveChangesAsync(cancellationToken);

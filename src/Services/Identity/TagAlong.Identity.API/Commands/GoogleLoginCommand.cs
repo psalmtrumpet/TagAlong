@@ -18,6 +18,7 @@ public class GoogleLoginCommandHandler : ICommandHandler<GoogleLoginCommand, Aut
     private readonly IEventBus _eventBus;
     private readonly IConfiguration _configuration;
     private readonly IEmailService _email;
+    private readonly TagAlong.Identity.API.Services.RefreshSessions _sessions;
 
     public GoogleLoginCommandHandler(
         IUserRepository userRepository,
@@ -25,8 +26,10 @@ public class GoogleLoginCommandHandler : ICommandHandler<GoogleLoginCommand, Aut
         IJwtService jwtService,
         IEventBus eventBus,
         IConfiguration configuration,
-        IEmailService email)
+        IEmailService email,
+        TagAlong.Identity.API.Services.RefreshSessions sessions)
     {
+        _sessions = sessions;
         _email = email;
         _userRepository = userRepository;
         _googleAuthService = googleAuthService;
@@ -86,14 +89,8 @@ public class GoogleLoginCommandHandler : ICommandHandler<GoogleLoginCommand, Aut
         }
 
         var accessToken = _jwtService.GenerateAccessToken(user);
-        // Reuse a still-valid refresh token: signing in on a second phone (or two
-        // refreshes at once) must not sign the other session out
-        var refreshToken = !string.IsNullOrEmpty(user.RefreshToken) && user.RefreshTokenExpiryTime > DateTime.UtcNow
-            ? user.RefreshToken!
-            : _jwtService.GenerateRefreshToken();
-        var refreshTokenExpiry = DateTime.UtcNow.AddDays(int.Parse(_configuration["JwtSettings:RefreshTokenExpirationInDays"] ?? "7"));
-
-        user.UpdateRefreshToken(refreshToken, refreshTokenExpiry);
+        // A session of its own for this phone (other phones stay signed in)
+        var refreshToken = await _sessions.IssueAsync(user.Id, cancellationToken);
         user.UpdateLastLogin();
 
         if (!isNewUser)

@@ -27,6 +27,7 @@ public partial class RegisterCommandHandler : ICommandHandler<RegisterCommand, A
     private readonly IEmailService _email;
     private readonly IVerificationCodeRepository _codes;
     private readonly IMemoryCache _cache;
+    private readonly TagAlong.Identity.API.Services.RefreshSessions _sessions;
 
     public RegisterCommandHandler(
         IUserRepository userRepository,
@@ -36,8 +37,10 @@ public partial class RegisterCommandHandler : ICommandHandler<RegisterCommand, A
         IConfiguration configuration,
         IEmailService email,
         IVerificationCodeRepository codes,
-        IMemoryCache cache)
+        IMemoryCache cache,
+        TagAlong.Identity.API.Services.RefreshSessions sessions)
     {
+        _sessions = sessions;
         _email = email;
         _codes = codes;
         _cache = cache;
@@ -84,10 +87,7 @@ public partial class RegisterCommandHandler : ICommandHandler<RegisterCommand, A
             request.PhoneNumber);
 
         var accessToken = _jwtService.GenerateAccessToken(user);
-        var refreshToken = _jwtService.GenerateRefreshToken();
-        var refreshTokenExpiry = DateTime.UtcNow.AddDays(int.Parse(_configuration["JwtSettings:RefreshTokenExpirationInDays"] ?? "7"));
-
-        user.UpdateRefreshToken(refreshToken, refreshTokenExpiry);
+        var refreshToken = await _sessions.IssueAsync(user.Id, cancellationToken);
         user.UpdateLastLogin();
 
         await _userRepository.AddAsync(user, cancellationToken);
@@ -129,10 +129,10 @@ public partial class RegisterCommandHandler
         var phoneChanged = phone != user.PhoneNumber;
         user.RestartSignUp(passwordHash, request.FirstName.Trim(), request.LastName.Trim(), phone);
 
+        // Whoever started the first attempt is signed out
+        await _sessions.RevokeAllAsync(user.Id, "sign-up restarted", ct);
         var accessToken = _jwtService.GenerateAccessToken(user);
-        var refreshToken = _jwtService.GenerateRefreshToken();
-        user.UpdateRefreshToken(refreshToken,
-            DateTime.UtcNow.AddDays(int.Parse(_configuration["JwtSettings:RefreshTokenExpirationInDays"] ?? "7")));
+        var refreshToken = await _sessions.IssueAsync(user.Id, ct);
         user.UpdateLastLogin();
         _userRepository.Update(user);
         await _userRepository.SaveChangesAsync(ct);

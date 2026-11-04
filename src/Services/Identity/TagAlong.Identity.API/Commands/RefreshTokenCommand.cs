@@ -2,6 +2,7 @@ using System.Security.Claims;
 using TagAlong.Common.CQRS;
 using TagAlong.Common.Results;
 using TagAlong.Identity.API.DTOs;
+using TagAlong.Identity.API.Services;
 using TagAlong.Identity.Domain.Repositories;
 using TagAlong.Identity.Infrastructure.Services;
 
@@ -14,15 +15,18 @@ public class RefreshTokenCommandHandler : ICommandHandler<RefreshTokenCommand, A
     private readonly IUserRepository _userRepository;
     private readonly IJwtService _jwtService;
     private readonly IConfiguration _configuration;
+    private readonly RefreshSessions _sessions;
 
     public RefreshTokenCommandHandler(
         IUserRepository userRepository,
         IJwtService jwtService,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        RefreshSessions sessions)
     {
         _userRepository = userRepository;
         _jwtService = jwtService;
         _configuration = configuration;
+        _sessions = sessions;
     }
 
     public async Task<Result<AuthResponse>> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
@@ -48,37 +52,29 @@ public class RefreshTokenCommandHandler : ICommandHandler<RefreshTokenCommand, A
             return Result.Failure<AuthResponse>(Error.Unauthorized("User not found"));
         }
 
-        if (user.RefreshToken != request.RefreshToken || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
-        {
-            return Result.Failure<AuthResponse>(Error.Unauthorized("Invalid or expired refresh token"));
-        }
-
         if (!user.IsActive)
         {
             return Result.Failure<AuthResponse>(Error.Unauthorized("Account is deactivated"));
         }
 
-        var newAccessToken = _jwtService.GenerateAccessToken(user);
-        // Keep the same refresh token (sliding expiry) — replacing it on every refresh
-        // broke the session whenever two requests refreshed at the same moment
-        var newRefreshToken = user.RefreshToken!;
-        var refreshTokenExpiry = DateTime.UtcNow.AddDays(int.Parse(_configuration["JwtSettings:RefreshTokenExpirationInDays"] ?? "7"));
-
-        user.UpdateRefreshToken(newRefreshToken, refreshTokenExpiry);
-
-        _userRepository.Update(user);
-        await _userRepository.SaveChangesAsync(cancellationToken);
-
-        return Result.Success(new AuthResponse(
+        // A new refresh token every time; this phone's session moves on to it
+        var (outcome, response) = await _sessions.RotateAsync(userId, request.RefreshToken, user, refreshToken => new AuthResponse(
             user.Id,
             user.Email,
             user.FirstName,
             user.LastName,
-            newAccessToken,
-            newRefreshToken,
+            _jwtService.GenerateAccessToken(user),
+            refreshToken,
             DateTime.UtcNow.AddMinutes(int.Parse(_configuration["JwtSettings:ExpirationInMinutes"] ?? "60")),
             user.PhoneNumber,
             user.Gender,
-            user.IsEmailVerified));
+            user.IsEmailVerified), cancellationToken);
+
+        return outcome switch
+        {
+            RefreshSessions.Outcome.Rotated or RefreshSessions.Outcome.Repeat => Result.Success(response!),
+            RefreshSessions.Outcome.Reused => Result.Failure<AuthResponse>(Error.Unauthorized("This sign-in was ended for safety. Please sign in again.")),
+            _ => Result.Failure<AuthResponse>(Error.Unauthorized("Invalid or expired refresh token")),
+        };
     }
 }

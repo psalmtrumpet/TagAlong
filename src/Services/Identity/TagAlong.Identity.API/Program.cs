@@ -85,6 +85,7 @@ builder.Services.AddScoped<IWaitlistRepository, WaitlistRepository>();
 
 // Services
 builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<TagAlong.Identity.API.Services.RefreshSessions>(); // one session per signed-in phone
 builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();

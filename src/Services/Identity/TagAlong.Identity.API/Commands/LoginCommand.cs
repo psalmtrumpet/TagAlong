@@ -16,6 +16,7 @@ public class LoginCommandHandler : ICommandHandler<LoginCommand, AuthResponse>
     private readonly IJwtService _jwtService;
     private readonly IConfiguration _configuration;
     private readonly Microsoft.Extensions.Caching.Memory.IMemoryCache _cache;
+    private readonly TagAlong.Identity.API.Services.RefreshSessions _sessions;
 
     /// <summary>Wrong passwords allowed per account in <see cref="LockFor"/> before sign-in pauses.</summary>
     private const int MaxWrong = 8;
@@ -26,8 +27,10 @@ public class LoginCommandHandler : ICommandHandler<LoginCommand, AuthResponse>
         IPasswordService passwordService,
         IJwtService jwtService,
         IConfiguration configuration,
-        Microsoft.Extensions.Caching.Memory.IMemoryCache cache)
+        Microsoft.Extensions.Caching.Memory.IMemoryCache cache,
+        TagAlong.Identity.API.Services.RefreshSessions sessions)
     {
+        _sessions = sessions;
         _cache = cache;
         _userRepository = userRepository;
         _passwordService = passwordService;
@@ -62,14 +65,8 @@ public class LoginCommandHandler : ICommandHandler<LoginCommand, AuthResponse>
         _cache.Remove(wrongKey);
 
         var accessToken = _jwtService.GenerateAccessToken(user);
-        // Reuse a still-valid refresh token: signing in on a second phone (or two
-        // refreshes at once) must not sign the other session out
-        var refreshToken = !string.IsNullOrEmpty(user.RefreshToken) && user.RefreshTokenExpiryTime > DateTime.UtcNow
-            ? user.RefreshToken!
-            : _jwtService.GenerateRefreshToken();
-        var refreshTokenExpiry = DateTime.UtcNow.AddDays(int.Parse(_configuration["JwtSettings:RefreshTokenExpirationInDays"] ?? "7"));
-
-        user.UpdateRefreshToken(refreshToken, refreshTokenExpiry);
+        // A session of its own for this phone (other phones stay signed in)
+        var refreshToken = await _sessions.IssueAsync(user.Id, cancellationToken);
         user.UpdateLastLogin();
 
         _userRepository.Update(user);

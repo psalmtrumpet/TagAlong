@@ -136,10 +136,13 @@ public class VerifyEmailCommandHandler : ICommandHandler<VerifyEmailCommand, Aut
     private readonly IConfiguration _config;
     private readonly IHttpContextAccessor _http;
     private readonly IMemoryCache _cache;
+    private readonly TagAlong.Identity.API.Services.RefreshSessions _sessions;
 
     public VerifyEmailCommandHandler(IUserRepository users, IVerificationCodeRepository codes, IJwtService jwt,
-        IEmailService email, IConfiguration config, IHttpContextAccessor http, IMemoryCache cache)
+        IEmailService email, IConfiguration config, IHttpContextAccessor http, IMemoryCache cache,
+        TagAlong.Identity.API.Services.RefreshSessions sessions)
     {
+        _sessions = sessions;
         _users = users;
         _codes = codes;
         _jwt = jwt;
@@ -186,10 +189,10 @@ public class VerifyEmailCommandHandler : ICommandHandler<VerifyEmailCommand, Aut
         }
 
         // New tokens: they carry email_verified = true
+        // (the not-yet-confirmed account only has the session from signing up)
+        await _sessions.RevokeAllAsync(user.Id, "email confirmed", ct);
         var accessToken = _jwt.GenerateAccessToken(user);
-        var refreshToken = _jwt.GenerateRefreshToken();
-        user.UpdateRefreshToken(refreshToken,
-            DateTime.UtcNow.AddDays(int.Parse(_config["JwtSettings:RefreshTokenExpirationInDays"] ?? "7")));
+        var refreshToken = await _sessions.IssueAsync(user.Id, ct);
         _users.Update(user);
         await _users.SaveChangesAsync(ct);
 

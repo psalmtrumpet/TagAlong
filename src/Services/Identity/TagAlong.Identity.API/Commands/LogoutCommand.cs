@@ -6,15 +6,20 @@ using TagAlong.Identity.Domain.Repositories;
 
 namespace TagAlong.Identity.API.Commands;
 
-public record LogoutCommand() : ICommand;
+/// <param name="RefreshToken">This phone's token: only its session ends. Without it, every session ends.</param>
+public record LogoutCommand(string? RefreshToken = null) : ICommand;
 
 public class LogoutCommandHandler : ICommandHandler<LogoutCommand>
 {
     private readonly IUserRepository _userRepository;
     private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public LogoutCommandHandler(IUserRepository userRepository, IHttpContextAccessor httpContextAccessor)
+    private readonly TagAlong.Identity.API.Services.RefreshSessions _sessions;
+
+    public LogoutCommandHandler(IUserRepository userRepository, IHttpContextAccessor httpContextAccessor,
+        TagAlong.Identity.API.Services.RefreshSessions sessions)
     {
+        _sessions = sessions;
         _userRepository = userRepository;
         _httpContextAccessor = httpContextAccessor;
     }
@@ -35,7 +40,13 @@ public class LogoutCommandHandler : ICommandHandler<LogoutCommand>
             return Result.Failure(Error.NotFound($"User with id {userId} not found"));
         }
 
+        if (request.RefreshToken is { Length: > 0 } token)
+        {
+            await _sessions.RevokeAsync(userId, token, "signed out", cancellationToken);
+            return Result.Success();
+        }
         user.RevokeRefreshToken();
+        await _sessions.RevokeAllAsync(userId, "signed out", cancellationToken);
 
         _userRepository.Update(user);
         await _userRepository.SaveChangesAsync(cancellationToken);

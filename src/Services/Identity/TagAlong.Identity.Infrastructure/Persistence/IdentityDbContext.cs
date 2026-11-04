@@ -12,6 +12,7 @@ public class IdentityDbContext : DbContext
     public DbSet<ApplicationUser> Users => Set<ApplicationUser>();
     public DbSet<VerificationCode> VerificationCodes => Set<VerificationCode>();
     public DbSet<WaitlistEntry> WaitlistEntries => Set<WaitlistEntry>();
+    public DbSet<RefreshSession> RefreshSessions => Set<RefreshSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -81,6 +82,21 @@ public class IdentityDbContext : DbContext
                 .HasConversion<string>();
 
             entity.HasIndex(e => new { e.UserId, e.Code, e.Type });
+        });
+
+        modelBuilder.Entity<RefreshSession>(entity =>
+        {
+            entity.ToTable("refresh_sessions");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.CurrentHash).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.PreviousHash).HasMaxLength(64);
+            entity.Property(e => e.RevokeReason).HasMaxLength(40);
+            entity.Property(e => e.UserAgent).HasMaxLength(200);
+            entity.Ignore(e => e.IsDeleted);
+            entity.Ignore(e => e.DeletedAt);
+            entity.Ignore(e => e.IsActive);
+            entity.HasIndex(e => new { e.UserId, e.CurrentHash });
+            entity.HasIndex(e => new { e.UserId, e.PreviousHash });
         });
 
         modelBuilder.Entity<WaitlistEntry>(entity =>
