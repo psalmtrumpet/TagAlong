@@ -40,8 +40,8 @@ public class CreateConversationCommandValidator : AbstractValidator<CreateConver
     {
         RuleFor(x => x.SenderId).NotEmpty();
         RuleFor(x => x.TravelerId).NotEmpty();
-        RuleFor(x => x.SenderId).NotEqual(x => x.TravelerId).WithMessage("Cannot create conversation with yourself");
-        RuleFor(x => x.InitialMessage).MaximumLength(2000).When(x => x.InitialMessage != null);
+        RuleFor(x => x.SenderId).NotEqual(x => x.TravelerId).WithMessage("You can't request a ride from yourself.");
+        RuleFor(x => x.InitialMessage).MaximumLength(2000).When(x => x.InitialMessage != null).WithMessage("That message is too long.");
     }
 }
 
@@ -78,12 +78,6 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
 
     public async Task<Result<ConversationDto>> Handle(CreateConversationCommand request, CancellationToken cancellationToken)
     {
-        // (FluentValidation validators aren't run in this service: checked here)
-        if (request.SenderId == request.TravelerId)
-            return Result.Failure<ConversationDto>(Error.Validation("You can't request a ride from yourself."));
-        if (request.InitialMessage is { Length: > 2000 })
-            return Result.Failure<ConversationDto>(Error.Validation("That message is too long."));
-
         // Only verified people can request a ride (if the user service can't answer, don't block)
         if (await _users.IsVerifiedAsync(request.SenderId, cancellationToken) == false)
         {

@@ -423,7 +423,8 @@ services:
       - Hail__SuggestedBase=${HAIL_SUGGESTED_BASE:-500}
       - Hail__SuggestedPerKm=${HAIL_SUGGESTED_PER_KM:-150}
       # In-app calls: our TURN relay (coturn below); the secret makes short-lived passwords
-      - Turn__Host=${TURN_HOST:-tlimc.net}
+      # The IP, not a name: tlimc.net may sit behind Cloudflare, which only passes web traffic
+      - Turn__Host=${TURN_HOST:-72.62.119.176}
       - Turn__Port=${TURN_PORT:-3478}
       - Turn__Secret=${TURN_SECRET:-}
       - ASPNETCORE_ENVIRONMENT=Production

@@ -114,8 +114,9 @@ builder.Services.AddHttpClient<IUserLookupService, UserLookupService>(client =>
 // MediatR
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 
-// FluentValidation
+// FluentValidation — run before every command (a failed rule is a 400 with its message)
 builder.Services.AddValidatorsFromAssemblyContaining<CreateConversationCommandValidator>();
+builder.Services.AddTransient(typeof(MediatR.IPipelineBehavior<,>), typeof(TagAlong.Common.Behaviors.ValidationBehavior<,>));
 
 // SignalR with Redis backplane for scaling
 // Use camelCase so the Flutter client's fromJson helpers can read property names.

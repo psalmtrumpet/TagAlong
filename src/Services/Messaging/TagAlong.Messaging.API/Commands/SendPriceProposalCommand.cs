@@ -24,7 +24,7 @@ public class SendPriceProposalCommandValidator : AbstractValidator<SendPriceProp
         RuleFor(x => x.ConversationId).NotEmpty();
         RuleFor(x => x.SenderId).NotEmpty();
         RuleFor(x => x.ProposedPrice).GreaterThanOrEqualTo(_ => TagAlong.Messaging.API.Services.RideRules.MinimumFare).WithMessage(_ => TagAlong.Messaging.API.Services.RideRules.FareTooLow);
-        RuleFor(x => x.Message).MaximumLength(2000).When(x => x.Message != null);
+        RuleFor(x => x.Message).MaximumLength(2000).When(x => x.Message != null).WithMessage("That message is too long.");
     }
 }
 
@@ -52,11 +52,6 @@ public class SendPriceProposalCommandHandler : ICommandHandler<SendPriceProposal
 
     public async Task<Result<MessageDto>> Handle(SendPriceProposalCommand request, CancellationToken cancellationToken)
     {
-        // (FluentValidation validators aren't run in this service: checked here)
-        if (request.ProposedPrice < TagAlong.Messaging.API.Services.RideRules.MinimumFare)
-            return Result.Failure<MessageDto>(Error.Validation(TagAlong.Messaging.API.Services.RideRules.FareTooLow));
-        if (request.Message is { Length: > 2000 })
-            return Result.Failure<MessageDto>(Error.Validation("That message is too long."));
 
         var conversation = await _conversationRepository.GetByIdAsync(request.ConversationId, cancellationToken);
         if (conversation == null)

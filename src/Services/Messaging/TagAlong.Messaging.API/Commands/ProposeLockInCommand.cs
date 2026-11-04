@@ -39,9 +39,6 @@ public class ProposeLockInCommandHandler : ICommandHandler<ProposeLockInCommand,
 
     public async Task<Result<ConversationDto>> Handle(ProposeLockInCommand request, CancellationToken cancellationToken)
     {
-        // (FluentValidation validators aren't run in this service: checked here)
-        if (request.AgreedPrice < TagAlong.Messaging.API.Services.RideRules.MinimumFare)
-            return Result.Failure<ConversationDto>(Error.Validation(TagAlong.Messaging.API.Services.RideRules.FareTooLow));
 
         var conversation = await _conversationRepository.GetByIdAsync(request.ConversationId, cancellationToken);
         if (conversation == null)

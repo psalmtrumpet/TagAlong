@@ -22,7 +22,7 @@ public class SendMessageCommandValidator : AbstractValidator<SendMessageCommand>
     {
         RuleFor(x => x.ConversationId).NotEmpty();
         RuleFor(x => x.SenderId).NotEmpty();
-        RuleFor(x => x.Content).NotEmpty().MaximumLength(2000);
+        RuleFor(x => x.Content).NotEmpty().MaximumLength(2000).WithMessage("Messages must be between 1 and 2,000 characters.");
     }
 }
 
@@ -50,10 +50,6 @@ public class SendMessageCommandHandler : ICommandHandler<SendMessageCommand, Mes
 
     public async Task<Result<MessageDto>> Handle(SendMessageCommand request, CancellationToken cancellationToken)
     {
-        // (FluentValidation validators aren't run in this service: checked here)
-        if (string.IsNullOrWhiteSpace(request.Content) || request.Content.Length > 2000)
-            return Result.Failure<MessageDto>(Error.Validation("Messages must be between 1 and 2,000 characters."));
-
         var conversation = await _conversationRepository.GetByIdAsync(request.ConversationId, cancellationToken);
         if (conversation == null)
         {
