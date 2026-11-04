@@ -52,6 +52,10 @@ public class SendPriceProposalCommandHandler : ICommandHandler<SendPriceProposal
 
     public async Task<Result<MessageDto>> Handle(SendPriceProposalCommand request, CancellationToken cancellationToken)
     {
+        // (FluentValidation validators aren't run in this service: checked here)
+        if (request.ProposedPrice < TagAlong.Messaging.API.Services.RideRules.MinimumFare)
+            return Result.Failure<MessageDto>(Error.Validation(TagAlong.Messaging.API.Services.RideRules.FareTooLow));
+
         var conversation = await _conversationRepository.GetByIdAsync(request.ConversationId, cancellationToken);
         if (conversation == null)
         {
