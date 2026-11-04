@@ -103,6 +103,13 @@
       "UpstreamHttpMethod": [ "GET" ]
     },
     {
+      "DownstreamPathTemplate": "/api/public/health",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "messaging-api", "Port": 80 }],
+      "UpstreamPathTemplate": "/api/public/health",
+      "UpstreamHttpMethod": [ "GET", "HEAD" ]
+    },
+    {
       "DownstreamPathTemplate": "/api/public/paystack/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "messaging-api", "Port": 80 }],
