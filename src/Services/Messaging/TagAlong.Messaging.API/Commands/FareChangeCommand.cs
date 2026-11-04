@@ -44,6 +44,8 @@ public class FareChangeCommandHandler : ICommandHandler<FareChangeCommand, Conve
                     return Result.Failure<ConversationDto>(Error.Unauthorized("Only the driver can ask a new fare"));
                 if (request.Price is not > 0 || request.Price == c.AgreedPrice)
                     return Result.Failure<ConversationDto>(Error.Validation("Enter a new fare"));
+                if (request.Price < TagAlong.Messaging.API.Services.RideRules.MinimumFare)
+                    return Result.Failure<ConversationDto>(Error.Validation(TagAlong.Messaging.API.Services.RideRules.FareTooLow));
                 c.AskFareChange(request.Price.Value);
                 text = $"Driver asks {Naira(request.Price.Value)} for the new destination (was {Naira(c.AgreedPrice)})";
                 break;

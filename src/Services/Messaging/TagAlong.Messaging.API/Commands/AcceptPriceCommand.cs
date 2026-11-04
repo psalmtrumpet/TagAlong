@@ -23,7 +23,7 @@ public class AcceptPriceCommandValidator : AbstractValidator<AcceptPriceCommand>
     {
         RuleFor(x => x.ConversationId).NotEmpty();
         RuleFor(x => x.UserId).NotEmpty();
-        RuleFor(x => x.AcceptedPrice).GreaterThan(0);
+        RuleFor(x => x.AcceptedPrice).GreaterThanOrEqualTo(_ => TagAlong.Messaging.API.Services.RideRules.MinimumFare).WithMessage(_ => TagAlong.Messaging.API.Services.RideRules.FareTooLow);
         RuleFor(x => x.Message).MaximumLength(2000).When(x => x.Message != null);
     }
 }

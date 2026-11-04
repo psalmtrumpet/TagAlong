@@ -96,6 +96,10 @@ builder.Services.AddHttpClient("paystack", c =>
     c.Timeout = TimeSpan.FromSeconds(15);
 });
 builder.Services.AddScoped<TagAlong.Messaging.API.Services.DriverFees>();
+// The lowest fare anyone can offer or agree
+if (decimal.TryParse(builder.Configuration["Fares:Minimum"], System.Globalization.NumberStyles.Number,
+        System.Globalization.CultureInfo.InvariantCulture, out var minFare) && minFare > 0)
+    TagAlong.Messaging.API.Services.RideRules.MinimumFare = minFare;
 // Completes on-board rides left behind when a trip ended
 builder.Services.AddHostedService<TagAlong.Messaging.API.BackgroundJobs.StuckRideSweeper>();
 // On-demand rides: matching, and closing requests nobody accepted

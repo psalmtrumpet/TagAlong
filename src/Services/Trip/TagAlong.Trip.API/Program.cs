@@ -123,6 +123,12 @@ builder.Services.AddHostedService<RouteEnrichmentService>();
 builder.Services.AddHostedService<TripExpiryService>();
 // user-api: checks a driver's licence/vehicle approval before they can post trips
 builder.Services.AddHttpClient("user-api", c => c.BaseAddress = new Uri(builder.Configuration["ServiceUrls:UserApi"] ?? "http://user-api/"));
+// Whether passengers with an agreed price are still waiting (a trip can't end on them)
+builder.Services.AddHttpClient("messaging-api", c =>
+{
+    c.BaseAddress = new Uri(builder.Configuration["ServiceUrls:MessagingApi"] ?? "http://messaging-api/");
+    c.Timeout = TimeSpan.FromSeconds(5);
+});
 builder.Services.AddScoped<TripBookingsChangedIntegrationEventHandler>();
 
 builder.Services.AddScoped<ITripRepository, TripRepository>();

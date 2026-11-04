@@ -115,6 +115,8 @@ public class MessagingHub : Hub<IMessagingClient>
         {
             throw new HubException("Unauthorized to send price proposal to this conversation");
         }
+        if (proposedPrice < TagAlong.Messaging.API.Services.RideRules.MinimumFare)
+            throw new HubException(TagAlong.Messaging.API.Services.RideRules.FareTooLow);
 
         var message = Message.CreatePriceProposal(conversationId, userId.Value, proposedPrice, content);
         await _messageRepository.AddAsync(message);

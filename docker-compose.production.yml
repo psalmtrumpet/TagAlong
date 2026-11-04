@@ -414,6 +414,8 @@ services:
       # Drivers pay the fees every N rides through Paystack; no key = not collected
       - Paystack__SecretKey=${PAYSTACK_SECRET_KEY:-}
       - Fees__RidesPerPayment=${FEE_RIDES_PER_PAYMENT:-5}
+      # The lowest fare anyone can offer or agree, in naira
+      - Fares__Minimum=${FARE_MINIMUM:-1000}
       # On-demand rides ("Ride now"): who gets a request, how long it waits, suggested fare
       - Hail__MaxEtaMinutes=${HAIL_MAX_ETA_MINUTES:-20}
       - Hail__FinishingSoonMinutes=${HAIL_FINISHING_SOON_MINUTES:-5}

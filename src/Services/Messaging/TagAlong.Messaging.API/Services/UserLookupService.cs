@@ -15,6 +15,15 @@ public static class RideRules
 {
     public const string VerifyBeforeRequesting =
         "Verify your identity before requesting a ride. It takes about a minute with your NIN and a selfie.";
+
+    /// <summary>The lowest fare anyone can offer or agree (Fares:Minimum, default ₦1,000). Set at startup.</summary>
+    public static decimal MinimumFare { get; set; } = 1000m;
+
+    public static string FareTooLow =>
+        $"The lowest fare is ₦{MinimumFare.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)}.";
+
+    public const string DriverCannotCancel =
+        "Once the price is agreed you can't cancel this ride. If something is wrong, contact TagAlong support.";
 }
 
 public class UserLookupService : IUserLookupService

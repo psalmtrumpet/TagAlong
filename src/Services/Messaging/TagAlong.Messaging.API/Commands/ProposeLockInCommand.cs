@@ -17,7 +17,7 @@ public class ProposeLockInCommandValidator : AbstractValidator<ProposeLockInComm
     {
         RuleFor(x => x.ConversationId).NotEmpty();
         RuleFor(x => x.UserId).NotEmpty();
-        RuleFor(x => x.AgreedPrice).GreaterThan(0);
+        RuleFor(x => x.AgreedPrice).GreaterThanOrEqualTo(_ => TagAlong.Messaging.API.Services.RideRules.MinimumFare).WithMessage(_ => TagAlong.Messaging.API.Services.RideRules.FareTooLow);
     }
 }
 

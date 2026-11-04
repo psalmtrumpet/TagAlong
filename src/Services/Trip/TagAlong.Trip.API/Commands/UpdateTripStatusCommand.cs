@@ -13,11 +13,36 @@ public class UpdateTripStatusCommandHandler : ICommandHandler<UpdateTripStatusCo
 {
     private readonly ITripRepository _tripRepository;
     private readonly IEventBus _eventBus;
+    private readonly IHttpClientFactory _http;
+    private readonly ILogger<UpdateTripStatusCommandHandler> _logger;
 
-    public UpdateTripStatusCommandHandler(ITripRepository tripRepository, IEventBus eventBus)
+    public UpdateTripStatusCommandHandler(ITripRepository tripRepository, IEventBus eventBus,
+        IHttpClientFactory http, ILogger<UpdateTripStatusCommandHandler> logger)
     {
         _tripRepository = tripRepository;
         _eventBus = eventBus;
+        _http = http;
+        _logger = logger;
+    }
+
+    /// <summary>
+    /// Passengers with an agreed price still waiting to be picked up (asked of
+    /// messaging-api). Null when it can't be told.
+    /// </summary>
+    private async Task<int?> AwaitingPickupAsync(Guid tripId, CancellationToken ct)
+    {
+        try
+        {
+            using var res = await _http.CreateClient("messaging-api").GetAsync($"internal/trips/{tripId}/awaiting-pickup", ct);
+            if (!res.IsSuccessStatusCode) return null;
+            using var doc = System.Text.Json.JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct));
+            return doc.RootElement.GetProperty("count").GetInt32();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Couldn't check passengers waiting on trip {TripId}", tripId);
+            return null;
+        }
     }
 
     public async Task<Result<TripResponse>> Handle(UpdateTripStatusCommand request, CancellationToken cancellationToken)
@@ -49,6 +74,19 @@ public class UpdateTripStatusCommandHandler : ICommandHandler<UpdateTripStatusCo
         // Already there (e.g. Start tapped twice, or a slow first response) — nothing to do
         if (trip.Status == target)
             return Result.Success(MapToResponse(trip));
+
+        // Ending or cancelling the trip would cancel passengers whose price is
+        // agreed — the driver can't back out of those
+        if (target is Domain.Entities.TripStatus.Completed or Domain.Entities.TripStatus.Cancelled)
+        {
+            var waiting = await AwaitingPickupAsync(trip.Id, cancellationToken);
+            if (waiting is null)
+                return Result.Failure<TripResponse>(Error.Validation("Couldn't check your passengers. Try again in a moment."));
+            if (waiting > 0)
+                return Result.Failure<TripResponse>(Error.Validation(waiting == 1
+                    ? "A passenger with an agreed price is waiting for you. Pick them up first — an agreed ride can't be cancelled."
+                    : $"{waiting} passengers with an agreed price are waiting for you. Pick them up first — agreed rides can't be cancelled."));
+        }
 
         try
         {

@@ -19,13 +19,16 @@ public class CloseConversationCommandHandler : ICommandHandler<CloseConversation
     private readonly IMessageRepository _messageRepository;
     private readonly IHubContext<MessagingHub, IMessagingClient> _hubContext;
     private readonly IEventBus _eventBus;
+    private readonly MediatR.IMediator _mediator;
 
     public CloseConversationCommandHandler(
         IConversationRepository conversationRepository,
         IMessageRepository messageRepository,
         IHubContext<MessagingHub, IMessagingClient> hubContext,
-        IEventBus eventBus)
+        IEventBus eventBus,
+        MediatR.IMediator mediator)
     {
+        _mediator = mediator;
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
         _hubContext = hubContext;
@@ -40,6 +43,16 @@ public class CloseConversationCommandHandler : ICommandHandler<CloseConversation
 
         if (!conversation.IsParticipant(request.UserId))
             return Result.Failure<ConversationDto>(new Error("Conversation.Forbidden", "Not a participant in this conversation"));
+
+        // The driver can't back out once the price is agreed (picked up or not)
+        if (conversation.TravelerId == request.UserId &&
+            conversation.Status is ConversationStatus.LockedIn or ConversationStatus.InProgress)
+            return Result.Failure<ConversationDto>(Error.Validation(TagAlong.Messaging.API.Services.RideRules.DriverCannotCancel));
+
+        // A passenger ending a ride under way has got out: it's completed like a
+        // drop-off (the ride and its fee count), not cancelled
+        if (conversation.Status == ConversationStatus.InProgress)
+            return await _mediator.Send(new MarkDeliveredCommand(conversation.Id, conversation.TravelerId), cancellationToken);
 
         var wasInProgress = conversation.Status == ConversationStatus.InProgress;
         var heldBooking = wasInProgress || conversation.Status == ConversationStatus.LockedIn;

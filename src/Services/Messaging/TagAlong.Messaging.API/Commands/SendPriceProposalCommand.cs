@@ -23,7 +23,7 @@ public class SendPriceProposalCommandValidator : AbstractValidator<SendPriceProp
     {
         RuleFor(x => x.ConversationId).NotEmpty();
         RuleFor(x => x.SenderId).NotEmpty();
-        RuleFor(x => x.ProposedPrice).GreaterThan(0);
+        RuleFor(x => x.ProposedPrice).GreaterThanOrEqualTo(_ => TagAlong.Messaging.API.Services.RideRules.MinimumFare).WithMessage(_ => TagAlong.Messaging.API.Services.RideRules.FareTooLow);
         RuleFor(x => x.Message).MaximumLength(2000).When(x => x.Message != null);
     }
 }

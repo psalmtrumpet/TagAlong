@@ -66,7 +66,7 @@ public class HailService
         var meters = (int)Math.Round(HaversineKm(pLat, pLng, dLat, dLng) * 1000 * 1.3);
         var duration = (await EtasAsync(new List<(double, double)> { (pLat, pLng) }, dLat, dLng, ct)).FirstOrDefault();
         var raw = (decimal)Setting("SuggestedBase", 500) + (decimal)Setting("SuggestedPerKm", 150) * meters / 1000m;
-        var suggested = Math.Max(50, Math.Round(raw / 50m) * 50);
+        var suggested = Math.Max(RideRules.MinimumFare, Math.Round(raw / 50m) * 50);
         var nearby = (await DriversNearAsync(pLat, pLng, new List<Guid>(), ct)).Count;
         return new HailQuoteDto(meters, duration, suggested, nearby);
     }
@@ -76,6 +76,7 @@ public class HailService
     public async Task<Result<HailDto>> CreateAsync(Guid passengerId, CreateHailRequest r, CancellationToken ct)
     {
         if (r.OfferedPrice <= 0) return Result.Failure<HailDto>(Error.Validation("Enter the price you'd like to pay."));
+        if (r.OfferedPrice < RideRules.MinimumFare) return Result.Failure<HailDto>(Error.Validation(RideRules.FareTooLow));
         // Only verified people can request a ride (if the user service can't answer, don't block)
         if (await _users.IsVerifiedAsync(passengerId, ct) == false)
             return Result.Failure<HailDto>(Error.Validation(TagAlong.Messaging.API.Services.RideRules.VerifyBeforeRequesting));
@@ -105,6 +106,7 @@ public class HailService
         if (hail.Status is HailStatus.Matched or HailStatus.Cancelled)
             return Result.Failure<HailDto>(Error.Validation("This request has already finished."));
         if (price <= 0) return Result.Failure<HailDto>(Error.Validation("Enter the price you'd like to pay."));
+        if (price < RideRules.MinimumFare) return Result.Failure<HailDto>(Error.Validation(RideRules.FareTooLow));
 
         hail.Raise(price, Lifetime);
         await _db.SaveChangesAsync(ct);
@@ -184,6 +186,7 @@ public class HailService
     public async Task<Result> CounterAsync(Guid driverId, Guid hailId, decimal price, CancellationToken ct)
     {
         if (price <= 0) return Result.Failure(Error.Validation("Enter your price."));
+        if (price < RideRules.MinimumFare) return Result.Failure(Error.Validation(RideRules.FareTooLow));
         var hail = await _db.HailRequests.AsNoTracking().FirstOrDefaultAsync(h => h.Id == hailId, ct);
         if (hail == null || !hail.IsOpen) return Result.Failure(Error.Validation("This ride request is no longer available."));
         var candidate = await _db.HailCandidates.FirstOrDefaultAsync(c => c.HailId == hailId && c.DriverId == driverId, ct);
