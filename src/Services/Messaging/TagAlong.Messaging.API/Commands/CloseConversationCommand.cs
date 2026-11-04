@@ -44,10 +44,21 @@ public class CloseConversationCommandHandler : ICommandHandler<CloseConversation
         if (!conversation.IsParticipant(request.UserId))
             return Result.Failure<ConversationDto>(new Error("Conversation.Forbidden", "Not a participant in this conversation"));
 
-        // The driver can't back out once the price is agreed (picked up or not)
-        if (conversation.TravelerId == request.UserId &&
-            conversation.Status is ConversationStatus.LockedIn or ConversationStatus.InProgress)
-            return Result.Failure<ConversationDto>(Error.Validation(TagAlong.Messaging.API.Services.RideRules.DriverCannotCancel));
+        // Once the price is agreed the driver can only back out before setting off
+        // for the passenger, and never once they're on board
+        if (conversation.TravelerId == request.UserId)
+        {
+            var rule = conversation.CanDriverCancel(DateTime.UtcNow);
+            if (rule != Conversation.DriverCancel.Allowed)
+                return Result.Failure<ConversationDto>(Error.Validation(rule switch
+                {
+                    Conversation.DriverCancel.LocationUnknown =>
+                        "We can't see where you are right now. Turn on your location, wait a few seconds and try again.",
+                    Conversation.DriverCancel.OnTheirWay =>
+                        "You're on your way to the passenger, so this ride can't be cancelled now.",
+                    _ => TagAlong.Messaging.API.Services.RideRules.DriverCannotCancel,
+                }));
+        }
 
         // A passenger ending a ride under way has got out: it's completed like a
         // drop-off (the ride and its fee count), not cancelled

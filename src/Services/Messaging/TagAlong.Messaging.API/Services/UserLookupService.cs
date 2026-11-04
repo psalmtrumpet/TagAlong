@@ -23,7 +23,7 @@ public static class RideRules
         $"The lowest fare is ₦{MinimumFare.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)}.";
 
     public const string DriverCannotCancel =
-        "Once the price is agreed you can't cancel this ride. If something is wrong, contact TagAlong support.";
+        "The passenger is on board, so this ride can't be cancelled. It ends at drop-off.";
 }
 
 public class UserLookupService : IUserLookupService

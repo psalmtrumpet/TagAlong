@@ -298,7 +298,7 @@ public class HailService
             meetLat: hail.PickupLat, meetLng: hail.PickupLng, meetName: hail.PickupName,
             dropLat: hail.DestLat, dropLng: hail.DestLng, dropName: hail.DestName,
             isOnDemand: true);
-        conversation.BookOnDemand(price);
+        conversation.BookOnDemand(price, candidate.DriverLat, candidate.DriverLng);
         _db.Conversations.Add(conversation);
         var msg = Message.CreateLockInConfirmed(conversation.Id, driverId, price);
         _db.Messages.Add(msg);

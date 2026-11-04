@@ -102,12 +102,14 @@ public class Conversation : AggregateRoot
     }
 
     /// <summary>An on-demand ride a driver just accepted: the price is agreed and they're on their way.</summary>
-    public void BookOnDemand(decimal price)
+    /// <param name="driverLat">Where the driver was when they were matched (their starting point).</param>
+    public void BookOnDemand(decimal price, double? driverLat = null, double? driverLng = null)
     {
         AgreedPrice = price;
         LockInProposedBy = null;
         Status = ConversationStatus.LockedIn;
         IssuePickupPin();
+        MarkLockInPosition(driverLat, driverLng);
         SetUpdated();
     }
 
@@ -148,6 +150,8 @@ public class Conversation : AggregateRoot
         Status = ConversationStatus.LockedIn;
         LockInProposedBy = null;
         IssuePickupPin();
+        // A recent live position is the driver's starting point; otherwise their next one
+        if (HelperLastSeenAt > DateTime.UtcNow.AddMinutes(-5)) MarkLockInPosition(HelperLastLat, HelperLastLng);
         SetUpdated();
     }
 
@@ -340,6 +344,7 @@ public class Conversation : AggregateRoot
         HelperLastLng = lng;
         HelperLastSeenAt = DateTime.UtcNow;
         if (Status == ConversationStatus.InProgress) CountDistance(lat, lng);
+        if (Status == ConversationStatus.LockedIn && LockInDriverLat == null) MarkLockInPosition(lat, lng);
         SetUpdated();
     }
 
@@ -397,6 +402,58 @@ public class Conversation : AggregateRoot
     public DateTime? FeeSettledAt { get; private set; }
     /// <summary>The payment that covered it (null for rides from before fees were collected).</summary>
     public Guid? FeePaymentId { get; private set; }
+
+    // ── Driver cancelling before pickup ──
+
+    /// <summary>Where the driver was when the price was agreed (or their first position after).</summary>
+    public double? LockInDriverLat { get; private set; }
+    public double? LockInDriverLng { get; private set; }
+
+    private void MarkLockInPosition(double? lat, double? lng)
+    {
+        if (lat is null || lng is null) return;
+        LockInDriverLat = lat;
+        LockInDriverLng = lng;
+    }
+
+    /// <summary>Moved less than this since the price was agreed: still where they were.</summary>
+    public const double NotMovedMetres = 200;
+    /// <summary>This much closer to the pickup than at lock-in: on their way to the passenger.</summary>
+    public const double HeadingThereMetres = 150;
+
+    public enum DriverCancel { Allowed, OnTheirWay, LocationUnknown, PickedUp }
+
+    /// <summary>
+    /// Once the price is agreed a driver may only cancel while they haven't set
+    /// off for the passenger: not moved, or not getting closer to the pickup.
+    /// Never once the passenger is on board. Needs their live position.
+    /// </summary>
+    public DriverCancel CanDriverCancel(DateTime now)
+    {
+        if (Status == ConversationStatus.InProgress) return DriverCancel.PickedUp;
+        if (Status != ConversationStatus.LockedIn) return DriverCancel.Allowed;
+        if (HelperLastSeenAt is not { } seen || seen < now.AddMinutes(-3) ||
+            HelperLastLat is not { } lat || HelperLastLng is not { } lng ||
+            LockInDriverLat is not { } startLat || LockInDriverLng is not { } startLng)
+            return DriverCancel.LocationUnknown;
+
+        if (Metres(startLat, startLng, lat, lng) < NotMovedMetres) return DriverCancel.Allowed;
+        var pLat = MeetLat ?? PickupLat;
+        var pLng = MeetLng ?? PickupLng;
+        if (pLat is null || pLng is null) return DriverCancel.OnTheirWay; // moved, and we can't tell where to
+        var closer = Metres(startLat, startLng, pLat.Value, pLng.Value) - Metres(lat, lng, pLat.Value, pLng.Value);
+        return closer > HeadingThereMetres ? DriverCancel.OnTheirWay : DriverCancel.Allowed;
+    }
+
+    private static double Metres(double lat1, double lng1, double lat2, double lng2)
+    {
+        const double r = 6371000;
+        var dLat = (lat2 - lat1) * Math.PI / 180;
+        var dLng = (lng2 - lng1) * Math.PI / 180;
+        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                Math.Cos(lat1 * Math.PI / 180) * Math.Cos(lat2 * Math.PI / 180) * Math.Sin(dLng / 2) * Math.Sin(dLng / 2);
+        return 2 * r * Math.Asin(Math.Sqrt(a));
+    }
 
     public void SettleFee(Guid paymentId)
     {
