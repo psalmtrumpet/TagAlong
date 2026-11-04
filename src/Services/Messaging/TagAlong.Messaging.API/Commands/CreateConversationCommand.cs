@@ -78,6 +78,12 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
 
     public async Task<Result<ConversationDto>> Handle(CreateConversationCommand request, CancellationToken cancellationToken)
     {
+        // (FluentValidation validators aren't run in this service: checked here)
+        if (request.SenderId == request.TravelerId)
+            return Result.Failure<ConversationDto>(Error.Validation("You can't request a ride from yourself."));
+        if (request.InitialMessage is { Length: > 2000 })
+            return Result.Failure<ConversationDto>(Error.Validation("That message is too long."));
+
         // Only verified people can request a ride (if the user service can't answer, don't block)
         if (await _users.IsVerifiedAsync(request.SenderId, cancellationToken) == false)
         {

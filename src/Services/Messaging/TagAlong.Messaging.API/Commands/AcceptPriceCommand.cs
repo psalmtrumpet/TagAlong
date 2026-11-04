@@ -58,6 +58,8 @@ public class AcceptPriceCommandHandler : ICommandHandler<AcceptPriceCommand, Mes
         // (FluentValidation validators aren't run in this service: checked here)
         if (request.AcceptedPrice < TagAlong.Messaging.API.Services.RideRules.MinimumFare)
             return Result.Failure<MessageDto>(Error.Validation(TagAlong.Messaging.API.Services.RideRules.FareTooLow));
+        if (request.Message is { Length: > 2000 })
+            return Result.Failure<MessageDto>(Error.Validation("That message is too long."));
 
         var conversation = await _conversationRepository.GetByIdAsync(request.ConversationId, cancellationToken);
         if (conversation == null)
