@@ -13,6 +13,7 @@ public class MessagingDbContext : DbContext
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<HailRequest> HailRequests => Set<HailRequest>();
     public DbSet<HailCandidate> HailCandidates => Set<HailCandidate>();
+    public DbSet<DriverFeePayment> DriverFeePayments => Set<DriverFeePayment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -61,6 +62,8 @@ public class MessagingDbContext : DbContext
             entity.Property(c => c.DistanceMarkLng).HasColumnName("distance_mark_lng");
             entity.Property(c => c.HiddenBySender).HasColumnName("hidden_by_sender").HasDefaultValue(false);
             entity.Property(c => c.HiddenByTraveler).HasColumnName("hidden_by_traveler").HasDefaultValue(false);
+            entity.Property(c => c.FeeSettledAt).HasColumnName("fee_settled_at");
+            entity.Property(c => c.FeePaymentId).HasColumnName("fee_payment_id");
             entity.Property(c => c.DeliveredAt).HasColumnName("delivered_at");
             entity.Property(c => c.PassengerDestLat).HasColumnName("passenger_dest_lat");
             entity.Property(c => c.PassengerDestLng).HasColumnName("passenger_dest_lng");
@@ -157,6 +160,28 @@ public class MessagingDbContext : DbContext
             entity.Ignore(c => c.DeletedAt);
             entity.HasIndex(c => c.HailId);
             entity.HasIndex(c => c.DriverId);
+        });
+
+        modelBuilder.Entity<DriverFeePayment>(entity =>
+        {
+            entity.ToTable("driver_fee_payments");
+            entity.HasKey(p => p.Id);
+            entity.Property(p => p.Id).HasColumnName("id");
+            entity.Property(p => p.DriverId).HasColumnName("driver_id").IsRequired();
+            entity.Property(p => p.Reference).HasColumnName("reference").HasMaxLength(40).IsRequired();
+            entity.Property(p => p.Amount).HasColumnName("amount").HasColumnType("decimal(18,2)");
+            entity.Property(p => p.Rides).HasColumnName("rides");
+            entity.Property(p => p.RideIds).HasColumnName("ride_ids").HasMaxLength(4000).IsRequired();
+            entity.Property(p => p.AuthorizationUrl).HasColumnName("authorization_url").HasMaxLength(500);
+            entity.Property(p => p.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(20).IsRequired();
+            entity.Property(p => p.PaidAt).HasColumnName("paid_at");
+            entity.Property(p => p.CreatedAt).HasColumnName("created_at").IsRequired();
+            entity.Property(p => p.UpdatedAt).HasColumnName("updated_at");
+            entity.Ignore(p => p.IsDeleted);
+            entity.Ignore(p => p.DeletedAt);
+            entity.Ignore(p => p.RideIdList);
+            entity.HasIndex(p => p.Reference).IsUnique();
+            entity.HasIndex(p => p.DriverId);
         });
     }
 }

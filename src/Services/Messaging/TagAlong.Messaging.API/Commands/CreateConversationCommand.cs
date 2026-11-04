@@ -54,6 +54,7 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
     private readonly ILogger<CreateConversationCommandHandler> _logger;
     private readonly TagAlong.Messaging.API.Services.IUserLookupService _users;
     private readonly TagAlong.Messaging.API.Services.TripSeats _seats;
+    private readonly TagAlong.Messaging.API.Services.DriverFees _fees;
 
     public CreateConversationCommandHandler(
         IConversationRepository conversationRepository,
@@ -62,8 +63,10 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
         IEventBus eventBus,
         ILogger<CreateConversationCommandHandler> logger,
         TagAlong.Messaging.API.Services.IUserLookupService users,
-        TagAlong.Messaging.API.Services.TripSeats seats)
+        TagAlong.Messaging.API.Services.TripSeats seats,
+        TagAlong.Messaging.API.Services.DriverFees fees)
     {
+        _fees = fees;
         _users = users;
         _seats = seats;
         _conversationRepository = conversationRepository;
@@ -137,8 +140,18 @@ public class CreateConversationCommandHandler : ICommandHandler<CreateConversati
 
         // Push real-time notification to both traveler and sender via SignalR
         var dto = MapToDto(conversation, initialMessage);
-        await _hubContext.Clients.Group($"user_{request.TravelerId}").ConversationUpdated(dto);
         await _hubContext.Clients.Group($"user_{request.SenderId}").ConversationUpdated(dto);
+
+        // A driver who owes TagAlong's fee hears someone wants a ride, but the
+        // request waits (hidden from them) until they've paid
+        if (await _fees.IsBlockedAsync(request.TravelerId, cancellationToken))
+        {
+            await _fees.TeaseAsync(request.TravelerId, await _users.GetDisplayNameAsync(request.SenderId, cancellationToken), cancellationToken,
+                joiningTrip: true);
+            _logger.LogInformation("Conversation {ConversationId} held for driver {TravelerId}: fees unpaid", conversation.Id, request.TravelerId);
+            return Result.Success(dto);
+        }
+        await _hubContext.Clients.Group($"user_{request.TravelerId}").ConversationUpdated(dto);
 
         // Also publish integration event (for notification API persistence)
         await _eventBus.PublishAsync(new ConversationRequestCreatedIntegrationEvent(

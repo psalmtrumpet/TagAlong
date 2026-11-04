@@ -392,6 +392,18 @@ public class Conversation : AggregateRoot
         if (userId == SenderId) HiddenBySender = true;
         if (userId == TravelerId) HiddenByTraveler = true;
     }
+
+    /// <summary>When the driver paid TagAlong's fee for this ride (null: still owed).</summary>
+    public DateTime? FeeSettledAt { get; private set; }
+    /// <summary>The payment that covered it (null for rides from before fees were collected).</summary>
+    public Guid? FeePaymentId { get; private set; }
+
+    public void SettleFee(Guid paymentId)
+    {
+        if (FeeSettledAt != null) return;
+        FeeSettledAt = DateTime.UtcNow;
+        FeePaymentId = paymentId;
+    }
 }
 
 public enum PinCheck { Ok, Wrong, Locked }

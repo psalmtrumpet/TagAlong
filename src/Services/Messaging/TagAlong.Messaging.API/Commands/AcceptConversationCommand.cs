@@ -21,6 +21,7 @@ public class AcceptConversationCommandHandler : ICommandHandler<AcceptConversati
     private readonly IEventBus _eventBus;
     private readonly IUserLookupService _users;
     private readonly ILogger<AcceptConversationCommandHandler> _logger;
+    private readonly DriverFees _fees;
 
     public AcceptConversationCommandHandler(
         IConversationRepository conversationRepository,
@@ -28,8 +29,10 @@ public class AcceptConversationCommandHandler : ICommandHandler<AcceptConversati
         IHubContext<MessagingHub, IMessagingClient> hubContext,
         IEventBus eventBus,
         IUserLookupService users,
-        ILogger<AcceptConversationCommandHandler> logger)
+        ILogger<AcceptConversationCommandHandler> logger,
+        DriverFees fees)
     {
+        _fees = fees;
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
         _hubContext = hubContext;
@@ -46,6 +49,10 @@ public class AcceptConversationCommandHandler : ICommandHandler<AcceptConversati
 
         if (conversation.TravelerId != request.TravelerId)
             return Result.Failure<ConversationDto>(new Error("Conversation.Forbidden", "Only the traveler can accept this request"));
+
+        if (await _fees.IsBlockedAsync(request.TravelerId, cancellationToken))
+            return Result.Failure<ConversationDto>(Error.Validation(
+                _fees.BlockedMessage((await _fees.StatusAsync(request.TravelerId, cancellationToken)).AmountDue)));
 
         conversation.Accept();
         _conversationRepository.Update(conversation);

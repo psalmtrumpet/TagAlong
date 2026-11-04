@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using TagAlong.Common.Results;
 using TagAlong.EventBus;
 using TagAlong.Messaging.API.Commands;
@@ -32,10 +33,15 @@ public class HailService
     private readonly IUserLookupService _users;
     private readonly IConfiguration _config;
     private readonly ILogger<HailService> _logger;
+    private readonly DriverFees _fees;
+    private readonly IMemoryCache _cache;
 
     public HailService(MessagingDbContext db, IHttpClientFactory http, IHubContext<MessagingHub, IMessagingClient> hub,
-        IEventBus eventBus, IUserLookupService users, IConfiguration config, ILogger<HailService> logger)
+        IEventBus eventBus, IUserLookupService users, IConfiguration config, ILogger<HailService> logger,
+        DriverFees fees, IMemoryCache cache)
     {
+        _fees = fees;
+        _cache = cache;
         _db = db;
         _http = http;
         _hub = hub;
@@ -184,6 +190,8 @@ public class HailService
         if (candidate == null) return Result.Failure(Error.NotFound("Ride request not found"));
         if (candidate.Status == HailCandidateStatus.Skipped)
             return Result.Failure(Error.Validation("The passenger chose a closer driver."));
+        if (await _fees.IsBlockedAsync(driverId, ct))
+            return Result.Failure(Error.Validation(await FeeDueMessageAsync(driverId, ct)));
 
         candidate.Counter(price);
         await _db.SaveChangesAsync(ct);
@@ -207,6 +215,7 @@ public class HailService
     /// <summary>Requests waiting for this driver's answer (e.g. after opening the app from a push).</summary>
     public async Task<List<HailOfferDto>> GetIncomingAsync(Guid driverId, CancellationToken ct)
     {
+        if (await _fees.IsBlockedAsync(driverId, ct)) return new();
         var now = DateTime.UtcNow;
         var rows = await (from c in _db.HailCandidates.AsNoTracking()
                           join h in _db.HailRequests.AsNoTracking() on c.HailId equals h.Id
@@ -254,6 +263,10 @@ public class HailService
         if (useCounter && candidate.CounterPrice is null)
             return Result.Failure<ConversationDto>(Error.Validation("That driver hasn't made an offer."));
         if (!hail.IsOpen) return Result.Failure<ConversationDto>(Error.Conflict(Taken(hail)));
+        // Reached their unpaid-rides limit since they were asked
+        if (await _fees.IsBlockedAsync(driverId, ct))
+            return Result.Failure<ConversationDto>(Error.Validation(
+                useCounter ? "That driver can't take rides right now." : await FeeDueMessageAsync(driverId, ct)));
 
         // The driver may have taken another ride since they were asked
         var busy = await _db.Conversations.Where(c => c.TravelerId == driverId &&
@@ -329,8 +342,38 @@ public class HailService
     private record BusyTrip(Guid DriverId, Guid TripId, bool IsPrivate, string Status);
     private record Found(NearDriver Driver, int EtaSeconds, bool Finishing, double Lat, double Lng);
 
+    private async Task<string> FeeDueMessageAsync(Guid driverId, CancellationToken ct) =>
+        _fees.BlockedMessage((await _fees.StatusAsync(driverId, ct)).AmountDue);
+
+    private static string TeasedKey(Guid driverId) => $"fee-teased-hails:{driverId}";
+
+    /// <summary>
+    /// The driver just paid their fee: requests they were told about but couldn't
+    /// see are sent to them now, if still open and they're still close enough.
+    /// </summary>
+    public async Task OfferTeasedAsync(Guid driverId, CancellationToken ct)
+    {
+        if (!_cache.TryGetValue(TeasedKey(driverId), out HashSet<Guid>? hailIds) || hailIds == null) return;
+        _cache.Remove(TeasedKey(driverId));
+        var now = DateTime.UtcNow;
+        var ids = hailIds.ToList();
+        var open = await _db.HailRequests.Where(h => ids.Contains(h.Id) && h.Status == HailStatus.Open && h.ExpiresAt > now).ToListAsync(ct);
+        foreach (var hail in open)
+        {
+            try
+            {
+                await FindAndNotifyAsync(hail, ct, onlyDriver: driverId);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Couldn't offer ride request {HailId} to driver {DriverId} after they paid", hail.Id, driverId);
+            }
+        }
+    }
+
     /// <summary>Find drivers within a short drive, record them and send them the request. Returns how many.</summary>
-    private async Task<int> FindAndNotifyAsync(HailRequest hail, CancellationToken ct)
+    /// <param name="onlyDriver">Just this driver (they've just become able to take it).</param>
+    private async Task<int> FindAndNotifyAsync(HailRequest hail, CancellationToken ct, Guid? onlyDriver = null)
     {
         List<Found> found;
         try
@@ -341,6 +384,26 @@ public class HailService
         {
             _logger.LogWarning(ex, "Couldn't find drivers for ride request {HailId}", hail.Id);
             found = new();
+        }
+        if (onlyDriver is { } only) found = found.Where(f => f.Driver.UserId == only).ToList();
+
+        // Drivers who owe TagAlong's fee hear someone wants a ride, but not the request
+        var passengerName = await _users.GetDisplayNameAsync(hail.PassengerId, ct);
+        var owing = await _fees.BlockedAmongAsync(found.Select(f => f.Driver.UserId).ToList(), ct);
+        if (owing.Count > 0)
+        {
+            found = found.Where(f => !owing.Contains(f.Driver.UserId)).ToList();
+            foreach (var driverId in owing)
+            {
+                var teased = _cache.GetOrCreate(TeasedKey(driverId), e =>
+                {
+                    e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);
+                    return new HashSet<Guid>();
+                })!;
+                lock (teased) teased.Add(hail.Id);
+                await _fees.TeaseAsync(driverId, passengerName, ct);
+            }
+            _logger.LogInformation("Ride request {HailId}: {Count} drivers owe fees, told without the request", hail.Id, owing.Count);
         }
 
         var existing = await _db.HailCandidates.Where(c => c.HailId == hail.Id).ToDictionaryAsync(c => c.DriverId, ct);
@@ -364,7 +427,6 @@ public class HailService
         }
         await _db.SaveChangesAsync(ct);
 
-        var passengerName = await _users.GetDisplayNameAsync(hail.PassengerId, ct);
         foreach (var c in candidates)
         {
             await _hub.Clients.Group($"user_{c.DriverId}").HailRequested(ToOfferDto(hail, c, passengerName));

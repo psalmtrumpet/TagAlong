@@ -111,11 +111,15 @@ public class GetUserConversationsQueryHandler : IQueryHandler<GetUserConversatio
     private readonly IMessageRepository _messageRepository;
     private readonly IUserLookupService _userLookup;
 
+    private readonly DriverFees _fees;
+
     public GetUserConversationsQueryHandler(
         IConversationRepository conversationRepository,
         IMessageRepository messageRepository,
-        IUserLookupService userLookup)
+        IUserLookupService userLookup,
+        DriverFees fees)
     {
+        _fees = fees;
         _conversationRepository = conversationRepository;
         _messageRepository = messageRepository;
         _userLookup = userLookup;
@@ -124,6 +128,11 @@ public class GetUserConversationsQueryHandler : IQueryHandler<GetUserConversatio
     public async Task<Result<IEnumerable<ConversationDto>>> Handle(GetUserConversationsQuery request, CancellationToken cancellationToken)
     {
         var conversations = await _conversationRepository.GetByUserIdAsync(request.UserId, request.Page, request.PageSize, cancellationToken);
+        // Requests to a driver who owes TagAlong's fee wait, hidden, until they pay
+        if (conversations.Any(c => c.TravelerId == request.UserId && c.Status == ConversationStatus.Pending) &&
+            await _fees.IsBlockedAsync(request.UserId, cancellationToken))
+            conversations = conversations
+                .Where(c => !(c.TravelerId == request.UserId && c.Status == ConversationStatus.Pending)).ToList();
 
         // Collect unique user IDs and resolve all names in parallel
         var userIds = conversations

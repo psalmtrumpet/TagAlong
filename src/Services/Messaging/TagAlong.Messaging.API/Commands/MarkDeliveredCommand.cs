@@ -26,8 +26,10 @@ public class MarkDeliveredCommandHandler : ICommandHandler<MarkDeliveredCommand,
         IEventBus eventBus,
         IConfiguration config,
         IHttpClientFactory http,
-        ILogger<MarkDeliveredCommandHandler> logger)
+        ILogger<MarkDeliveredCommandHandler> logger,
+        TagAlong.Messaging.API.Services.DriverFees fees)
     {
+        _fees = fees;
         _http = http;
         _logger = logger;
         _conversationRepository = conversationRepository;
@@ -40,6 +42,7 @@ public class MarkDeliveredCommandHandler : ICommandHandler<MarkDeliveredCommand,
     private readonly IConfiguration _config;
     private readonly IHttpClientFactory _http;
     private readonly ILogger<MarkDeliveredCommandHandler> _logger;
+    private readonly TagAlong.Messaging.API.Services.DriverFees _fees;
 
     /// <summary>TagAlong's flat fee for a private (premium) ride — defaults to the shared fee.</summary>
     public static decimal PrivateRideFlatFee(IConfiguration config) =>
@@ -126,6 +129,9 @@ public class MarkDeliveredCommandHandler : ICommandHandler<MarkDeliveredCommand,
         var otherUserId = conversation.GetOtherParticipant(request.UserId);
         await _hubContext.Clients.Group($"user_{otherUserId}").ReceiveMessage(msgDto);
         await _hubContext.Clients.Group($"user_{otherUserId}").DeliveryCompleted(dto);
+
+        // Their fee is due every few rides
+        await _fees.AfterRideCompletedAsync(conversation.TravelerId, cancellationToken);
 
         // A private ride has one passenger — once they're dropped off, the journey's over
         if (_isPrivate && conversation.TripId is { } tripId)

@@ -89,6 +89,13 @@ builder.Services.AddHttpClient("trip-api", c =>
     c.BaseAddress = new Uri(builder.Configuration["ServiceUrls:TripApi"] ?? "http://trip-api/");
     c.Timeout = TimeSpan.FromSeconds(5);
 });
+// Drivers pay TagAlong's fee every few rides, through Paystack
+builder.Services.AddHttpClient("paystack", c =>
+{
+    c.BaseAddress = new Uri("https://api.paystack.co/");
+    c.Timeout = TimeSpan.FromSeconds(15);
+});
+builder.Services.AddScoped<TagAlong.Messaging.API.Services.DriverFees>();
 // Completes on-board rides left behind when a trip ended
 builder.Services.AddHostedService<TagAlong.Messaging.API.BackgroundJobs.StuckRideSweeper>();
 // On-demand rides: matching, and closing requests nobody accepted
