@@ -583,14 +583,18 @@ services:
       - --no-tls
       - --no-dtls
       - --no-multicast-peers
-      # Never relay into the server's own or private networks
+      # Never relay into private networks (Docker's, loopback). The server's own
+      # public address is allowed: when both phones are on mobile data each has
+      # a relay here, and the call's audio passes from one relay to the other
+      # (denying it gave "403 Forbidden IP" and calls stuck on Connecting).
+      # Only public ports listen on that address; the database and internal
+      # services are on loopback/Docker networks, still denied.
       - --denied-peer-ip=0.0.0.0-0.255.255.255
       - --denied-peer-ip=10.0.0.0-10.255.255.255
       - --denied-peer-ip=127.0.0.0-127.255.255.255
       - --denied-peer-ip=169.254.0.0-169.254.255.255
       - --denied-peer-ip=172.16.0.0-172.31.255.255
       - --denied-peer-ip=192.168.0.0-192.168.255.255
-      - --denied-peer-ip=72.62.119.176
       - --user-quota=4
       - --total-quota=400
       - --log-file=stdout
