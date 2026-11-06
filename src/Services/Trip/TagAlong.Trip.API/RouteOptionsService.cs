@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using TagAlong.Trip.Infrastructure.Persistence;
 
 namespace TagAlong.Trip.API;
 
@@ -29,19 +31,25 @@ public class RouteOptionsService
     private readonly IConfiguration _config;
     private readonly ILogger<RouteOptionsService> _logger;
     private readonly GoogleCallLog _calls;
+    private readonly TripDbContext _db;
 
-    public RouteOptionsService(IHttpClientFactory http, IConfiguration config, ILogger<RouteOptionsService> logger, GoogleCallLog calls)
+    public RouteOptionsService(IHttpClientFactory http, IConfiguration config, ILogger<RouteOptionsService> logger, GoogleCallLog calls,
+        TripDbContext db)
     {
+        _db = db;
         _http = http;
         _config = config;
         _logger = logger;
         _calls = calls;
     }
 
+    /// <summary>Most places a driver can route through.</summary>
+    public const int MaxVias = 3;
+
     public async Task<List<RouteOptionDto>> GetAsync(double oLat, double oLng, double dLat, double dLng,
-        double? viaLat, double? viaLng, DateTime? departure, CancellationToken ct, Guid? userId = null)
+        IReadOnlyList<(double Lat, double Lng)> vias, DateTime? departure, CancellationToken ct, Guid? userId = null)
     {
-        var raw = await GoogleAsync(oLat, oLng, dLat, dLng, viaLat, viaLng, departure, alternatives: true, ct);
+        var raw = await GoogleAsync(oLat, oLng, dLat, dLng, vias, departure, alternatives: true, ct);
         await _calls.RecordAsync("route-options", raw != null, userId);
         if (raw == null || raw.Count == 0) return new List<RouteOptionDto>();
 
@@ -61,13 +69,81 @@ public class RouteOptionsService
     public async Task<RouteOptionDto?> LiveAsync(double oLat, double oLng, double dLat, double dLng,
         Guid? userId, Guid? tripId, Guid? conversationId, CancellationToken ct)
     {
-        var raw = await GoogleAsync(oLat, oLng, dLat, dLng, null, null, null, alternatives: false, ct);
+        // On a trip, keep to the road the driver chose (Google's quickest may differ)
+        IReadOnlyList<(double Lat, double Lng)> vias = Array.Empty<(double, double)>();
+        if (tripId is { } tid)
+        {
+            try
+            {
+                var line = await _db.Trips.AsNoTracking().Where(t => t.Id == tid).Select(t => t.RouteLine).FirstOrDefaultAsync(ct);
+                if (line != null) vias = AlongChosenRoad(line.Coordinates.Select(c => (c.Y, c.X)).ToList(), oLat, oLng, dLat, dLng);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Live route: couldn't read trip {TripId}'s road", tid);
+            }
+        }
+        var raw = await GoogleAsync(oLat, oLng, dLat, dLng, vias, null, alternatives: false, ct);
         await _calls.RecordAsync("live-route", raw != null, userId, tripId, conversationId);
         return raw?.FirstOrDefault();
     }
 
+    /// <summary>
+    /// Points to pass through so Google follows the chosen road from here to
+    /// there: one roughly every 2 km (at most 8), between where the car and the
+    /// target meet that road. None when either is off it (the car took another
+    /// road, or a door-to-door pickup), or the stretch is short.
+    /// </summary>
+    public static List<(double Lat, double Lng)> AlongChosenRoad(IReadOnlyList<(double Lat, double Lng)> road,
+        double oLat, double oLng, double dLat, double dLng)
+    {
+        var none = new List<(double, double)>();
+        if (road.Count < 2) return none;
+        int Nearest(double lat, double lng, double maxKm)
+        {
+            var best = -1;
+            var bestKm = double.MaxValue;
+            for (var i = 0; i < road.Count; i++)
+            {
+                var km = HaversineKm(lat, lng, road[i].Lat, road[i].Lng);
+                if (km < bestKm) { bestKm = km; best = i; }
+            }
+            return bestKm <= maxKm ? best : -1;
+        }
+        var from = Nearest(oLat, oLng, 0.4);
+        var to = Nearest(dLat, dLng, 0.4);
+        if (from < 0 || to < 0 || to <= from + 1) return none;
+
+        var along = new List<double> { 0 };
+        for (var i = from + 1; i <= to; i++)
+            along.Add(along[^1] + HaversineKm(road[i - 1].Lat, road[i - 1].Lng, road[i].Lat, road[i].Lng));
+        var total = along[^1];
+        if (total < 1.5) return none;
+
+        var count = Math.Clamp((int)(total / 2.0), 1, 8);
+        var vias = new List<(double, double)>();
+        for (var n = 1; n <= count; n++)
+        {
+            var want = total * n / (count + 1);
+            var k = along.FindIndex(a => a >= want);
+            if (k < 0) k = along.Count - 1;
+            vias.Add(road[from + k]);
+        }
+        return vias;
+    }
+
+    private static double HaversineKm(double lat1, double lon1, double lat2, double lon2)
+    {
+        const double r = 6371;
+        var dLat = (lat2 - lat1) * Math.PI / 180;
+        var dLon = (lon2 - lon1) * Math.PI / 180;
+        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                Math.Cos(lat1 * Math.PI / 180) * Math.Cos(lat2 * Math.PI / 180) * Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+        return r * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+    }
+
     private async Task<List<RouteOptionDto>?> GoogleAsync(double oLat, double oLng, double dLat, double dLng,
-        double? viaLat, double? viaLng, DateTime? departure, bool alternatives, CancellationToken ct)
+        IReadOnlyList<(double Lat, double Lng)> vias, DateTime? departure, bool alternatives, CancellationToken ct)
     {
         var key = _config["GoogleMaps:ApiKey"];
         if (string.IsNullOrWhiteSpace(key)) return null;
@@ -82,8 +158,8 @@ public class RouteOptionsService
                       $"?origin={oLat.ToString(c)},{oLng.ToString(c)}&destination={dLat.ToString(c)},{dLng.ToString(c)}" +
                       $"&departure_time={when}&traffic_model=best_guess&key={key}";
             // Google only offers alternatives when there's no stop in between
-            if (viaLat is { } vl && viaLng is { } vg)
-                url += $"&waypoints=via:{vl.ToString(c)},{vg.ToString(c)}";
+            if (vias.Count > 0)
+                url += "&waypoints=" + string.Join("|", vias.Select(v => $"via:{v.Lat.ToString(c)},{v.Lng.ToString(c)}"));
             else if (alternatives)
                 url += "&alternatives=true";
 

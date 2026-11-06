@@ -56,11 +56,44 @@ public class TripsController : ControllerBase
         [FromQuery] double originLat, [FromQuery] double originLng,
         [FromQuery] double destLat, [FromQuery] double destLng,
         [FromQuery] double? viaLat, [FromQuery] double? viaLng, [FromQuery] DateTime? departure,
-        [FromServices] RouteOptionsService routes, CancellationToken cancellationToken)
+        [FromServices] RouteOptionsService routes, CancellationToken cancellationToken,
+        [FromQuery] string? via = null)
     {
         Guid? me = Guid.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var u) ? u : null;
-        var options = await routes.GetAsync(originLat, originLng, destLat, destLng, viaLat, viaLng, departure, cancellationToken, me);
+        // Places to go through, in order: "lat,lng|lat,lng" (up to 3); older apps send one as viaLat/viaLng
+        var vias = new List<(double Lat, double Lng)>();
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        foreach (var part in (via ?? "").Split('|', StringSplitOptions.RemoveEmptyEntries).Take(RouteOptionsService.MaxVias))
+        {
+            var xy = part.Split(',');
+            if (xy.Length == 2 &&
+                double.TryParse(xy[0], System.Globalization.NumberStyles.Float, inv, out var la) &&
+                double.TryParse(xy[1], System.Globalization.NumberStyles.Float, inv, out var lo) &&
+                Math.Abs(la) <= 90 && Math.Abs(lo) <= 180)
+                vias.Add((la, lo));
+        }
+        if (vias.Count == 0 && viaLat is { } vl && viaLng is { } vg) vias.Add((vl, vg));
+        var options = await routes.GetAsync(originLat, originLng, destLat, destLng, vias, departure, cancellationToken, me);
         return Ok(options);
+    }
+
+    /// <summary>
+    /// The road the driver chose for their trip (Google-encoded), so the app can
+    /// send Google Maps navigation along it. Only the trip's driver. 204 when the
+    /// trip has no saved road.
+    /// </summary>
+    [HttpGet("{id:guid}/route")]
+    [Authorize]
+    public async Task<IActionResult> GetTripRoute(Guid id,
+        [FromServices] TagAlong.Trip.Infrastructure.Persistence.TripDbContext db, CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var me)) return Unauthorized();
+        var trip = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+            Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AsNoTracking(db.Trips), t => t.Id == id, cancellationToken);
+        if (trip == null) return NotFound();
+        if (trip.TravelerId != me) return Forbid();
+        if (trip.RouteLine is null || trip.RouteLine.Coordinates.Length < 2) return NoContent();
+        return Ok(new { polyline = TagAlong.Trip.Infrastructure.Services.PolylineEncoder.Encode(trip.RouteLine.Coordinates.Select(c => (c.Y, c.X))) });
     }
 
     /// <summary>
